@@ -26,25 +26,34 @@
         // Set Firebase Log Level to Debug
         setLogLevel('Debug');
 
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        // --- FIREBASE CONFIGURATION START ---
+        // NOTE: These values are now linked to your Firebase project (mobile-money-app-4cf66).
+        // This connects the app to your personal Google-backed Firestore database.
+
+        const USER_PROVIDED_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+            projectId: "mobile-money-app-4cf66",
+            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+            messagingSenderId: "822891731705",
+            appId: "1:822891731705:web:e666599c76ce413f0a6028"
+        };
+        // This APP_ID is used for the database path structure only.
+        const CUSTOM_APP_ID = "mobile-money-agent"; 
+        
+        // --- FIREBASE CONFIGURATION END ---
+
+
+        // Global variables provided by the Canvas environment (used only if running inside Canvas)
+        const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : CUSTOM_APP_ID;
+        const canvasFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let db = null;
         let auth = null;
         let userId = null;
         let todayDocumentId = null;
-        let isDatabaseReady = false; // New flag to track database availability
-
-        // --- Mock/Fallback Firebase Configuration for standalone use ---
-        // This is only used to satisfy initializeApp() when running outside the Canvas.
-        const mockFirebaseConfig = {
-            apiKey: "MOCK_API_KEY", 
-            projectId: "MOCK_PROJECT_ID",
-        };
-        // -----------------------------------------------------------------
-
+        let isDatabaseReady = false; 
 
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
@@ -58,9 +67,27 @@
         // Get the Firestore document reference for today's balances
         const getDailyDocRef = () => {
             if (!db || !userId) return null;
+            // Determine which app ID to use
+            const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
             // Path: /artifacts/{appId}/users/{userId}/daily_balances/{todayDocumentId}
-            const docPath = `/artifacts/${appId}/users/${userId}/daily_balances/${todayDocumentId}`;
+            const docPath = `/artifacts/${currentAppId}/users/${userId}/daily_balances/${todayDocumentId}`;
             return doc(db, docPath);
+        };
+
+        // --- Utility to enable Save buttons and show current state ---
+        const enableSaveButtons = () => {
+            const openBtn = document.getElementById('saveOpenBtn');
+            const closeBtn = document.getElementById('saveCloseBtn');
+            
+            openBtn.disabled = false;
+            openBtn.textContent = 'Save Opening Balances';
+            openBtn.classList.replace('bg-gray-400', 'bg-blue-600');
+            openBtn.classList.replace('hover:bg-gray-400', 'hover:bg-blue-700');
+
+            closeBtn.disabled = false;
+            closeBtn.textContent = 'Save Closing Balances';
+            closeBtn.classList.replace('bg-gray-400', 'bg-green-600');
+            closeBtn.classList.replace('hover:bg-gray-400', 'hover:bg-green-700');
         };
 
         // --- Utility to disable Save buttons ---
@@ -81,55 +108,61 @@
 
         // --- Firebase Initialization and Authentication ---
         const initFirebase = async () => {
+            let configToUse = null;
+
+            // 1. Check if running inside the Canvas (priority 1)
+            if (canvasFirebaseConfig) {
+                configToUse = canvasFirebaseConfig;
+                isDatabaseReady = true;
+                document.getElementById('status-message').textContent = 'Canvas Environment: Database Active.';
+            } 
+            // 2. Check if user has provided manual config (priority 2)
+            else if (USER_PROVIDED_FIREBASE_CONFIG.apiKey !== "YOUR_FIREBASE_API_KEY_HERE" && USER_PROVIDED_FIREBASE_CONFIG.projectId !== "YOUR_PROJECT_ID") {
+                configToUse = USER_PROVIDED_FIREBASE_CONFIG;
+                isDatabaseReady = true;
+                document.getElementById('status-message').textContent = 'Self-Hosted Mode: Database Active.';
+            } 
+            // 3. Fallback to Offline Mode
+            else {
+                document.getElementById('status-message').textContent = 'Calculation mode enabled. Data saving is disabled (Missing Firebase keys).';
+                document.getElementById('user-id-display').textContent = 'User ID: N/A (Offline)';
+                disableSaveButtons();
+                return; // Exit if no valid config is found
+            }
+            
+            // --- Database Initialization (Runs only if isDatabaseReady is true) ---
             try {
-                // Determine the configuration to use
-                const configToUse = firebaseConfig || mockFirebaseConfig;
-
-                // Check if the real configuration from the Canvas environment exists
-                if (firebaseConfig) {
-                    isDatabaseReady = true;
-                }
-                
-                if (!configToUse || !configToUse.apiKey) {
-                    throw new Error("Firebase configuration is completely missing.");
-                }
-
                 const app = initializeApp(configToUse);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 todayDocumentId = getTodayDateId();
                 document.getElementById('current-date').textContent = todayDocumentId;
-                
-                if (isDatabaseReady) {
-                    // Only run auth and data loading if the database is confirmed available (i.e., in Canvas)
-                    await new Promise((resolve) => {
-                        onAuthStateChanged(auth, async (user) => {
-                            if (user) {
-                                userId = user.uid;
-                            } else {
-                                try {
-                                    if (initialAuthToken) {
-                                        await signInWithCustomToken(auth, initialAuthToken);
-                                    } else {
-                                        await signInAnonymously(auth);
-                                    }
-                                    userId = auth.currentUser.uid;
-                                } catch (error) {
-                                    console.error("Authentication failed:", error);
-                                    userId = crypto.randomUUID(); 
+
+                // Handle Authentication
+                await new Promise((resolve) => {
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            userId = user.uid;
+                        } else {
+                            try {
+                                if (initialAuthToken && canvasFirebaseConfig) { // Only use initial token if in Canvas
+                                    await signInWithCustomToken(auth, initialAuthToken);
+                                } else {
+                                    await signInAnonymously(auth);
                                 }
+                                userId = auth.currentUser.uid;
+                            } catch (error) {
+                                console.error("Authentication failed:", error);
+                                // If authentication fails (e.g. bad user key), fall back to anonymous ID but keep database ready flag
+                                userId = crypto.randomUUID(); 
                             }
-                            document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-                            resolve();
-                        });
+                        }
+                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                        enableSaveButtons();
+                        resolve();
                     });
-                    await loadBalances();
-                } else {
-                    // Running standalone (GitHub Pages): Display message and disable save functions
-                    document.getElementById('status-message').textContent = 'Calculation mode enabled. Data saving is disabled in this hosted environment.';
-                    document.getElementById('user-id-display').textContent = 'User ID: N/A (Offline)';
-                    disableSaveButtons();
-                }
+                });
+                await loadBalances();
 
             } catch (error) {
                 console.error("Failed to initialize Firebase:", error);
@@ -138,11 +171,11 @@
             }
         };
 
-        // --- Data Loading and UI Update (Now only runs if isDatabaseReady is true) ---
+        // --- Data Loading and UI Update (Now only runs if database initialized) ---
         const loadBalances = async () => {
             const docRef = getDailyDocRef();
             if (!docRef) {
-                console.log("Database not ready.");
+                console.log("Database not ready for loading.");
                 return;
             }
 
@@ -183,7 +216,7 @@
         };
 
 
-        // --- Saving Functions (Now checks if isDatabaseReady is true) ---
+        // --- Saving Functions (Now relies on the successful initialization) ---
         const saveOpeningBalances = async () => {
             if (!isDatabaseReady) {
                 showMessage('Database is offline. Calculations still work!', 'bg-yellow-100 text-yellow-700');
