@@ -35,14 +35,13 @@
         let auth = null;
         let userId = null;
         let todayDocumentId = null;
+        let isDatabaseReady = false; // New flag to track database availability
 
         // --- Mock/Fallback Firebase Configuration for standalone use ---
-        // When running outside the Canvas, we use a mock config structure
-        // This MUST match the structure Firebase expects for initialization.
+        // This is only used to satisfy initializeApp() when running outside the Canvas.
         const mockFirebaseConfig = {
             apiKey: "MOCK_API_KEY", 
             projectId: "MOCK_PROJECT_ID",
-            // Add other mock properties if needed (e.g., authDomain, storageBucket)
         };
         // -----------------------------------------------------------------
 
@@ -64,14 +63,34 @@
             return doc(db, docPath);
         };
 
+        // --- Utility to disable Save buttons ---
+        const disableSaveButtons = () => {
+            const openBtn = document.getElementById('saveOpenBtn');
+            const closeBtn = document.getElementById('saveCloseBtn');
+            
+            openBtn.disabled = true;
+            openBtn.textContent = 'Save (Offline Mode)';
+            openBtn.classList.replace('bg-blue-600', 'bg-gray-400');
+            openBtn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-400');
+
+            closeBtn.disabled = true;
+            closeBtn.textContent = 'Save (Offline Mode)';
+            closeBtn.classList.replace('bg-green-600', 'bg-gray-400');
+            closeBtn.classList.replace('hover:bg-green-700', 'hover:bg-gray-400');
+        };
+
         // --- Firebase Initialization and Authentication ---
         const initFirebase = async () => {
             try {
                 // Determine the configuration to use
                 const configToUse = firebaseConfig || mockFirebaseConfig;
 
+                // Check if the real configuration from the Canvas environment exists
+                if (firebaseConfig) {
+                    isDatabaseReady = true;
+                }
+                
                 if (!configToUse || !configToUse.apiKey) {
-                    // This error should now only occur if both real config and mock config are broken
                     throw new Error("Firebase configuration is completely missing.");
                 }
 
@@ -80,41 +99,46 @@
                 auth = getAuth(app);
                 todayDocumentId = getTodayDateId();
                 document.getElementById('current-date').textContent = todayDocumentId;
-
-                await new Promise((resolve) => {
-                    onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            userId = user.uid;
-                        } else {
-                            try {
-                                if (initialAuthToken) {
-                                    // This branch is only reachable inside the Canvas
-                                    await signInWithCustomToken(auth, initialAuthToken);
-                                } else {
-                                    // Sign in anonymously for all standalone deployments
-                                    await signInAnonymously(auth);
+                
+                if (isDatabaseReady) {
+                    // Only run auth and data loading if the database is confirmed available (i.e., in Canvas)
+                    await new Promise((resolve) => {
+                        onAuthStateChanged(auth, async (user) => {
+                            if (user) {
+                                userId = user.uid;
+                            } else {
+                                try {
+                                    if (initialAuthToken) {
+                                        await signInWithCustomToken(auth, initialAuthToken);
+                                    } else {
+                                        await signInAnonymously(auth);
+                                    }
+                                    userId = auth.currentUser.uid;
+                                } catch (error) {
+                                    console.error("Authentication failed:", error);
+                                    userId = crypto.randomUUID(); 
                                 }
-                                userId = auth.currentUser.uid;
-                            } catch (error) {
-                                console.error("Authentication failed:", error);
-                                // Fallback ID if even anonymous sign-in fails (rare)
-                                userId = crypto.randomUUID(); 
                             }
-                        }
-                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-                        resolve();
+                            document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                            resolve();
+                        });
                     });
-                });
-
-                await loadBalances();
+                    await loadBalances();
+                } else {
+                    // Running standalone (GitHub Pages): Display message and disable save functions
+                    document.getElementById('status-message').textContent = 'Calculation mode enabled. Data saving is disabled in this hosted environment.';
+                    document.getElementById('user-id-display').textContent = 'User ID: N/A (Offline)';
+                    disableSaveButtons();
+                }
 
             } catch (error) {
                 console.error("Failed to initialize Firebase:", error);
-                document.getElementById('status-message').textContent = `Error: ${error.message}`;
+                document.getElementById('status-message').textContent = `Initialization Error. Calculations only available.`;
+                disableSaveButtons();
             }
         };
 
-        // --- Data Loading and UI Update ---
+        // --- Data Loading and UI Update (Now only runs if isDatabaseReady is true) ---
         const loadBalances = async () => {
             const docRef = getDailyDocRef();
             if (!docRef) {
@@ -159,8 +183,13 @@
         };
 
 
-        // --- Saving Functions ---
+        // --- Saving Functions (Now checks if isDatabaseReady is true) ---
         const saveOpeningBalances = async () => {
+            if (!isDatabaseReady) {
+                showMessage('Database is offline. Calculations still work!', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
             const airtelOpen = parseFloat(document.getElementById('airtelOpen').value) || 0;
             const mpambaOpen = parseFloat(document.getElementById('mpambaOpen').value) || 0;
             const cashOpen = parseFloat(document.getElementById('cashOpen').value) || 0;
@@ -190,6 +219,11 @@
         };
 
         const saveClosingBalances = async () => {
+             if (!isDatabaseReady) {
+                showMessage('Database is offline. Calculations still work!', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+            
             const airtelClose = parseFloat(document.getElementById('airtelClose').value) || 0;
             const mpambaClose = parseFloat(document.getElementById('mpambaClose').value) || 0;
             const cashClose = parseFloat(document.getElementById('cashClose').value) || 0;
@@ -220,7 +254,7 @@
             }
         };
 
-        // --- Reconciliation Logic ---
+        // --- Reconciliation Logic (No change, works offline) ---
         const calculateReconciliation = () => {
             // Get all input values (safely parsing to float or defaulting to 0)
             const airtelOpen = parseFloat(document.getElementById('airtelOpen').value) || 0;
@@ -234,7 +268,7 @@
 
             // Basic validation check
             if ((!airtelOpen && !mpambaOpen && !cashOpen) || (!airtelClose && !mpambaClose && !cashClose)) {
-                showMessage('Please enter and save both Opening and Closing Balances.', 'bg-yellow-100 text-yellow-700');
+                showMessage('Please enter values in both Opening and Closing Balances.', 'bg-yellow-100 text-yellow-700');
                 document.getElementById('reconciliation-results').classList.add('hidden');
                 return;
             }
