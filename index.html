@@ -19,17 +19,20 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase Log Level to Debug
         setLogLevel('Debug');
 
-        // --- FIREBASE CONFIGURATION START ---
-        // NOTE: These values are now linked to your Firebase project (mobile-money-app-4cf66).
-        // This connects the app to your personal Google-backed Firestore database.
+        // --- CONFIGURATION START ---
+        
+        // **IMPORTANT:** This is the shared identifier used for all devices to access the same data.
+        // It MUST match the user/group name in your Firestore Security Rules.
+        const SHARED_AGENT_ID = "Accolado"; 
 
+        const CUSTOM_APP_ID = "mobile-money-agent"; 
         const USER_PROVIDED_FIREBASE_CONFIG = {
             apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
             authDomain: "mobile-money-app-4cf66.firebaseapp.com",
@@ -38,10 +41,8 @@
             messagingSenderId: "822891731705",
             appId: "1:822891731705:web:e666599c76ce413f0a6028"
         };
-        // This APP_ID is used for the database path structure only.
-        const CUSTOM_APP_ID = "mobile-money-agent"; 
         
-        // --- FIREBASE CONFIGURATION END ---
+        // --- CONFIGURATION END ---
 
 
         // Global variables provided by the Canvas environment (used only if running inside Canvas)
@@ -51,9 +52,11 @@
 
         let db = null;
         let auth = null;
-        let userId = null;
         let todayDocumentId = null;
         let isDatabaseReady = false; 
+        
+        // The shared data identifier used for saving/loading
+        const currentDataId = SHARED_AGENT_ID; 
 
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
@@ -66,12 +69,12 @@
 
         // Get the Firestore document reference for today's balances
         const getDailyDocRef = () => {
-            if (!db || !userId) return null;
+            if (!db || !currentDataId) return null;
             // Determine which app ID to use
             const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
-            // Path: /artifacts/{appId}/users/{userId}/daily_balances/{todayDocumentId}
-            // Ensure the path matches the security rules: /artifacts/{appId}/users/{userId}/daily_balances/{documentId}
-            const docPath = `/artifacts/${currentAppId}/users/${userId}/daily_balances/${todayDocumentId}`;
+            
+            // Path: /artifacts/{appId}/users/Accolado/daily_balances/{todayDocumentId}
+            const docPath = `/artifacts/${currentAppId}/users/${currentDataId}/daily_balances/${todayDocumentId}`;
             return doc(db, docPath);
         };
 
@@ -118,7 +121,7 @@
                 document.getElementById('status-message').textContent = 'Canvas Environment: Database Active.';
             } 
             // 2. Check if user has provided manual config (priority 2)
-            else if (USER_PROVIDED_FIREBASE_CONFIG.apiKey !== "YOUR_FIREBASE_API_KEY_HERE" && USER_PROVIDED_FIREBASE_CONFIG.projectId !== "YOUR_PROJECT_ID") {
+            else if (USER_PROVIDED_FIREBASE_CONFIG.apiKey) {
                 configToUse = USER_PROVIDED_FIREBASE_CONFIG;
                 isDatabaseReady = true;
                 document.getElementById('status-message').textContent = 'Self-Hosted Mode: Database Active.';
@@ -126,7 +129,7 @@
             // 3. Fallback to Offline Mode
             else {
                 document.getElementById('status-message').textContent = 'Calculation mode enabled. Data saving is disabled (Missing Firebase keys).';
-                document.getElementById('user-id-display').textContent = 'User ID: N/A (Offline)';
+                document.getElementById('data-id-display').textContent = 'Data ID (Shared): N/A (Offline)';
                 disableSaveButtons();
                 return; // Exit if no valid config is found
             }
@@ -138,35 +141,33 @@
                 auth = getAuth(app);
                 todayDocumentId = getTodayDateId();
                 document.getElementById('current-date').textContent = todayDocumentId;
+                document.getElementById('data-id-display').textContent = `Data ID (Shared): ${currentDataId}`; 
 
-                // Handle Authentication
-                await new Promise((resolve) => {
-                    onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            userId = user.uid;
-                        } else {
-                            try {
-                                if (initialAuthToken && canvasFirebaseConfig) { // Only use initial token if in Canvas
-                                    await signInWithCustomToken(auth, initialAuthToken);
-                                } else {
-                                    await signInAnonymously(auth);
-                                }
-                                userId = auth.currentUser.uid;
-                            } catch (error) {
-                                console.error("Authentication failed:", error.code, error.message); // Added error details
-                                // If authentication fails (e.g. bad user key), fall back to anonymous ID but keep database ready flag
-                                userId = crypto.randomUUID(); 
-                            }
-                        }
-                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
-                        enableSaveButtons();
-                        resolve();
-                    });
-                });
-                await loadBalances();
+                // 1. Handle Authentication (Crucial step to satisfy security rules)
+                try {
+                    if (initialAuthToken && canvasFirebaseConfig) {
+                        // Use Custom Token for Canvas environment authentication
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Signed in with Custom Token successfully.");
+                    } else {
+                        // Use Anonymous sign-in for self-hosted or general use
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously successfully.");
+                    }
+                    enableSaveButtons();
+                    
+                    // 2. Load balances ONLY after successful sign-in
+                    await loadBalances(); 
+                } catch (error) {
+                    // If auth fails, we stop, as no data operation will succeed
+                    console.error("Authentication failed before loading data:", error.code, error.message);
+                    document.getElementById('status-message').textContent = `Authentication failed. Calculations only available.`;
+                    disableSaveButtons();
+                    return; 
+                }
 
             } catch (error) {
-                console.error("Failed to initialize Firebase:", error.code, error.message); // Added error details
+                console.error("Failed to initialize Firebase:", error.code, error.message); 
                 document.getElementById('status-message').textContent = `Initialization Error. Calculations only available.`;
                 disableSaveButtons();
             }
@@ -211,8 +212,9 @@
                     document.getElementById('reconciliation-results').classList.add('hidden');
                 }
             } catch (error) {
+                // This message is critical for the user to understand the external problem
                 console.error("Error loading balances:", error);
-                document.getElementById('status-message').textContent = 'Error loading data from database.';
+                document.getElementById('status-message').textContent = `Error loading data. Check Firestore Rules! We need access to /artifacts/{appId}/users/${SHARED_AGENT_ID}/...`;
             }
         };
 
@@ -241,7 +243,8 @@
                     airtelOpen,
                     mpambaOpen,
                     cashOpen,
-                    userId,
+                    // We save the shared ID used for reference
+                    sharedDataId: currentDataId, 
                     date: todayDocumentId
                 }, { merge: true });
 
@@ -399,7 +402,9 @@
             <p class="text-gray-500 mb-6">
                 Record your start and end-of-day balances. Date: <span id="current-date" class="font-semibold">...</span>
             </p>
-            <p id="user-id-display" class="text-xs text-gray-400 mb-4"></p>
+            <!-- NEW DISPLAY for the shared data identifier -->
+            <p id="data-id-display" class="text-sm font-medium text-purple-600 mb-4">Data ID (Shared): Accolado</p>
+            
             <div id="status-message" class="text-sm text-gray-500 mb-4">Initializing application...</div>
             <div id="toast-message" class="hidden"></div>
 
