@@ -70,6 +70,7 @@
             // Determine which app ID to use
             const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
             // Path: /artifacts/{appId}/users/{userId}/daily_balances/{todayDocumentId}
+            // Ensure the path matches the security rules: /artifacts/{appId}/users/{userId}/daily_balances/{documentId}
             const docPath = `/artifacts/${currentAppId}/users/${userId}/daily_balances/${todayDocumentId}`;
             return doc(db, docPath);
         };
@@ -152,7 +153,7 @@
                                 }
                                 userId = auth.currentUser.uid;
                             } catch (error) {
-                                console.error("Authentication failed:", error);
+                                console.error("Authentication failed:", error.code, error.message); // Added error details
                                 // If authentication fails (e.g. bad user key), fall back to anonymous ID but keep database ready flag
                                 userId = crypto.randomUUID(); 
                             }
@@ -165,7 +166,7 @@
                 await loadBalances();
 
             } catch (error) {
-                console.error("Failed to initialize Firebase:", error);
+                console.error("Failed to initialize Firebase:", error.code, error.message); // Added error details
                 document.getElementById('status-message').textContent = `Initialization Error. Calculations only available.`;
                 disableSaveButtons();
             }
@@ -348,13 +349,13 @@
 
             if (Math.abs(errorMargin) < 0.01) { // Check for near zero (fully balanced)
                 statusEl.textContent = 'Day is Fully Balanced (0 Error)';
-                statusCard.className = 'p-4 rounded-xl shadow-lg bg-green-500 text-white transition-all duration-300';
+                statusCard.className = 'p-4 rounded-xl shadow-lg bg-green-500 text-white transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
             } else if (errorMargin > 0) {
                 statusEl.textContent = `Unaccounted Surplus: ${formatCurrency(errorMargin)}`;
-                statusCard.className = 'p-4 rounded-xl shadow-lg bg-yellow-500 text-gray-900 transition-all duration-300';
+                statusCard.className = 'p-4 rounded-xl shadow-lg bg-yellow-500 text-gray-900 transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
             } else {
                 statusEl.textContent = `Unaccounted Shortage: ${formatCurrency(Math.abs(errorMargin))}`;
-                statusCard.className = 'p-4 rounded-xl shadow-lg bg-red-500 text-white transition-all duration-300';
+                statusCard.className = 'p-4 rounded-xl shadow-lg bg-red-500 text-white transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
             }
             
             document.getElementById('reconciliation-results').classList.remove('hidden');
