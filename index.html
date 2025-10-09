@@ -36,6 +36,17 @@
         let userId = null;
         let todayDocumentId = null;
 
+        // --- Mock/Fallback Firebase Configuration for standalone use ---
+        // When running outside the Canvas, we use a mock config structure
+        // This MUST match the structure Firebase expects for initialization.
+        const mockFirebaseConfig = {
+            apiKey: "MOCK_API_KEY", 
+            projectId: "MOCK_PROJECT_ID",
+            // Add other mock properties if needed (e.g., authDomain, storageBucket)
+        };
+        // -----------------------------------------------------------------
+
+
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
             const now = new Date();
@@ -56,11 +67,15 @@
         // --- Firebase Initialization and Authentication ---
         const initFirebase = async () => {
             try {
-                if (!firebaseConfig) {
-                    throw new Error("Firebase config is missing.");
+                // Determine the configuration to use
+                const configToUse = firebaseConfig || mockFirebaseConfig;
+
+                if (!configToUse || !configToUse.apiKey) {
+                    // This error should now only occur if both real config and mock config are broken
+                    throw new Error("Firebase configuration is completely missing.");
                 }
 
-                const app = initializeApp(firebaseConfig);
+                const app = initializeApp(configToUse);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 todayDocumentId = getTodayDateId();
@@ -73,14 +88,17 @@
                         } else {
                             try {
                                 if (initialAuthToken) {
+                                    // This branch is only reachable inside the Canvas
                                     await signInWithCustomToken(auth, initialAuthToken);
                                 } else {
+                                    // Sign in anonymously for all standalone deployments
                                     await signInAnonymously(auth);
                                 }
                                 userId = auth.currentUser.uid;
                             } catch (error) {
                                 console.error("Authentication failed:", error);
-                                userId = crypto.randomUUID(); // Fallback ID
+                                // Fallback ID if even anonymous sign-in fails (rare)
+                                userId = crypto.randomUUID(); 
                             }
                         }
                         document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
