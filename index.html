@@ -15,7 +15,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .nav-tab { 
-            @apply px-4 py-2 rounded-lg transition-all duration-200 font-medium;
+            @apply px-4 py-2 rounded-lg transition-all duration-200 font-medium cursor-pointer;
         }
         .nav-tab.active { 
             @apply bg-blue-600 text-white shadow-md;
@@ -25,6 +25,9 @@
         }
         .summary-card {
             @apply p-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl;
+        }
+        button:disabled {
+            @apply opacity-50 cursor-not-allowed;
         }
     </style>
 </head>
@@ -63,6 +66,15 @@
         let todayDocumentId = null;
         let isDatabaseReady = false; 
         const currentDataId = SHARED_AGENT_ID; 
+
+        // Make functions globally available
+        window.switchTab = switchTab;
+        window.addTransaction = addTransaction;
+        window.addExpense = addExpense;
+        window.setTarget = setTarget;
+        window.saveOpeningBalances = saveOpeningBalances;
+        window.saveClosingBalances = saveClosingBalances;
+        window.calculateReconciliation = calculateReconciliation;
 
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
@@ -105,8 +117,10 @@
             return collection(db, collectionPath);
         };
 
-        // --- NEW: Tab Management ---
-        const switchTab = (tabName) => {
+        // --- Tab Management ---
+        function switchTab(tabName) {
+            console.log('Switching to tab:', tabName);
+            
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -118,8 +132,16 @@
             });
             
             // Show selected tab content and activate tab
-            document.getElementById(`${tabName}-tab`).classList.add('active');
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            const tabContent = document.getElementById(`${tabName}-tab`);
+            const tabButton = document.querySelector(`[onclick="switchTab('${tabName}')"]`);
+            
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+            
+            if (tabButton) {
+                tabButton.classList.add('active');
+            }
             
             // Load data for specific tabs when activated
             if (tabName === 'transactions') {
@@ -131,10 +153,10 @@
             } else if (tabName === 'targets') {
                 loadTargets();
             }
-        };
+        }
 
-        // --- NEW: Transaction Management ---
-        const addTransaction = async () => {
+        // --- Transaction Management ---
+        async function addTransaction() {
             if (!isDatabaseReady) {
                 showMessage('Database is offline. Cannot save transaction.', 'bg-yellow-100 text-yellow-700');
                 return;
@@ -177,7 +199,7 @@
                 console.error("Error adding transaction:", error);
                 showMessage('Failed to record transaction. Check console.', 'bg-red-100 text-red-700');
             }
-        };
+        }
 
         const loadTransactions = async () => {
             const transactionsRef = getTransactionsCollectionRef();
@@ -193,37 +215,41 @@
                 let totalDeposits = 0;
                 let totalWithdrawals = 0;
                 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const transaction = document.createElement('div');
-                    transaction.className = 'p-3 border-b border-gray-200';
-                    
-                    const typeColor = data.type === 'deposit' ? 'text-green-600' : 'text-red-600';
-                    const typeIcon = data.type === 'deposit' ? '⬇️' : '⬆️';
-                    
-                    transaction.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="font-medium">${typeIcon} ${data.platform}</span>
-                                <span class="text-sm text-gray-500 ml-2">${data.customerRef}</span>
+                if (querySnapshot.empty) {
+                    transactionsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No transactions recorded today</div>';
+                } else {
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const transaction = document.createElement('div');
+                        transaction.className = 'p-3 border-b border-gray-200';
+                        
+                        const typeColor = data.type === 'deposit' ? 'text-green-600' : 'text-red-600';
+                        const typeIcon = data.type === 'deposit' ? '⬇️' : '⬆️';
+                        
+                        transaction.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-medium">${typeIcon} ${data.platform}</span>
+                                    <span class="text-sm text-gray-500 ml-2">${data.customerRef}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="${typeColor} font-bold">${formatCurrency(data.amount)}</div>
+                                    <div class="text-xs text-gray-500">${new Date(data.timestamp?.toDate()).toLocaleTimeString()}</div>
+                                </div>
                             </div>
-                            <div class="text-right">
-                                <div class="${typeColor} font-bold">${formatCurrency(data.amount)}</div>
-                                <div class="text-xs text-gray-500">${new Date(data.timestamp?.toDate()).toLocaleTimeString()}</div>
-                            </div>
-                        </div>
-                        ${data.notes ? `<div class="text-sm text-gray-600 mt-1">${data.notes}</div>` : ''}
-                    `;
-                    
-                    transactionsList.appendChild(transaction);
-                    
-                    // Calculate totals
-                    if (data.type === 'deposit') {
-                        totalDeposits += data.amount;
-                    } else {
-                        totalWithdrawals += data.amount;
-                    }
-                });
+                            ${data.notes ? `<div class="text-sm text-gray-600 mt-1">${data.notes}</div>` : ''}
+                        `;
+                        
+                        transactionsList.appendChild(transaction);
+                        
+                        // Calculate totals
+                        if (data.type === 'deposit') {
+                            totalDeposits += data.amount;
+                        } else {
+                            totalWithdrawals += data.amount;
+                        }
+                    });
+                }
                 
                 document.getElementById('totalDeposits').textContent = formatCurrency(totalDeposits);
                 document.getElementById('totalWithdrawals').textContent = formatCurrency(totalWithdrawals);
@@ -231,11 +257,12 @@
                 
             } catch (error) {
                 console.error("Error loading transactions:", error);
+                document.getElementById('transactionsList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading transactions</div>';
             }
         };
 
-        // --- NEW: Expense Management ---
-        const addExpense = async () => {
+        // --- Expense Management ---
+        async function addExpense() {
             if (!isDatabaseReady) {
                 showMessage('Database is offline. Cannot save expense.', 'bg-yellow-100 text-yellow-700');
                 return;
@@ -271,7 +298,7 @@
                 console.error("Error adding expense:", error);
                 showMessage('Failed to record expense. Check console.', 'bg-red-100 text-red-700');
             }
-        };
+        }
 
         const loadExpenses = async () => {
             const expensesRef = getExpensesCollectionRef();
@@ -287,30 +314,34 @@
                 let totalExpenses = 0;
                 const categoryTotals = {};
                 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const expense = document.createElement('div');
-                    expense.className = 'p-3 border-b border-gray-200';
-                    
-                    expense.innerHTML = `
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="font-medium">${data.category}</span>
-                                <div class="text-sm text-gray-600">${data.description}</div>
+                if (querySnapshot.empty) {
+                    expensesList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expenses recorded today</div>';
+                } else {
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const expense = document.createElement('div');
+                        expense.className = 'p-3 border-b border-gray-200';
+                        
+                        expense.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-medium">${data.category}</span>
+                                    <div class="text-sm text-gray-600">${data.description}</div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-red-600 font-bold">${formatCurrency(data.amount)}</div>
+                                    <div class="text-xs text-gray-500">${new Date(data.timestamp?.toDate()).toLocaleTimeString()}</div>
+                                </div>
                             </div>
-                            <div class="text-right">
-                                <div class="text-red-600 font-bold">${formatCurrency(data.amount)}</div>
-                                <div class="text-xs text-gray-500">${new Date(data.timestamp?.toDate()).toLocaleTimeString()}</div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    expensesList.appendChild(expense);
-                    
-                    // Calculate totals
-                    totalExpenses += data.amount;
-                    categoryTotals[data.category] = (categoryTotals[data.category] || 0) + data.amount;
-                });
+                        `;
+                        
+                        expensesList.appendChild(expense);
+                        
+                        // Calculate totals
+                        totalExpenses += data.amount;
+                        categoryTotals[data.category] = (categoryTotals[data.category] || 0) + data.amount;
+                    });
+                }
                 
                 document.getElementById('totalExpenses').textContent = formatCurrency(totalExpenses);
                 
@@ -318,23 +349,28 @@
                 const categoryBreakdown = document.getElementById('categoryBreakdown');
                 categoryBreakdown.innerHTML = '';
                 
-                Object.entries(categoryTotals).forEach(([category, total]) => {
-                    const categoryEl = document.createElement('div');
-                    categoryEl.className = 'flex justify-between py-1';
-                    categoryEl.innerHTML = `
-                        <span class="text-sm">${category}</span>
-                        <span class="text-sm font-medium">${formatCurrency(total)}</span>
-                    `;
-                    categoryBreakdown.appendChild(categoryEl);
-                });
+                if (Object.keys(categoryTotals).length === 0) {
+                    categoryBreakdown.innerHTML = '<div class="text-sm text-gray-500 italic">No expenses recorded today</div>';
+                } else {
+                    Object.entries(categoryTotals).forEach(([category, total]) => {
+                        const categoryEl = document.createElement('div');
+                        categoryEl.className = 'flex justify-between py-1';
+                        categoryEl.innerHTML = `
+                            <span class="text-sm">${category}</span>
+                            <span class="text-sm font-medium">${formatCurrency(total)}</span>
+                        `;
+                        categoryBreakdown.appendChild(categoryEl);
+                    });
+                }
                 
             } catch (error) {
                 console.error("Error loading expenses:", error);
+                document.getElementById('expensesList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading expenses</div>';
             }
         };
 
-        // --- NEW: Targets Management ---
-        const setTarget = async () => {
+        // --- Targets Management ---
+        async function setTarget() {
             if (!isDatabaseReady) {
                 showMessage('Database is offline. Cannot save target.', 'bg-yellow-100 text-yellow-700');
                 return;
@@ -369,7 +405,7 @@
                 console.error("Error setting target:", error);
                 showMessage('Failed to set target. Check console.', 'bg-red-100 text-red-700');
             }
-        };
+        }
 
         const loadTargets = async () => {
             const targetsRef = getTargetsCollectionRef();
@@ -382,42 +418,47 @@
                 const targetsList = document.getElementById('targetsList');
                 targetsList.innerHTML = '';
                 
-                querySnapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const target = document.createElement('div');
-                    target.className = 'p-4 border border-gray-300 rounded-lg mb-3';
-                    
-                    // Calculate progress (this would need actual data comparison)
-                    const progress = 0; // Placeholder - you'd need to compare with actual performance
-                    
-                    target.innerHTML = `
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="font-bold text-blue-700">${data.type} Target</span>
-                            <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">${data.period}</span>
-                        </div>
-                        <div class="mb-2">
-                            <div class="flex justify-between text-sm mb-1">
-                                <span>Target: ${formatCurrency(data.amount)}</span>
-                                <span>Progress: ${progress}%</span>
+                if (querySnapshot.empty) {
+                    targetsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No active targets set</div>';
+                } else {
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const target = document.createElement('div');
+                        target.className = 'p-4 border border-gray-300 rounded-lg mb-3';
+                        
+                        // Calculate progress (this would need actual data comparison)
+                        const progress = 0; // Placeholder - you'd need to compare with actual performance
+                        
+                        target.innerHTML = `
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="font-bold text-blue-700">${data.type} Target</span>
+                                <span class="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">${data.period}</span>
                             </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${progress}%"></div>
+                            <div class="mb-2">
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Target: ${formatCurrency(data.amount)}</span>
+                                    <span>Progress: ${progress}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${progress}%"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="text-xs text-gray-500">
-                            Set on: ${new Date(data.timestamp?.toDate()).toLocaleDateString()}
-                        </div>
-                    `;
-                    
-                    targetsList.appendChild(target);
-                });
+                            <div class="text-xs text-gray-500">
+                                Set on: ${new Date(data.timestamp?.toDate()).toLocaleDateString()}
+                            </div>
+                        `;
+                        
+                        targetsList.appendChild(target);
+                    });
+                }
                 
             } catch (error) {
                 console.error("Error loading targets:", error);
+                document.getElementById('targetsList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading targets</div>';
             }
         };
 
-        // --- NEW: Analytics Dashboard ---
+        // --- Analytics Dashboard ---
         const loadAnalytics = async () => {
             // This would aggregate data from multiple days/collections
             // For now, we'll just show today's summary
@@ -436,30 +477,38 @@
             const openBtn = document.getElementById('saveOpenBtn');
             const closeBtn = document.getElementById('saveCloseBtn');
             
-            openBtn.disabled = false;
-            openBtn.textContent = 'Save Opening Balances';
-            openBtn.classList.replace('bg-gray-400', 'bg-blue-600');
-            openBtn.classList.replace('hover:bg-gray-400', 'hover:bg-blue-700');
+            if (openBtn) {
+                openBtn.disabled = false;
+                openBtn.textContent = 'Save Opening Balances';
+                openBtn.classList.replace('bg-gray-400', 'bg-blue-600');
+                openBtn.classList.replace('hover:bg-gray-400', 'hover:bg-blue-700');
+            }
 
-            closeBtn.disabled = false;
-            closeBtn.textContent = 'Save Closing Balances';
-            closeBtn.classList.replace('bg-gray-400', 'bg-green-600');
-            closeBtn.classList.replace('hover:bg-gray-400', 'hover:bg-green-700');
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.textContent = 'Save Closing Balances';
+                closeBtn.classList.replace('bg-gray-400', 'bg-green-600');
+                closeBtn.classList.replace('hover:bg-gray-400', 'hover:bg-green-700');
+            }
         };
 
         const disableSaveButtons = () => {
             const openBtn = document.getElementById('saveOpenBtn');
             const closeBtn = document.getElementById('saveCloseBtn');
             
-            openBtn.disabled = true;
-            openBtn.textContent = 'Save (Offline Mode)';
-            openBtn.classList.replace('bg-blue-600', 'bg-gray-400');
-            openBtn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-400');
+            if (openBtn) {
+                openBtn.disabled = true;
+                openBtn.textContent = 'Save (Offline Mode)';
+                openBtn.classList.replace('bg-blue-600', 'bg-gray-400');
+                openBtn.classList.replace('hover:bg-blue-700', 'hover:bg-gray-400');
+            }
 
-            closeBtn.disabled = true;
-            closeBtn.textContent = 'Save (Offline Mode)';
-            closeBtn.classList.replace('bg-green-600', 'bg-gray-400');
-            closeBtn.classList.replace('hover:bg-green-700', 'hover:bg-gray-400');
+            if (closeBtn) {
+                closeBtn.disabled = true;
+                closeBtn.textContent = 'Save (Offline Mode)';
+                closeBtn.classList.replace('bg-green-600', 'bg-gray-400');
+                closeBtn.classList.replace('hover:bg-green-700', 'hover:bg-gray-400');
+            }
         };
 
         const initFirebase = async () => {
@@ -556,7 +605,7 @@
             }
         };
 
-        const saveOpeningBalances = async () => {
+        async function saveOpeningBalances() {
             if (!isDatabaseReady) {
                 showMessage('Database is offline. Calculations still work!', 'bg-yellow-100 text-yellow-700');
                 return;
@@ -588,9 +637,9 @@
                 console.error("Error saving opening balances:", error);
                 showMessage('Failed to save opening balances. Check console.', 'bg-red-100 text-red-700');
             }
-        };
+        }
 
-        const saveClosingBalances = async () => {
+        async function saveClosingBalances() {
              if (!isDatabaseReady) {
                 showMessage('Database is offline. Calculations still work!', 'bg-yellow-100 text-yellow-700');
                 return;
@@ -623,9 +672,9 @@
                 console.error("Error saving closing balances:", error);
                 showMessage('Failed to save closing balances. Check console.', 'bg-red-100 text-red-700');
             }
-        };
+        }
 
-        const calculateReconciliation = () => {
+        function calculateReconciliation() {
             const airtelOpen = parseFloat(document.getElementById('airtelOpen').value) || 0;
             const mpambaOpen = parseFloat(document.getElementById('mpambaOpen').value) || 0;
             const cashOpen = parseFloat(document.getElementById('cashOpen').value) || 0;
@@ -679,7 +728,7 @@
             }
             
             document.getElementById('reconciliation-results').classList.remove('hidden');
-        };
+        }
 
         const formatCurrency = (amount) => {
             return new Intl.NumberFormat('en-US', {
@@ -691,25 +740,45 @@
 
         const showMessage = (message, className) => {
             const el = document.getElementById('toast-message');
-            el.textContent = message;
-            el.className = `p-4 mt-4 mb-4 rounded-lg text-sm font-medium ${className}`;
-            setTimeout(() => {
-                el.className = 'hidden';
-            }, 5000);
+            if (el) {
+                el.textContent = message;
+                el.className = `p-4 mt-4 mb-4 rounded-lg text-sm font-medium ${className}`;
+                setTimeout(() => {
+                    el.className = 'hidden';
+                }, 5000);
+            }
         };
 
         // --- Event Listeners ---
         window.onload = initFirebase;
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('saveOpenBtn').addEventListener('click', saveOpeningBalances);
-            document.getElementById('saveCloseBtn').addEventListener('click', saveClosingBalances);
-            document.getElementById('calculateBtn').addEventListener('click', calculateReconciliation);
-            
-            // NEW: Transaction and Expense form handlers
-            document.getElementById('addTransactionBtn').addEventListener('click', addTransaction);
-            document.getElementById('addExpenseBtn').addEventListener('click', addExpense);
-            document.getElementById('setTargetBtn').addEventListener('click', setTarget);
+            // Add event listeners for buttons
+            const addTransactionBtn = document.getElementById('addTransactionBtn');
+            const addExpenseBtn = document.getElementById('addExpenseBtn');
+            const setTargetBtn = document.getElementById('setTargetBtn');
+            const saveOpenBtn = document.getElementById('saveOpenBtn');
+            const saveCloseBtn = document.getElementById('saveCloseBtn');
+            const calculateBtn = document.getElementById('calculateBtn');
+
+            if (addTransactionBtn) {
+                addTransactionBtn.addEventListener('click', addTransaction);
+            }
+            if (addExpenseBtn) {
+                addExpenseBtn.addEventListener('click', addExpense);
+            }
+            if (setTargetBtn) {
+                setTargetBtn.addEventListener('click', setTarget);
+            }
+            if (saveOpenBtn) {
+                saveOpenBtn.addEventListener('click', saveOpeningBalances);
+            }
+            if (saveCloseBtn) {
+                saveCloseBtn.addEventListener('click', saveClosingBalances);
+            }
+            if (calculateBtn) {
+                calculateBtn.addEventListener('click', calculateReconciliation);
+            }
             
             // Set default active tab
             switchTab('dashboard');
@@ -740,7 +809,7 @@
             </div>
 
             <!-- Dashboard Tab -->
-            <div id="dashboard-tab" class="tab-content">
+            <div id="dashboard-tab" class="tab-content active">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Business Overview</h2>
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -766,15 +835,15 @@
                     <div class="bg-gray-50 p-6 rounded-xl border border-gray-200">
                         <h3 class="text-lg font-bold text-gray-700 mb-4">Quick Actions</h3>
                         <div class="space-y-3">
-                            <button onclick="switchTab('reconciliation')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 transition duration-150">
+                            <button onclick="switchTab('reconciliation')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-blue-50 transition duration-150 cursor-pointer">
                                 <span class="font-medium">💰 Perform Daily Reconciliation</span>
                                 <p class="text-sm text-gray-500 mt-1">Record opening and closing balances</p>
                             </button>
-                            <button onclick="switchTab('transactions')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-green-50 transition duration-150">
+                            <button onclick="switchTab('transactions')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-green-50 transition duration-150 cursor-pointer">
                                 <span class="font-medium">💳 Record New Transaction</span>
                                 <p class="text-sm text-gray-500 mt-1">Add deposit or withdrawal</p>
                             </button>
-                            <button onclick="switchTab('expenses')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-red-50 transition duration-150">
+                            <button onclick="switchTab('expenses')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-red-50 transition duration-150 cursor-pointer">
                                 <span class="font-medium">📋 Log Business Expense</span>
                                 <p class="text-sm text-gray-500 mt-1">Track operational costs</p>
                             </button>
@@ -809,7 +878,7 @@
                             <input type="number" id="cashOpen" placeholder="0.00" class="input-style" min="0">
                         </div>
                     </div>
-                    <button id="saveOpenBtn" class="mt-6 w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150">
+                    <button id="saveOpenBtn" class="mt-6 w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-150 cursor-pointer">
                         Save Opening Balances
                     </button>
                 </div>
@@ -836,10 +905,10 @@
                         <input type="number" id="commissionEarned" placeholder="0.00" class="input-style" min="0">
                     </div>
 
-                    <button id="saveCloseBtn" class="mt-6 w-full md:w-auto px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-150">
+                    <button id="saveCloseBtn" class="mt-6 w-full md:w-auto px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition duration-150 cursor-pointer">
                         Save Closing Balances
                     </button>
-                    <button id="calculateBtn" class="mt-6 w-full md:w-auto px-6 py-3 ml-0 md:ml-4 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-150">
+                    <button id="calculateBtn" class="mt-6 w-full md:w-auto px-6 py-3 ml-0 md:ml-4 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-150 cursor-pointer">
                         Calculate Reconciliation
                     </button>
                 </div>
@@ -927,7 +996,7 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
                                         <textarea id="transactionNotes" class="input-style" placeholder="Additional notes (optional)" rows="2"></textarea>
                                     </div>
-                                    <button type="button" id="addTransactionBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-150">
+                                    <button type="button" id="addTransactionBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-150 cursor-pointer">
                                         Record Transaction
                                     </button>
                                 </div>
@@ -994,7 +1063,7 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
                                         <textarea id="expenseDescription" class="input-style" placeholder="What was this expense for?" rows="3"></textarea>
                                     </div>
-                                    <button type="button" id="addExpenseBtn" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition duration-150">
+                                    <button type="button" id="addExpenseBtn" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition duration-150 cursor-pointer">
                                         Record Expense
                                     </button>
                                 </div>
@@ -1053,7 +1122,7 @@
                                             <option value="Quarterly">Quarterly</option>
                                         </select>
                                     </div>
-                                    <button type="button" id="setTargetBtn" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-150">
+                                    <button type="button" id="setTargetBtn" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-150 cursor-pointer">
                                         Set Target
                                     </button>
                                 </div>
