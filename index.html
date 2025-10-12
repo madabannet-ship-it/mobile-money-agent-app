@@ -75,6 +75,7 @@
         window.saveOpeningBalances = saveOpeningBalances;
         window.saveClosingBalances = saveClosingBalances;
         window.calculateReconciliation = calculateReconciliation;
+        window.updateCapital = updateCapital;
 
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
@@ -90,6 +91,14 @@
             if (!db || !currentDataId) return null;
             const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
             const docPath = `/artifacts/${currentAppId}/users/${currentDataId}/daily_balances/${todayDocumentId}`;
+            return doc(db, docPath);
+        };
+
+        // Get reference for capital document
+        const getCapitalDocRef = () => {
+            if (!db || !currentDataId) return null;
+            const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
+            const docPath = `/artifacts/${currentAppId}/users/${currentDataId}/capital/investment`;
             return doc(db, docPath);
         };
 
@@ -152,8 +161,61 @@
                 loadAnalytics();
             } else if (tabName === 'targets') {
                 loadTargets();
+            } else if (tabName === 'dashboard') {
+                loadCapital();
             }
         }
+
+        // --- Capital Management ---
+        async function updateCapital() {
+            if (!isDatabaseReady) {
+                showMessage('Database is offline. Cannot save capital.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            const totalCapital = parseFloat(document.getElementById('totalCapital').value) || 0;
+
+            if (totalCapital <= 0) {
+                showMessage('Please enter a valid capital amount.', 'bg-red-100 text-red-700');
+                return;
+            }
+
+            const capitalRef = getCapitalDocRef();
+            if (!capitalRef) return;
+
+            try {
+                await setDoc(capitalRef, {
+                    totalCapital,
+                    lastUpdated: new Date(),
+                    sharedDataId: currentDataId
+                }, { merge: true });
+
+                showMessage('Capital updated successfully!', 'bg-green-100 text-green-700');
+                loadCapital();
+                updateDashboardSummary();
+            } catch (error) {
+                console.error("Error updating capital:", error);
+                showMessage('Failed to update capital. Check console.', 'bg-red-100 text-red-700');
+            }
+        }
+
+        const loadCapital = async () => {
+            const capitalRef = getCapitalDocRef();
+            if (!capitalRef) return;
+
+            try {
+                const docSnap = await getDoc(capitalRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('totalCapital').value = data.totalCapital || '';
+                    document.getElementById('currentCapitalDisplay').textContent = formatCurrency(data.totalCapital || 0);
+                } else {
+                    document.getElementById('currentCapitalDisplay').textContent = formatCurrency(0);
+                }
+            } catch (error) {
+                console.error("Error loading capital:", error);
+            }
+        };
 
         // --- Transaction Management ---
         async function addTransaction() {
@@ -203,7 +265,10 @@
 
         const loadTransactions = async () => {
             const transactionsRef = getTransactionsCollectionRef();
-            if (!transactionsRef) return;
+            if (!transactionsRef) {
+                console.log("Transactions collection reference is null");
+                return;
+            }
 
             try {
                 const q = query(transactionsRef, orderBy('timestamp', 'desc'));
@@ -214,6 +279,9 @@
                 
                 let totalDeposits = 0;
                 let totalWithdrawals = 0;
+                let totalBillPayments = 0;
+                let totalCreditPurchases = 0;
+                let totalSendToDealer = 0;
                 
                 if (querySnapshot.empty) {
                     transactionsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No transactions recorded today</div>';
@@ -223,14 +291,43 @@
                         const transaction = document.createElement('div');
                         transaction.className = 'p-3 border-b border-gray-200';
                         
-                        const typeColor = data.type === 'deposit' ? 'text-green-600' : 'text-red-600';
-                        const typeIcon = data.type === 'deposit' ? '⬇️' : '⬆️';
+                        let typeColor = 'text-gray-600';
+                        let typeIcon = '💳';
+                        
+                        // Set colors and icons based on transaction type
+                        switch(data.type) {
+                            case 'deposit':
+                                typeColor = 'text-green-600';
+                                typeIcon = '⬇️';
+                                totalDeposits += data.amount;
+                                break;
+                            case 'withdrawal':
+                                typeColor = 'text-red-600';
+                                typeIcon = '⬆️';
+                                totalWithdrawals += data.amount;
+                                break;
+                            case 'bill_payment':
+                                typeColor = 'text-purple-600';
+                                typeIcon = '🧾';
+                                totalBillPayments += data.amount;
+                                break;
+                            case 'credit_purchase':
+                                typeColor = 'text-orange-600';
+                                typeIcon = '🛒';
+                                totalCreditPurchases += data.amount;
+                                break;
+                            case 'send_to_dealer':
+                                typeColor = 'text-blue-600';
+                                typeIcon = '🤝';
+                                totalSendToDealer += data.amount;
+                                break;
+                        }
                         
                         transaction.innerHTML = `
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <span class="font-medium">${typeIcon} ${data.platform}</span>
-                                    <span class="text-sm text-gray-500 ml-2">${data.customerRef}</span>
+                                    <span class="font-medium">${typeIcon} ${data.type.replace(/_/g, ' ').toUpperCase()}</span>
+                                    <span class="text-sm text-gray-500 ml-2">${data.platform} - ${data.customerRef}</span>
                                 </div>
                                 <div class="text-right">
                                     <div class="${typeColor} font-bold">${formatCurrency(data.amount)}</div>
@@ -241,23 +338,22 @@
                         `;
                         
                         transactionsList.appendChild(transaction);
-                        
-                        // Calculate totals
-                        if (data.type === 'deposit') {
-                            totalDeposits += data.amount;
-                        } else {
-                            totalWithdrawals += data.amount;
-                        }
                     });
                 }
                 
+                // Update summary displays
                 document.getElementById('totalDeposits').textContent = formatCurrency(totalDeposits);
                 document.getElementById('totalWithdrawals').textContent = formatCurrency(totalWithdrawals);
-                document.getElementById('netTransactionFlow').textContent = formatCurrency(totalDeposits - totalWithdrawals);
+                document.getElementById('totalBillPayments').textContent = formatCurrency(totalBillPayments);
+                document.getElementById('totalCreditPurchases').textContent = formatCurrency(totalCreditPurchases);
+                document.getElementById('totalSendToDealer').textContent = formatCurrency(totalSendToDealer);
+                
+                const netFlow = totalDeposits - totalWithdrawals;
+                document.getElementById('netTransactionFlow').textContent = formatCurrency(netFlow);
                 
             } catch (error) {
                 console.error("Error loading transactions:", error);
-                document.getElementById('transactionsList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading transactions</div>';
+                document.getElementById('transactionsList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading transactions: ' + error.message + '</div>';
             }
         };
 
@@ -460,16 +556,48 @@
 
         // --- Analytics Dashboard ---
         const loadAnalytics = async () => {
-            // This would aggregate data from multiple days/collections
-            // For now, we'll just show today's summary
             updateDashboardSummary();
         };
 
         const updateDashboardSummary = async () => {
-            // This function would calculate and display business insights
-            // For now, it's a placeholder for more complex analytics
-            document.getElementById('businessHealth').textContent = "Good";
-            document.getElementById('dailyVolume').textContent = "Calculating...";
+            try {
+                // Load current balances
+                const docRef = getDailyDocRef();
+                if (docRef) {
+                    const docSnap = await getDoc(docRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        const currentBalance = (data.cashClose || 0) + (data.airtelClose || 0) + (data.mpambaClose || 0);
+                        document.getElementById('currentBalance').textContent = formatCurrency(currentBalance);
+                        
+                        // Load capital
+                        const capitalRef = getCapitalDocRef();
+                        if (capitalRef) {
+                            const capitalSnap = await getDoc(capitalRef);
+                            if (capitalSnap.exists()) {
+                                const capitalData = capitalSnap.data();
+                                const investedCapital = capitalData.totalCapital || 0;
+                                const shortageSurplus = currentBalance - investedCapital;
+                                
+                                document.getElementById('investedCapital').textContent = formatCurrency(investedCapital);
+                                document.getElementById('shortageSurplus').textContent = formatCurrency(shortageSurplus);
+                                
+                                const shortageElement = document.getElementById('shortageSurplus');
+                                if (shortageSurplus >= 0) {
+                                    shortageElement.className = 'text-2xl font-bold text-green-800 mt-1';
+                                } else {
+                                    shortageElement.className = 'text-2xl font-bold text-red-800 mt-1';
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                document.getElementById('businessHealth').textContent = "Good";
+                document.getElementById('dailyVolume').textContent = "Calculating...";
+            } catch (error) {
+                console.error("Error updating dashboard:", error);
+            }
         };
 
         // --- Existing Functions (with minor updates) ---
@@ -550,6 +678,7 @@
                     enableSaveButtons();
                     
                     await loadBalances();
+                    await loadCapital();
                     updateDashboardSummary();
                 } catch (error) {
                     console.error("Authentication failed before loading data:", error.code, error.message);
@@ -697,7 +826,10 @@
             const cashNetChange = cashClose - cashOpen;
             const expectedCashFromFloat = -totalFloatChange;
             const totalExpectedCashChange = expectedCashFromFloat + commissionEarned;
-            const errorMargin = cashNetChange - totalExpectedCashChange; 
+            
+            // NEW: Calculate final reconciliation including commission
+            const finalReconciliation = cashNetChange - totalExpectedCashChange;
+            const balanceAfterCommission = finalReconciliation - commissionEarned;
 
             const safeUpdate = (id, value) => {
                 const el = document.getElementById(id);
@@ -712,18 +844,22 @@
             safeUpdate('commission-earned-display', formatCurrency(commissionEarned));
             safeUpdate('expected-cash-from-float-display', formatCurrency(expectedCashFromFloat));
             safeUpdate('total-expected-cash-change', formatCurrency(totalExpectedCashChange));
+            safeUpdate('balance-after-commission', formatCurrency(balanceAfterCommission));
 
             const statusEl = document.getElementById('reconciliation-status');
             const statusCard = document.getElementById('reconciliation-status-card');
 
-            if (Math.abs(errorMargin) < 0.01) {
+            // Updated logic to include commission in final calculation
+            const finalAmount = balanceAfterCommission;
+            
+            if (Math.abs(finalAmount) < 0.01) {
                 statusEl.textContent = 'Day is Fully Balanced (0 Error)';
                 statusCard.className = 'p-4 rounded-xl shadow-lg bg-green-500 text-white transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
-            } else if (errorMargin > 0) {
-                statusEl.textContent = `Unaccounted Surplus: ${formatCurrency(errorMargin)}`;
+            } else if (finalAmount > 0) {
+                statusEl.textContent = `Unaccounted Surplus: ${formatCurrency(finalAmount)}`;
                 statusCard.className = 'p-4 rounded-xl shadow-lg bg-yellow-500 text-gray-900 transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
             } else {
-                statusEl.textContent = `Unaccounted Shortage: ${formatCurrency(Math.abs(errorMargin))}`;
+                statusEl.textContent = `Unaccounted Shortage: ${formatCurrency(Math.abs(finalAmount))}`;
                 statusCard.className = 'p-4 rounded-xl shadow-lg bg-red-500 text-white transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4';
             }
             
@@ -760,6 +896,7 @@
             const saveOpenBtn = document.getElementById('saveOpenBtn');
             const saveCloseBtn = document.getElementById('saveCloseBtn');
             const calculateBtn = document.getElementById('calculateBtn');
+            const updateCapitalBtn = document.getElementById('updateCapitalBtn');
 
             if (addTransactionBtn) {
                 addTransactionBtn.addEventListener('click', addTransaction);
@@ -778,6 +915,9 @@
             }
             if (calculateBtn) {
                 calculateBtn.addEventListener('click', calculateReconciliation);
+            }
+            if (updateCapitalBtn) {
+                updateCapitalBtn.addEventListener('click', updateCapital);
             }
             
             // Set default active tab
@@ -812,22 +952,45 @@
             <div id="dashboard-tab" class="tab-content active">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Business Overview</h2>
                 
+                <!-- Capital Investment Section -->
+                <div class="bg-yellow-50 p-6 rounded-xl mb-8 border border-yellow-200">
+                    <h2 class="text-2xl font-bold text-yellow-700 mb-4">Capital Investment</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="totalCapital" class="block text-sm font-medium text-gray-700 mb-1">Total Invested Capital (MWK)</label>
+                            <input type="number" id="totalCapital" placeholder="0.00" class="input-style" min="0">
+                            <button id="updateCapitalBtn" class="mt-4 w-full md:w-auto px-6 py-3 bg-yellow-600 text-white font-semibold rounded-lg shadow-md hover:bg-yellow-700 transition duration-150 cursor-pointer">
+                                Update Capital
+                            </button>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border border-yellow-300">
+                            <h3 class="text-lg font-bold text-yellow-700 mb-2">Current Capital Status</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Invested Capital:</span>
+                                    <span id="currentCapitalDisplay" class="font-bold text-yellow-700">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="summary-card bg-blue-50 border border-blue-200">
-                        <div class="text-blue-600 text-sm font-medium">Today's Volume</div>
-                        <div id="dailyVolume" class="text-2xl font-bold text-blue-800 mt-1">--</div>
+                        <div class="text-blue-600 text-sm font-medium">Current Balance</div>
+                        <div id="currentBalance" class="text-2xl font-bold text-blue-800 mt-1">--</div>
                     </div>
                     <div class="summary-card bg-green-50 border border-green-200">
                         <div class="text-green-600 text-sm font-medium">Business Health</div>
                         <div id="businessHealth" class="text-2xl font-bold text-green-800 mt-1">--</div>
                     </div>
                     <div class="summary-card bg-purple-50 border border-purple-200">
-                        <div class="text-purple-600 text-sm font-medium">Total Deposits</div>
-                        <div id="totalDeposits" class="text-2xl font-bold text-purple-800 mt-1">--</div>
+                        <div class="text-purple-600 text-sm font-medium">Invested Capital</div>
+                        <div id="investedCapital" class="text-2xl font-bold text-purple-800 mt-1">--</div>
                     </div>
                     <div class="summary-card bg-red-50 border border-red-200">
-                        <div class="text-red-600 text-sm font-medium">Total Expenses</div>
-                        <div id="totalExpenses" class="text-2xl font-bold text-red-800 mt-1">--</div>
+                        <div class="text-red-600 text-sm font-medium">Shortage/Surplus</div>
+                        <div id="shortageSurplus" class="text-2xl font-bold text-red-800 mt-1">--</div>
                     </div>
                 </div>
 
@@ -951,11 +1114,19 @@
                             <p class="text-sm font-medium text-purple-600">Total Expected Cash Change</p>
                             <p id="total-expected-cash-change" class="text-2xl font-bold text-purple-800 mt-1">--</p>
                         </div>
-                        
-                        <div id="reconciliation-status-card" class="p-4 rounded-xl shadow-lg bg-gray-200 text-gray-800 transition-all duration-300 flex flex-col items-center justify-center col-span-1 md:col-span-4">
-                            <p class="text-lg font-medium mb-1">FINAL RECONCILIATION STATUS</p>
-                            <p id="reconciliation-status" class="text-2xl font-bold">Awaiting Calculation</p>
+                    </div>
+
+                    <!-- NEW: Balance After Commission -->
+                    <div class="mt-6 grid grid-cols-1">
+                        <div class="p-5 bg-orange-50 rounded-xl shadow-lg border-2 border-orange-400">
+                            <p class="text-sm font-medium text-orange-800">Balance After Commission Deduction</p>
+                            <p id="balance-after-commission" class="text-2xl font-extrabold text-orange-900 mt-1">--</p>
                         </div>
+                    </div>
+                        
+                    <div id="reconciliation-status-card" class="mt-6 p-4 rounded-xl shadow-lg bg-gray-200 text-gray-800 transition-all duration-300 flex flex-col items-center justify-center">
+                        <p class="text-lg font-medium mb-1">FINAL RECONCILIATION STATUS</p>
+                        <p id="reconciliation-status" class="text-2xl font-bold">Awaiting Calculation</p>
                     </div>
                 </div>
             </div>
@@ -973,8 +1144,11 @@
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Transaction Type</label>
                                         <select id="transactionType" class="input-style">
-                                            <option value="deposit">Deposit (Cash In)</option>
-                                            <option value="withdrawal">Withdrawal (Cash Out)</option>
+                                            <option value="deposit">Cash Deposit</option>
+                                            <option value="withdrawal">Cash Withdrawal</option>
+                                            <option value="bill_payment">Bill Payment</option>
+                                            <option value="credit_purchase">Credit Purchase</option>
+                                            <option value="send_to_dealer">Send to Dealer</option>
                                         </select>
                                     </div>
                                     <div>
@@ -1008,11 +1182,23 @@
                             <div class="space-y-2">
                                 <div class="flex justify-between">
                                     <span class="text-sm">Total Deposits:</span>
-                                    <span id="totalDepositsSummary" class="font-medium text-green-600">--</span>
+                                    <span id="totalDeposits" class="font-medium text-green-600">--</span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-sm">Total Withdrawals:</span>
-                                    <span id="totalWithdrawalsSummary" class="font-medium text-red-600">--</span>
+                                    <span id="totalWithdrawals" class="font-medium text-red-600">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Bill Payments:</span>
+                                    <span id="totalBillPayments" class="font-medium text-purple-600">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Credit Purchases:</span>
+                                    <span id="totalCreditPurchases" class="font-medium text-orange-600">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Send to Dealer:</span>
+                                    <span id="totalSendToDealer" class="font-medium text-blue-600">--</span>
                                 </div>
                                 <div class="flex justify-between border-t pt-2">
                                     <span class="text-sm font-medium">Net Flow:</span>
