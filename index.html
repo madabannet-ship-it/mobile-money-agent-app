@@ -29,6 +29,9 @@
         button:disabled {
             @apply opacity-50 cursor-not-allowed;
         }
+        .note-input {
+            @apply flex items-center justify-between mb-2 p-2 bg-gray-50 rounded-lg;
+        }
     </style>
 </head>
 <body>
@@ -76,6 +79,9 @@
         window.saveClosingBalances = saveClosingBalances;
         window.calculateReconciliation = calculateReconciliation;
         window.updateCapital = updateCapital;
+        window.calculateCashFromNotes = calculateCashFromNotes;
+        window.addLoan = addLoan;
+        window.resetData = resetData;
 
         // Utility to get today's date in YYYY-MM-DD format
         const getTodayDateId = () => {
@@ -115,6 +121,14 @@
             if (!db || !currentDataId) return null;
             const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
             const collectionPath = `/artifacts/${currentAppId}/users/${currentDataId}/expenses`;
+            return collection(db, collectionPath);
+        };
+
+        // Get reference for loans collection
+        const getLoansCollectionRef = () => {
+            if (!db || !currentDataId) return null;
+            const currentAppId = canvasFirebaseConfig ? canvasAppId : CUSTOM_APP_ID; 
+            const collectionPath = `/artifacts/${currentAppId}/users/${currentDataId}/loans`;
             return collection(db, collectionPath);
         };
 
@@ -163,7 +177,25 @@
                 loadTargets();
             } else if (tabName === 'dashboard') {
                 loadCapital();
+                loadLoans();
+                updateDashboardSummary();
+            } else if (tabName === 'loans') {
+                loadLoans();
             }
+        }
+
+        // --- Cash Notes Calculation ---
+        function calculateCashFromNotes() {
+            const denominations = [5000, 2000, 1000, 500, 200, 100, 50, 20];
+            let totalCash = 0;
+            
+            denominations.forEach(denom => {
+                const count = parseInt(document.getElementById(`note${denom}`).value) || 0;
+                totalCash += count * denom;
+            });
+            
+            document.getElementById('cashClose').value = totalCash;
+            document.getElementById('calculatedCashTotal').textContent = formatCurrency(totalCash);
         }
 
         // --- Capital Management ---
@@ -217,6 +249,114 @@
             }
         };
 
+        // --- Loan Management ---
+        async function addLoan() {
+            if (!isDatabaseReady) {
+                showMessage('Database is offline. Cannot save loan.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            const type = document.getElementById('loanType').value;
+            const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+            const clientName = document.getElementById('clientName').value || '';
+            const phone = document.getElementById('clientPhone').value || '';
+            const dueDate = document.getElementById('dueDate').value || '';
+            const notes = document.getElementById('loanNotes').value || '';
+
+            if (amount <= 0 || !clientName) {
+                showMessage('Please enter valid amount and client name.', 'bg-red-100 text-red-700');
+                return;
+            }
+
+            const loansRef = getLoansCollectionRef();
+            if (!loansRef) return;
+
+            try {
+                await addDoc(loansRef, {
+                    type,
+                    amount,
+                    clientName,
+                    phone,
+                    dueDate,
+                    notes,
+                    status: 'active',
+                    timestamp: new Date(),
+                    date: todayDocumentId
+                });
+
+                document.getElementById('loanForm').reset();
+                showMessage('Loan recorded successfully!', 'bg-green-100 text-green-700');
+                
+                loadLoans();
+                updateDashboardSummary();
+            } catch (error) {
+                console.error("Error adding loan:", error);
+                showMessage('Failed to record loan. Check console.', 'bg-red-100 text-red-700');
+            }
+        }
+
+        const loadLoans = async () => {
+            const loansRef = getLoansCollectionRef();
+            if (!loansRef) return;
+
+            try {
+                const q = query(loansRef, orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+                
+                const loansList = document.getElementById('loansList');
+                loansList.innerHTML = '';
+                
+                let totalGiven = 0;
+                let totalExpected = 0;
+                
+                if (querySnapshot.empty) {
+                    loansList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No loans recorded</div>';
+                } else {
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const loan = document.createElement('div');
+                        loan.className = 'p-3 border-b border-gray-200';
+                        
+                        const typeColor = data.type === 'given' ? 'text-red-600' : 'text-green-600';
+                        const typeIcon = data.type === 'given' ? '📤' : '📥';
+                        const statusColor = data.status === 'active' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800';
+                        
+                        if (data.type === 'given') {
+                            totalGiven += data.amount;
+                        } else {
+                            totalExpected += data.amount;
+                        }
+                        
+                        loan.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <span class="font-medium">${typeIcon} ${data.clientName}</span>
+                                    <span class="text-sm text-gray-500 ml-2">${data.phone}</span>
+                                </div>
+                                <div class="text-right">
+                                    <div class="${typeColor} font-bold">${formatCurrency(data.amount)}</div>
+                                    <div class="text-xs ${statusColor} px-2 py-1 rounded">${data.status}</div>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600 mt-1">
+                                Due: ${data.dueDate} • ${data.notes}
+                            </div>
+                        `;
+                        
+                        loansList.appendChild(loan);
+                    });
+                }
+                
+                document.getElementById('totalLoansGiven').textContent = formatCurrency(totalGiven);
+                document.getElementById('totalLoansExpected').textContent = formatCurrency(totalExpected);
+                document.getElementById('netLoansPosition').textContent = formatCurrency(totalExpected - totalGiven);
+                
+            } catch (error) {
+                console.error("Error loading loans:", error);
+                document.getElementById('loansList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading loans</div>';
+            }
+        };
+
         // --- Transaction Management ---
         async function addTransaction() {
             if (!isDatabaseReady) {
@@ -227,6 +367,7 @@
             const type = document.getElementById('transactionType').value;
             const platform = document.getElementById('transactionPlatform').value;
             const amount = parseFloat(document.getElementById('transactionAmount').value) || 0;
+            const commission = parseFloat(document.getElementById('transactionCommission').value) || 0;
             const customerRef = document.getElementById('transactionCustomerRef').value || 'N/A';
             const notes = document.getElementById('transactionNotes').value || '';
 
@@ -243,6 +384,7 @@
                     type,
                     platform,
                     amount,
+                    commission,
                     customerRef,
                     notes,
                     timestamp: new Date(),
@@ -282,6 +424,8 @@
                 let totalBillPayments = 0;
                 let totalCreditPurchases = 0;
                 let totalSendToDealer = 0;
+                let totalAirtelCommission = 0;
+                let totalTnmCommission = 0;
                 
                 if (querySnapshot.empty) {
                     transactionsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No transactions recorded today</div>';
@@ -322,6 +466,13 @@
                                 totalSendToDealer += data.amount;
                                 break;
                         }
+
+                        // Calculate commission by platform
+                        if (data.platform === 'Airtel Money') {
+                            totalAirtelCommission += data.commission || 0;
+                        } else if (data.platform === 'TNM Mpamba') {
+                            totalTnmCommission += data.commission || 0;
+                        }
                         
                         transaction.innerHTML = `
                             <div class="flex justify-between items-center">
@@ -331,6 +482,7 @@
                                 </div>
                                 <div class="text-right">
                                     <div class="${typeColor} font-bold">${formatCurrency(data.amount)}</div>
+                                    ${data.commission ? `<div class="text-xs text-green-600">Commission: ${formatCurrency(data.commission)}</div>` : ''}
                                     <div class="text-xs text-gray-500">${new Date(data.timestamp?.toDate()).toLocaleTimeString()}</div>
                                 </div>
                             </div>
@@ -347,6 +499,9 @@
                 document.getElementById('totalBillPayments').textContent = formatCurrency(totalBillPayments);
                 document.getElementById('totalCreditPurchases').textContent = formatCurrency(totalCreditPurchases);
                 document.getElementById('totalSendToDealer').textContent = formatCurrency(totalSendToDealer);
+                document.getElementById('totalAirtelCommission').textContent = formatCurrency(totalAirtelCommission);
+                document.getElementById('totalTnmCommission').textContent = formatCurrency(totalTnmCommission);
+                document.getElementById('totalCommission').textContent = formatCurrency(totalAirtelCommission + totalTnmCommission);
                 
                 const netFlow = totalDeposits - totalWithdrawals;
                 document.getElementById('netTransactionFlow').textContent = formatCurrency(netFlow);
@@ -398,7 +553,10 @@
 
         const loadExpenses = async () => {
             const expensesRef = getExpensesCollectionRef();
-            if (!expensesRef) return;
+            if (!expensesRef) {
+                console.log("Expenses collection reference is null");
+                return;
+            }
 
             try {
                 const q = query(expensesRef, orderBy('timestamp', 'desc'));
@@ -461,7 +619,7 @@
                 
             } catch (error) {
                 console.error("Error loading expenses:", error);
-                document.getElementById('expensesList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading expenses</div>';
+                document.getElementById('expensesList').innerHTML = '<div class="text-red-500 text-center py-8">Error loading expenses: ' + error.message + '</div>';
             }
         };
 
@@ -557,6 +715,80 @@
         // --- Analytics Dashboard ---
         const loadAnalytics = async () => {
             updateDashboardSummary();
+            loadCommissionHistory();
+            loadTransactionAverages();
+        };
+
+        const loadCommissionHistory = async () => {
+            // This would aggregate commission data over time
+            // For now, we'll show today's commission
+            const transactionsRef = getTransactionsCollectionRef();
+            if (!transactionsRef) return;
+
+            try {
+                const q = query(transactionsRef, orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+                
+                let dailyCommission = 0;
+                let weeklyCommission = 0;
+                let monthlyCommission = 0;
+                let yearlyCommission = 0;
+                
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                
+                const oneMonthAgo = new Date();
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                
+                const oneYearAgo = new Date();
+                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const transactionDate = data.timestamp?.toDate();
+                    
+                    if (transactionDate) {
+                        const commission = data.commission || 0;
+                        
+                        // Daily
+                        if (transactionDate.toDateString() === new Date().toDateString()) {
+                            dailyCommission += commission;
+                        }
+                        
+                        // Weekly
+                        if (transactionDate >= oneWeekAgo) {
+                            weeklyCommission += commission;
+                        }
+                        
+                        // Monthly
+                        if (transactionDate >= oneMonthAgo) {
+                            monthlyCommission += commission;
+                        }
+                        
+                        // Yearly
+                        if (transactionDate >= oneYearAgo) {
+                            yearlyCommission += commission;
+                        }
+                    }
+                });
+                
+                document.getElementById('dailyCommission').textContent = formatCurrency(dailyCommission);
+                document.getElementById('weeklyCommission').textContent = formatCurrency(weeklyCommission);
+                document.getElementById('monthlyCommission').textContent = formatCurrency(monthlyCommission);
+                document.getElementById('yearlyCommission').textContent = formatCurrency(yearlyCommission);
+                
+            } catch (error) {
+                console.error("Error loading commission history:", error);
+            }
+        };
+
+        const loadTransactionAverages = async () => {
+            // This would calculate average transaction volumes
+            // For now, we'll show placeholder data
+            document.getElementById('avgDailyDeposits').textContent = formatCurrency(0);
+            document.getElementById('avgWeeklyDeposits').textContent = formatCurrency(0);
+            document.getElementById('avgMonthlyDeposits').textContent = formatCurrency(0);
+            document.getElementById('avgYearlyDeposits').textContent = formatCurrency(0);
         };
 
         const updateDashboardSummary = async () => {
@@ -593,12 +825,66 @@
                     }
                 }
                 
+                // Load commission totals
+                const transactionsRef = getTransactionsCollectionRef();
+                if (transactionsRef) {
+                    const q = query(transactionsRef);
+                    const querySnapshot = await getDocs(q);
+                    
+                    let totalAirtelCommission = 0;
+                    let totalTnmCommission = 0;
+                    
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        if (data.platform === 'Airtel Money') {
+                            totalAirtelCommission += data.commission || 0;
+                        } else if (data.platform === 'TNM Mpamba') {
+                            totalTnmCommission += data.commission || 0;
+                        }
+                    });
+                    
+                    document.getElementById('dashboardAirtelCommission').textContent = formatCurrency(totalAirtelCommission);
+                    document.getElementById('dashboardTnmCommission').textContent = formatCurrency(totalTnmCommission);
+                    document.getElementById('dashboardTotalCommission').textContent = formatCurrency(totalAirtelCommission + totalTnmCommission);
+                }
+                
                 document.getElementById('businessHealth').textContent = "Good";
-                document.getElementById('dailyVolume').textContent = "Calculating...";
+                
             } catch (error) {
                 console.error("Error updating dashboard:", error);
             }
         };
+
+        // --- Data Reset Function ---
+        async function resetData() {
+            if (!confirm('Are you sure you want to reset all data? This action cannot be undone.')) {
+                return;
+            }
+
+            if (!isDatabaseReady) {
+                showMessage('Database is offline. Cannot reset data.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            try {
+                // Reset all input fields
+                document.querySelectorAll('input, textarea, select').forEach(field => {
+                    if (field.type !== 'button' && field.type !== 'submit') {
+                        field.value = '';
+                    }
+                });
+
+                // Clear all displayed data
+                document.querySelectorAll('[id$="Display"], [id$="Summary"]').forEach(element => {
+                    element.textContent = '--';
+                });
+
+                showMessage('All data has been reset locally. Database data remains intact.', 'bg-green-100 text-green-700');
+            } catch (error) {
+                console.error("Error resetting data:", error);
+                showMessage('Error resetting data. Check console.', 'bg-red-100 text-red-700');
+            }
+        }
 
         // --- Existing Functions (with minor updates) ---
         const enableSaveButtons = () => {
@@ -679,6 +965,7 @@
                     
                     await loadBalances();
                     await loadCapital();
+                    await loadLoans();
                     updateDashboardSummary();
                 } catch (error) {
                     console.error("Authentication failed before loading data:", error.code, error.message);
@@ -897,6 +1184,8 @@
             const saveCloseBtn = document.getElementById('saveCloseBtn');
             const calculateBtn = document.getElementById('calculateBtn');
             const updateCapitalBtn = document.getElementById('updateCapitalBtn');
+            const addLoanBtn = document.getElementById('addLoanBtn');
+            const resetDataBtn = document.getElementById('resetDataBtn');
 
             if (addTransactionBtn) {
                 addTransactionBtn.addEventListener('click', addTransaction);
@@ -919,6 +1208,18 @@
             if (updateCapitalBtn) {
                 updateCapitalBtn.addEventListener('click', updateCapital);
             }
+            if (addLoanBtn) {
+                addLoanBtn.addEventListener('click', addLoan);
+            }
+            if (resetDataBtn) {
+                resetDataBtn.addEventListener('click', resetData);
+            }
+            
+            // Add event listeners for note inputs
+            const noteInputs = document.querySelectorAll('[id^="note"]');
+            noteInputs.forEach(input => {
+                input.addEventListener('input', calculateCashFromNotes);
+            });
             
             // Set default active tab
             switchTab('dashboard');
@@ -935,7 +1236,12 @@
             </p>
             <p id="data-id-display" class="text-sm font-medium text-purple-600 mb-4">Data ID (Shared): Accolado</p>
             
-            <div id="status-message" class="text-sm text-gray-500 mb-4">Initializing application...</div>
+            <div class="flex justify-between items-center mb-4">
+                <div id="status-message" class="text-sm text-gray-500">Initializing application...</div>
+                <button id="resetDataBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-150 cursor-pointer text-sm">
+                    🔄 Reset All Data
+                </button>
+            </div>
             <div id="toast-message" class="hidden"></div>
 
             <!-- Navigation Tabs -->
@@ -943,6 +1249,7 @@
                 <button onclick="switchTab('dashboard')" class="nav-tab active">📊 Dashboard</button>
                 <button onclick="switchTab('reconciliation')" class="nav-tab">💰 Reconciliation</button>
                 <button onclick="switchTab('transactions')" class="nav-tab">💳 Transactions</button>
+                <button onclick="switchTab('loans')" class="nav-tab">🏦 Loans</button>
                 <button onclick="switchTab('expenses')" class="nav-tab">📋 Expenses</button>
                 <button onclick="switchTab('targets')" class="nav-tab">🎯 Targets</button>
                 <button onclick="switchTab('analytics')" class="nav-tab">📈 Analytics</button>
@@ -994,6 +1301,22 @@
                     </div>
                 </div>
 
+                <!-- Commission Summary -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="summary-card bg-blue-50 border border-blue-200">
+                        <div class="text-blue-600 text-sm font-medium">Airtel Commission</div>
+                        <div id="dashboardAirtelCommission" class="text-2xl font-bold text-blue-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-green-50 border border-green-200">
+                        <div class="text-green-600 text-sm font-medium">TNM Commission</div>
+                        <div id="dashboardTnmCommission" class="text-2xl font-bold text-green-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-purple-50 border border-purple-200">
+                        <div class="text-purple-600 text-sm font-medium">Total Commission</div>
+                        <div id="dashboardTotalCommission" class="text-2xl font-bold text-purple-800 mt-1">--</div>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     <div class="bg-gray-50 p-6 rounded-xl border border-gray-200">
                         <h3 class="text-lg font-bold text-gray-700 mb-4">Quick Actions</h3>
@@ -1006,9 +1329,9 @@
                                 <span class="font-medium">💳 Record New Transaction</span>
                                 <p class="text-sm text-gray-500 mt-1">Add deposit or withdrawal</p>
                             </button>
-                            <button onclick="switchTab('expenses')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-red-50 transition duration-150 cursor-pointer">
-                                <span class="font-medium">📋 Log Business Expense</span>
-                                <p class="text-sm text-gray-500 mt-1">Track operational costs</p>
+                            <button onclick="switchTab('loans')" class="w-full text-left p-3 bg-white border border-gray-300 rounded-lg hover:bg-orange-50 transition duration-150 cursor-pointer">
+                                <span class="font-medium">🏦 Manage Loans</span>
+                                <p class="text-sm text-gray-500 mt-1">Track given and expected loans</p>
                             </button>
                         </div>
                     </div>
@@ -1022,7 +1345,7 @@
                 </div>
             </div>
 
-            <!-- Reconciliation Tab (Existing functionality) -->
+            <!-- Reconciliation Tab -->
             <div id="reconciliation-tab" class="tab-content">
                 <!-- Opening Balances Card -->
                 <div class="bg-blue-50 p-6 rounded-xl mb-8 border border-blue-200">
@@ -1063,6 +1386,52 @@
                             <input type="number" id="cashClose" placeholder="0.00" class="input-style" min="0">
                         </div>
                     </div>
+
+                    <!-- Cash Notes Calculation -->
+                    <div class="mt-6 bg-white p-4 rounded-lg border border-gray-300">
+                        <h3 class="text-lg font-bold text-gray-700 mb-3">Calculate Cash from Notes</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 5000</span>
+                                <input type="number" id="note5000" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 2000</span>
+                                <input type="number" id="note2000" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 1000</span>
+                                <input type="number" id="note1000" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 500</span>
+                                <input type="number" id="note500" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 200</span>
+                                <input type="number" id="note200" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 100</span>
+                                <input type="number" id="note100" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 50</span>
+                                <input type="number" id="note50" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                            <div class="note-input">
+                                <span class="text-sm font-medium">MWK 20</span>
+                                <input type="number" id="note20" placeholder="0" class="w-20 p-2 border rounded" min="0">
+                            </div>
+                        </div>
+                        <div class="mt-3 p-3 bg-green-50 rounded-lg">
+                            <div class="flex justify-between items-center">
+                                <span class="font-medium">Total Calculated Cash:</span>
+                                <span id="calculatedCashTotal" class="text-xl font-bold text-green-700">MWK 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="mt-4 max-w-sm">
                         <label for="commissionEarned" class="block text-sm font-medium text-gray-700 mb-1">Commission Earned Today</label>
                         <input type="number" id="commissionEarned" placeholder="0.00" class="input-style" min="0">
@@ -1116,7 +1485,7 @@
                         </div>
                     </div>
 
-                    <!-- NEW: Balance After Commission -->
+                    <!-- Balance After Commission -->
                     <div class="mt-6 grid grid-cols-1">
                         <div class="p-5 bg-orange-50 rounded-xl shadow-lg border-2 border-orange-400">
                             <p class="text-sm font-medium text-orange-800">Balance After Commission Deduction</p>
@@ -1163,6 +1532,10 @@
                                         <input type="number" id="transactionAmount" class="input-style" placeholder="0.00" min="0" step="0.01" required>
                                     </div>
                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Commission (MWK)</label>
+                                        <input type="number" id="transactionCommission" class="input-style" placeholder="0.00" min="0" step="0.01">
+                                    </div>
+                                    <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Customer Reference</label>
                                         <input type="text" id="transactionCustomerRef" class="input-style" placeholder="Optional customer ID or phone">
                                     </div>
@@ -1206,6 +1579,24 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="mt-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 class="font-bold text-gray-700 mb-3">Commission Summary</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Airtel Commission:</span>
+                                    <span id="totalAirtelCommission" class="font-medium text-blue-600">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">TNM Commission:</span>
+                                    <span id="totalTnmCommission" class="font-medium text-green-600">--</span>
+                                </div>
+                                <div class="flex justify-between border-t pt-2">
+                                    <span class="text-sm font-medium">Total Commission:</span>
+                                    <span id="totalCommission" class="font-bold text-purple-600">--</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="lg:col-span-2">
@@ -1213,6 +1604,80 @@
                             <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Transactions</h3>
                             <div id="transactionsList" class="max-h-96 overflow-y-auto">
                                 <div class="text-gray-500 italic text-center py-8">No transactions recorded today</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loans Tab -->
+            <div id="loans-tab" class="tab-content">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Loan Management</h2>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1">
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Record New Loan</h3>
+                            <form id="loanForm">
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Loan Type</label>
+                                        <select id="loanType" class="input-style">
+                                            <option value="given">Given to Customer</option>
+                                            <option value="expected">Expected from Customer</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Amount (MWK)</label>
+                                        <input type="number" id="loanAmount" class="input-style" placeholder="0.00" min="0" step="0.01" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Client Name</label>
+                                        <input type="text" id="clientName" class="input-style" placeholder="Client full name" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                        <input type="text" id="clientPhone" class="input-style" placeholder="Client phone number">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                                        <input type="date" id="dueDate" class="input-style">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                                        <textarea id="loanNotes" class="input-style" placeholder="Loan purpose or terms" rows="3"></textarea>
+                                    </div>
+                                    <button type="button" id="addLoanBtn" class="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition duration-150 cursor-pointer">
+                                        Record Loan
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="mt-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                            <h4 class="font-bold text-gray-700 mb-3">Loan Summary</h4>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Total Given:</span>
+                                    <span id="totalLoansGiven" class="font-medium text-red-600">--</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Total Expected:</span>
+                                    <span id="totalLoansExpected" class="font-medium text-green-600">--</span>
+                                </div>
+                                <div class="flex justify-between border-t pt-2">
+                                    <span class="text-sm font-medium">Net Position:</span>
+                                    <span id="netLoansPosition" class="font-bold">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2">
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Active Loans</h3>
+                            <div id="loansList" class="max-h-96 overflow-y-auto">
+                                <div class="text-gray-500 italic text-center py-8">No loans recorded</div>
                             </div>
                         </div>
                     </div>
@@ -1331,51 +1796,53 @@
             <div id="analytics-tab" class="tab-content">
                 <h2 class="text-2xl font-bold text-gray-800 mb-6">Business Analytics</h2>
                 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Performance Metrics</h3>
-                        <div class="space-y-4">
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span class="font-medium">Daily Average Commission</span>
-                                <span class="text-blue-600 font-bold">--</span>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span class="font-medium">Transaction Success Rate</span>
-                                <span class="text-green-600 font-bold">--</span>
-                            </div>
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <span class="font-medium">Expense to Revenue Ratio</span>
-                                <span class="text-red-600 font-bold">--</span>
-                            </div>
+                <!-- Commission History -->
+                <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm mb-8">
+                    <h3 class="text-lg font-bold text-gray-700 mb-4">Commission History</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">Daily Commission</div>
+                            <div id="dailyCommission" class="text-2xl font-bold text-blue-800 mt-1">--</div>
                         </div>
-                    </div>
-
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Platform Performance</h3>
-                        <div class="space-y-4">
-                            <div>
-                                <div class="flex justify-between mb-1">
-                                    <span class="text-sm">Airtel Money Volume</span>
-                                    <span class="text-sm font-medium">--</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-blue-600 h-2 rounded-full" style="width: 50%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between mb-1">
-                                    <span class="text-sm">TNM Mpamba Volume</span>
-                                    <span class="text-sm font-medium">--</span>
-                                </div>
-                                <div class="w-full bg-gray-200 rounded-full h-2">
-                                    <div class="bg-green-600 h-2 rounded-full" style="width: 50%"></div>
-                                </div>
-                            </div>
+                        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Weekly Commission</div>
+                            <div id="weeklyCommission" class="text-2xl font-bold text-green-800 mt-1">--</div>
+                        </div>
+                        <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div class="text-purple-600 text-sm font-medium">Monthly Commission</div>
+                            <div id="monthlyCommission" class="text-2xl font-bold text-purple-800 mt-1">--</div>
+                        </div>
+                        <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Yearly Commission</div>
+                            <div id="yearlyCommission" class="text-2xl font-bold text-orange-800 mt-1">--</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="mt-8 bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                <!-- Transaction Averages -->
+                <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm mb-8">
+                    <h3 class="text-lg font-bold text-gray-700 mb-4">Transaction Averages</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">Avg Daily Deposits</div>
+                            <div id="avgDailyDeposits" class="text-2xl font-bold text-blue-800 mt-1">--</div>
+                        </div>
+                        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Avg Weekly Deposits</div>
+                            <div id="avgWeeklyDeposits" class="text-2xl font-bold text-green-800 mt-1">--</div>
+                        </div>
+                        <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                            <div class="text-purple-600 text-sm font-medium">Avg Monthly Deposits</div>
+                            <div id="avgMonthlyDeposits" class="text-2xl font-bold text-purple-800 mt-1">--</div>
+                        </div>
+                        <div class="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Avg Yearly Deposits</div>
+                            <div id="avgYearlyDeposits" class="text-2xl font-bold text-orange-800 mt-1">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
                     <h3 class="text-lg font-bold text-gray-700 mb-4">Business Insights</h3>
                     <div class="text-gray-500 italic">
                         Analytics and insights will appear here as you collect more data. Track your performance over time to identify trends and opportunities for growth.
