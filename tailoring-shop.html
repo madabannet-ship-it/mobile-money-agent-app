@@ -1,4 +1,3 @@
-<!-- tailoring-shop.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,41 +6,830 @@
     <title>Tailoring Shop Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .input-style { @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-150; }
-        .status-badge { @apply px-2 py-1 rounded-full text-xs font-medium; }
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; }
+        .input-style {
+            @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-150;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .summary-card {
+            @apply p-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl;
+        }
+        .status-badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+        }
         .status-pending { @apply bg-yellow-100 text-yellow-800; }
         .status-in-progress { @apply bg-blue-100 text-blue-800; }
         .status-completed { @apply bg-green-100 text-green-800; }
         .status-delivered { @apply bg-purple-100 text-purple-800; }
+        .note-input {
+            @apply flex items-center justify-between mb-2 p-2 bg-gray-50 rounded-lg;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
-    <div class="max-w-7xl mx-auto p-4">
-        <!-- Tailoring Shop Content (same as before) -->
-        <div id="tailoring-tab" class="tab-content active">
-            <!-- Include all the tailoring shop HTML content from the previous response -->
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <div class="bg-white p-6 md:p-10 rounded-2xl shadow-2xl">
+            <h1 class="text-3xl font-extrabold text-green-800 mb-2">Tailoring Shop Manager</h1>
+            <p class="text-gray-500 mb-6">
+                Complete management for your tailoring business. Date: <span id="current-date" class="font-semibold">...</span>
+            </p>
+            
+            <div id="status-message" class="text-sm text-gray-500 mb-4">Initializing tailoring shop...</div>
+            <div id="toast-message" class="hidden"></div>
+
+            <!-- Tailoring Dashboard -->
+            <div id="tailoring-dashboard" class="active">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">Tailoring Shop Overview</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="summary-card bg-blue-50 border border-blue-200">
+                        <div class="text-blue-600 text-sm font-medium">Total Revenue</div>
+                        <div id="totalTailoringRevenue" class="text-2xl font-bold text-blue-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-green-50 border border-green-200">
+                        <div class="text-green-600 text-sm font-medium">Net Profit</div>
+                        <div id="tailoringNetProfit" class="text-2xl font-bold text-green-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-purple-50 border border-purple-200">
+                        <div class="text-purple-600 text-sm font-medium">Outstanding Balance</div>
+                        <div id="outstandingBalance" class="text-2xl font-bold text-purple-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-orange-50 border border-orange-200">
+                        <div class="text-orange-600 text-sm font-medium">Inventory Value</div>
+                        <div id="totalInventoryValueDisplay" class="text-2xl font-bold text-orange-800 mt-1">--</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="summary-card bg-yellow-50 border border-yellow-200">
+                        <div class="text-yellow-600 text-sm font-medium">Pending Orders</div>
+                        <div id="pendingOrders" class="text-2xl font-bold text-yellow-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-blue-50 border border-blue-200">
+                        <div class="text-blue-600 text-sm font-medium">In Progress</div>
+                        <div id="inProgressOrders" class="text-2xl font-bold text-blue-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-green-50 border border-green-200">
+                        <div class="text-green-600 text-sm font-medium">Completed</div>
+                        <div id="completedOrders" class="text-2xl font-bold text-green-800 mt-1">--</div>
+                    </div>
+                    <div class="summary-card bg-red-50 border border-red-200">
+                        <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                        <div id="totalTailoringExpensesDisplay" class="text-2xl font-bold text-red-800 mt-1">--</div>
+                    </div>
+                </div>
+
+                <!-- Tailoring Management Sections -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <!-- Customer Management -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Customer Management</h3>
+                        <form id="customerForm" class="mb-4">
+                            <div class="space-y-3">
+                                <input type="text" id="customerName" placeholder="Customer Name" class="input-style" required>
+                                <input type="tel" id="customerPhone" placeholder="Phone Number" class="input-style">
+                                <input type="email" id="customerEmail" placeholder="Email" class="input-style">
+                                <textarea id="customerAddress" placeholder="Address" class="input-style" rows="2"></textarea>
+                                <textarea id="customerNotes" placeholder="Notes" class="input-style" rows="2"></textarea>
+                                <button type="button" id="addCustomerBtn" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-150">
+                                    Add Customer
+                                </button>
+                            </div>
+                        </form>
+                        <div id="customersList" class="max-h-64 overflow-y-auto border rounded-lg p-2">
+                            <div class="text-gray-500 italic text-center py-8">No customers found</div>
+                        </div>
+                    </div>
+
+                    <!-- Order Management -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Order Management</h3>
+                        <form id="orderForm" class="mb-4">
+                            <div class="space-y-3">
+                                <select id="orderCustomer" class="input-style" required>
+                                    <option value="">Select Customer</option>
+                                </select>
+                                <select id="garmentType" class="input-style" required>
+                                    <option value="">Select Garment Type</option>
+                                    <option value="Shirt">Shirt</option>
+                                    <option value="Trouser">Trouser</option>
+                                    <option value="Dress">Dress</option>
+                                    <option value="Skirt">Skirt</option>
+                                    <option value="Blouse">Blouse</option>
+                                    <option value="Suit">Suit</option>
+                                    <option value="Traditional Wear">Traditional Wear</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <select id="orderFabric" class="input-style">
+                                    <option value="">Select Fabric</option>
+                                </select>
+                                <textarea id="measurements" placeholder="Measurements (e.g., Chest: 40, Waist: 32)" class="input-style" rows="2"></textarea>
+                                <input type="number" id="orderPrice" placeholder="Total Price (MWK)" class="input-style" min="0" step="0.01" required>
+                                <input type="number" id="advancePayment" placeholder="Advance Payment (MWK)" class="input-style" min="0" step="0.01">
+                                <input type="date" id="orderDueDate" class="input-style">
+                                <textarea id="orderNotes" placeholder="Order Notes" class="input-style" rows="2"></textarea>
+                                <button type="button" id="addOrderBtn" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition duration-150">
+                                    Create Order
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Fabric Inventory -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Fabric Inventory</h3>
+                        <form id="fabricForm" class="mb-4">
+                            <div class="space-y-3">
+                                <input type="text" id="fabricName" placeholder="Fabric Name" class="input-style" required>
+                                <select id="fabricType" class="input-style" required>
+                                    <option value="">Select Fabric Type</option>
+                                    <option value="Cotton">Cotton</option>
+                                    <option value="Linen">Linen</option>
+                                    <option value="Silk">Silk</option>
+                                    <option value="Wool">Wool</option>
+                                    <option value="Polyester">Polyester</option>
+                                    <option value="Chitenge">Chitenge</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                                <input type="text" id="fabricColor" placeholder="Color" class="input-style">
+                                <input type="number" id="fabricQuantity" placeholder="Quantity (meters)" class="input-style" min="0" step="0.1" required>
+                                <input type="number" id="fabricCost" placeholder="Cost per Meter (MWK)" class="input-style" min="0" step="0.01" required>
+                                <input type="text" id="fabricSupplier" placeholder="Supplier" class="input-style">
+                                <button type="button" id="addFabricBtn" class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition duration-150">
+                                    Add to Inventory
+                                </button>
+                            </div>
+                        </form>
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-bold text-gray-700">Current Inventory</h4>
+                            <span class="text-sm font-medium">Total Value: <span id="totalInventoryValue">--</span></span>
+                        </div>
+                        <div id="fabricsList" class="max-h-64 overflow-y-auto border rounded-lg p-2">
+                            <div class="text-gray-500 italic text-center py-8">No fabrics in inventory</div>
+                        </div>
+                    </div>
+
+                    <!-- Expenses & Orders -->
+                    <div class="space-y-6">
+                        <!-- Tailoring Expenses -->
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Tailoring Expenses</h3>
+                            <form id="tailoringExpenseForm" class="mb-4">
+                                <div class="space-y-3">
+                                    <select id="tailoringExpenseCategory" class="input-style">
+                                        <option value="Thread & Supplies">Thread & Supplies</option>
+                                        <option value="Equipment Maintenance">Equipment Maintenance</option>
+                                        <option value="Rent">Rent</option>
+                                        <option value="Utilities">Utilities</option>
+                                        <option value="Transport">Transport</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                    <input type="number" id="tailoringExpenseAmount" placeholder="Amount (MWK)" class="input-style" min="0" step="0.01" required>
+                                    <textarea id="tailoringExpenseDescription" placeholder="Description" class="input-style" rows="2" required></textarea>
+                                    <button type="button" id="addTailoringExpenseBtn" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition duration-150">
+                                        Record Expense
+                                    </button>
+                                </div>
+                            </form>
+                            <div id="tailoringExpensesList" class="max-h-48 overflow-y-auto border rounded-lg p-2">
+                                <div class="text-gray-500 italic text-center py-8">No expenses recorded</div>
+                            </div>
+                        </div>
+
+                        <!-- Active Orders -->
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Active Orders</h3>
+                            <div id="ordersList" class="max-h-64 overflow-y-auto border rounded-lg p-2">
+                                <div class="text-gray-500 italic text-center py-8">No active orders</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-    
-    <!-- Load Firebase and Tailoring Shop JS -->
+
+    <!-- Firebase SDKs -->
     <script type="module">
-        // Import Firebase and your shared configuration
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Initialize Firebase (use your existing config)
-        const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        // Initialize Tailoring Shop after auth
-        signInAnonymously(auth).then(() => {
-            TailoringShop.initializeEventListeners();
-            TailoringShop.loadDashboard();
-        });
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, where, orderBy, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuration
+        const SHARED_AGENT_ID = "Accolado"; 
+        const CUSTOM_APP_ID = "mobile-money-agent"; 
+        const USER_PROVIDED_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+            projectId: "mobile-money-app-4cf66",
+            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+            messagingSenderId: "822891731705",
+            appId: "1:822891731705:web:e666599c76ce413f0a6028"
+        };
+
+        let db = null;
+        let auth = null;
+        let todayDocumentId = null;
+        let isDatabaseReady = false; 
+
+        // Utility functions
+        const getTodayDateId = () => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'MWK',
+                minimumFractionDigits: 2
+            }).format(amount);
+        };
+
+        const showMessage = (message, className) => {
+            const el = document.getElementById('toast-message');
+            if (el) {
+                el.textContent = message;
+                el.className = `p-4 mt-4 mb-4 rounded-lg text-sm font-medium ${className}`;
+                setTimeout(() => {
+                    el.className = 'hidden';
+                }, 5000);
+            }
+        };
+
+        // Firebase References for Tailoring
+        const getTailoringCustomersRef = () => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/tailoring_customers`;
+            return collection(db, collectionPath);
+        };
+
+        const getTailoringOrdersRef = () => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/tailoring_orders`;
+            return collection(db, collectionPath);
+        };
+
+        const getTailoringFabricsRef = () => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/tailoring_fabrics`;
+            return collection(db, collectionPath);
+        };
+
+        const getTailoringExpensesRef = () => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/tailoring_expenses`;
+            return collection(db, collectionPath);
+        };
+
+        // Tailoring Shop Functions
+        class TailoringManager {
+            static async addCustomer() {
+                if (!isDatabaseReady) {
+                    showMessage('Database is offline. Cannot save customer.', 'bg-yellow-100 text-yellow-700');
+                    return;
+                }
+
+                const name = document.getElementById('customerName').value.trim();
+                const phone = document.getElementById('customerPhone').value.trim();
+                const email = document.getElementById('customerEmail').value.trim();
+                const address = document.getElementById('customerAddress').value.trim();
+                const notes = document.getElementById('customerNotes').value.trim();
+
+                if (!name) {
+                    showMessage('Please enter customer name.', 'bg-red-100 text-red-700');
+                    return;
+                }
+
+                const customersRef = getTailoringCustomersRef();
+                if (!customersRef) return;
+
+                try {
+                    await addDoc(customersRef, {
+                        name,
+                        phone,
+                        email,
+                        address,
+                        notes,
+                        createdAt: new Date(),
+                        totalOrders: 0,
+                        totalSpent: 0
+                    });
+
+                    document.getElementById('customerForm').reset();
+                    showMessage('Customer added successfully!', 'bg-green-100 text-green-700');
+                    this.loadCustomers();
+                } catch (error) {
+                    console.error("Error adding customer:", error);
+                    showMessage('Failed to add customer. Check console.', 'bg-red-100 text-red-700');
+                }
+            }
+
+            static async addOrder() {
+                if (!isDatabaseReady) {
+                    showMessage('Database is offline. Cannot save order.', 'bg-yellow-100 text-yellow-700');
+                    return;
+                }
+
+                const customerId = document.getElementById('orderCustomer').value;
+                const garmentType = document.getElementById('garmentType').value;
+                const fabricType = document.getElementById('orderFabric').value;
+                const measurements = document.getElementById('measurements').value.trim();
+                const price = parseFloat(document.getElementById('orderPrice').value) || 0;
+                const advancePayment = parseFloat(document.getElementById('advancePayment').value) || 0;
+                const dueDate = document.getElementById('orderDueDate').value;
+                const notes = document.getElementById('orderNotes').value.trim();
+
+                if (!customerId || !garmentType || price <= 0) {
+                    showMessage('Please fill all required fields with valid data.', 'bg-red-100 text-red-700');
+                    return;
+                }
+
+                const ordersRef = getTailoringOrdersRef();
+                if (!ordersRef) return;
+
+                try {
+                    await addDoc(ordersRef, {
+                        customerId,
+                        customerName: document.getElementById('orderCustomer').options[document.getElementById('orderCustomer').selectedIndex].text,
+                        garmentType,
+                        fabricType,
+                        measurements,
+                        price,
+                        advancePayment,
+                        balance: price - advancePayment,
+                        dueDate,
+                        notes,
+                        status: 'pending',
+                        createdAt: new Date(),
+                        orderDate: todayDocumentId
+                    });
+
+                    document.getElementById('orderForm').reset();
+                    showMessage('Order added successfully!', 'bg-green-100 text-green-700');
+                    this.loadOrders();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error adding order:", error);
+                    showMessage('Failed to add order. Check console.', 'bg-red-100 text-red-700');
+                }
+            }
+
+            static async updateOrderStatus(orderId, newStatus) {
+                if (!isDatabaseReady) {
+                    showMessage('Database is offline. Cannot update order.', 'bg-yellow-100 text-yellow-700');
+                    return;
+                }
+
+                const ordersRef = getTailoringOrdersRef();
+                if (!ordersRef) return;
+
+                try {
+                    const orderDoc = doc(db, ordersRef.path, orderId);
+                    await updateDoc(orderDoc, {
+                        status: newStatus,
+                        updatedAt: new Date()
+                    });
+
+                    showMessage('Order status updated successfully!', 'bg-green-100 text-green-700');
+                    this.loadOrders();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error updating order:", error);
+                    showMessage('Failed to update order. Check console.', 'bg-red-100 text-red-700');
+                }
+            }
+
+            static async addFabric() {
+                if (!isDatabaseReady) {
+                    showMessage('Database is offline. Cannot save fabric.', 'bg-yellow-100 text-yellow-700');
+                    return;
+                }
+
+                const name = document.getElementById('fabricName').value.trim();
+                const type = document.getElementById('fabricType').value;
+                const color = document.getElementById('fabricColor').value.trim();
+                const quantity = parseFloat(document.getElementById('fabricQuantity').value) || 0;
+                const costPerMeter = parseFloat(document.getElementById('fabricCost').value) || 0;
+                const supplier = document.getElementById('fabricSupplier').value.trim();
+
+                if (!name || quantity <= 0 || costPerMeter <= 0) {
+                    showMessage('Please fill all required fields with valid data.', 'bg-red-100 text-red-700');
+                    return;
+                }
+
+                const fabricsRef = getTailoringFabricsRef();
+                if (!fabricsRef) return;
+
+                try {
+                    await addDoc(fabricsRef, {
+                        name,
+                        type,
+                        color,
+                        quantity,
+                        costPerMeter,
+                        totalCost: quantity * costPerMeter,
+                        supplier,
+                        createdAt: new Date()
+                    });
+
+                    document.getElementById('fabricForm').reset();
+                    showMessage('Fabric added to inventory!', 'bg-green-100 text-green-700');
+                    this.loadFabrics();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error adding fabric:", error);
+                    showMessage('Failed to add fabric. Check console.', 'bg-red-100 text-red-700');
+                }
+            }
+
+            static async addExpense() {
+                if (!isDatabaseReady) {
+                    showMessage('Database is offline. Cannot save expense.', 'bg-yellow-100 text-yellow-700');
+                    return;
+                }
+
+                const category = document.getElementById('tailoringExpenseCategory').value;
+                const amount = parseFloat(document.getElementById('tailoringExpenseAmount').value) || 0;
+                const description = document.getElementById('tailoringExpenseDescription').value.trim();
+
+                if (amount <= 0 || !description) {
+                    showMessage('Please enter valid amount and description.', 'bg-red-100 text-red-700');
+                    return;
+                }
+
+                const expensesRef = getTailoringExpensesRef();
+                if (!expensesRef) return;
+
+                try {
+                    await addDoc(expensesRef, {
+                        category,
+                        amount,
+                        description,
+                        date: todayDocumentId,
+                        createdAt: new Date()
+                    });
+
+                    document.getElementById('tailoringExpenseForm').reset();
+                    showMessage('Expense recorded successfully!', 'bg-green-100 text-green-700');
+                    this.loadExpenses();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error adding tailoring expense:", error);
+                    showMessage('Failed to record expense. Check console.', 'bg-red-100 text-red-700');
+                }
+            }
+
+            static async loadCustomers() {
+                const customersRef = getTailoringCustomersRef();
+                if (!customersRef) return;
+
+                try {
+                    const q = query(customersRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    const customersList = document.getElementById('customersList');
+                    const customerSelect = document.getElementById('orderCustomer');
+                    
+                    customersList.innerHTML = '';
+                    customerSelect.innerHTML = '<option value="">Select Customer</option>';
+                    
+                    if (querySnapshot.empty) {
+                        customersList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No customers found</div>';
+                    } else {
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const customer = document.createElement('div');
+                            customer.className = 'p-3 border-b border-gray-200';
+                            
+                            customer.innerHTML = `
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 class="font-bold text-gray-800">${data.name}</h4>
+                                        <p class="text-sm text-gray-600">${data.phone || 'No phone'}</p>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-gray-600 mb-2">${data.address || 'No address'}</p>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-green-600 font-medium">Total Spent: ${formatCurrency(data.totalSpent || 0)}</span>
+                                </div>
+                            `;
+                            
+                            customersList.appendChild(customer);
+                            
+                            // Add to customer select dropdown
+                            const option = document.createElement('option');
+                            option.value = doc.id;
+                            option.textContent = `${data.name} (${data.phone || 'No phone'})`;
+                            customerSelect.appendChild(option);
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading customers:", error);
+                }
+            }
+
+            static async loadOrders() {
+                const ordersRef = getTailoringOrdersRef();
+                if (!ordersRef) return;
+
+                try {
+                    const q = query(ordersRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    const ordersList = document.getElementById('ordersList');
+                    ordersList.innerHTML = '';
+                    
+                    if (querySnapshot.empty) {
+                        ordersList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No orders found</div>';
+                    } else {
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const order = document.createElement('div');
+                            order.className = 'p-3 border-b border-gray-200';
+                            
+                            let statusClass = 'status-pending';
+                            if (data.status === 'in-progress') statusClass = 'status-in-progress';
+                            else if (data.status === 'completed') statusClass = 'status-completed';
+                            else if (data.status === 'delivered') statusClass = 'status-delivered';
+                            
+                            order.innerHTML = `
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <h4 class="font-bold text-gray-800">${data.garmentType}</h4>
+                                        <p class="text-sm text-gray-600">Customer: ${data.customerName}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="status-badge ${statusClass}">${data.status}</span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                                    <div>
+                                        <span class="text-gray-600">Fabric:</span>
+                                        <span class="font-medium">${data.fabricType}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-600">Due:</span>
+                                        <span class="font-medium">${data.dueDate || 'Not set'}</span>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2 text-sm mb-3">
+                                    <div>
+                                        <span class="text-gray-600">Price:</span>
+                                        <span class="font-medium text-green-600">${formatCurrency(data.price)}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-600">Advance:</span>
+                                        <span class="font-medium text-blue-600">${formatCurrency(data.advancePayment)}</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-600">Balance:</span>
+                                        <span class="font-medium text-red-600">${formatCurrency(data.balance)}</span>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    ${data.status !== 'in-progress' ? `<button onclick="TailoringManager.updateOrderStatus('${doc.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>` : ''}
+                                    ${data.status === 'in-progress' ? `<button onclick="TailoringManager.updateOrderStatus('${doc.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>` : ''}
+                                    ${data.status === 'completed' ? `<button onclick="TailoringManager.updateOrderStatus('${doc.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>` : ''}
+                                </div>
+                            `;
+                            
+                            ordersList.appendChild(order);
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading orders:", error);
+                }
+            }
+
+            static async loadFabrics() {
+                const fabricsRef = getTailoringFabricsRef();
+                if (!fabricsRef) return;
+
+                try {
+                    const q = query(fabricsRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    const fabricsList = document.getElementById('fabricsList');
+                    const fabricSelect = document.getElementById('orderFabric');
+                    
+                    fabricsList.innerHTML = '';
+                    fabricSelect.innerHTML = '<option value="">Select Fabric</option>';
+                    
+                    if (querySnapshot.empty) {
+                        fabricsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No fabrics in inventory</div>';
+                    } else {
+                        let totalInventoryValue = 0;
+                        
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const fabric = document.createElement('div');
+                            fabric.className = 'p-3 border-b border-gray-200';
+                            
+                            fabric.innerHTML = `
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-medium">${data.name}</span>
+                                        <span class="text-sm text-gray-500 ml-2">${data.type} • ${data.color}</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-gray-800 font-bold">${data.quantity}m</div>
+                                        <div class="text-sm text-gray-500">${formatCurrency(data.totalCost)}</div>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">Supplier: ${data.supplier || 'N/A'}</div>
+                            `;
+                            
+                            fabricsList.appendChild(fabric);
+                            totalInventoryValue += data.totalCost;
+                            
+                            // Add to fabric select dropdown
+                            const option = document.createElement('option');
+                            option.value = data.name;
+                            option.textContent = `${data.name} (${data.type}, ${data.color}) - ${formatCurrency(data.costPerMeter)}/m`;
+                            fabricSelect.appendChild(option);
+                        });
+                        
+                        document.getElementById('totalInventoryValue').textContent = formatCurrency(totalInventoryValue);
+                    }
+                } catch (error) {
+                    console.error("Error loading fabrics:", error);
+                }
+            }
+
+            static async loadExpenses() {
+                const expensesRef = getTailoringExpensesRef();
+                if (!expensesRef) return;
+
+                try {
+                    const q = query(expensesRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    const expensesList = document.getElementById('tailoringExpensesList');
+                    expensesList.innerHTML = '';
+                    
+                    let totalExpenses = 0;
+                    
+                    if (querySnapshot.empty) {
+                        expensesList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expenses recorded</div>';
+                    } else {
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            const expense = document.createElement('div');
+                            expense.className = 'p-3 border-b border-gray-200';
+                            
+                            expense.innerHTML = `
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-medium">${data.category}</span>
+                                        <div class="text-sm text-gray-600">${data.description}</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-red-600 font-bold">${formatCurrency(data.amount)}</div>
+                                        <div class="text-xs text-gray-500">${new Date(data.createdAt?.toDate()).toLocaleDateString()}</div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            expensesList.appendChild(expense);
+                            totalExpenses += data.amount;
+                        });
+                    }
+                    
+                    document.getElementById('totalTailoringExpenses').textContent = formatCurrency(totalExpenses);
+                } catch (error) {
+                    console.error("Error loading tailoring expenses:", error);
+                }
+            }
+
+            static async updateDashboard() {
+                try {
+                    const ordersRef = getTailoringOrdersRef();
+                    const expensesRef = getTailoringExpensesRef();
+                    const fabricsRef = getTailoringFabricsRef();
+                    
+                    if (!ordersRef || !expensesRef || !fabricsRef) return;
+
+                    // Calculate orders summary
+                    const ordersQuery = query(ordersRef);
+                    const ordersSnapshot = await getDocs(ordersQuery);
+                    
+                    let totalRevenue = 0;
+                    let totalPending = 0;
+                    let totalInProgress = 0;
+                    let totalCompleted = 0;
+                    let totalDelivered = 0;
+                    let outstandingBalance = 0;
+                    
+                    ordersSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        totalRevenue += data.price;
+                        outstandingBalance += data.balance;
+                        
+                        if (data.status === 'pending') totalPending++;
+                        else if (data.status === 'in-progress') totalInProgress++;
+                        else if (data.status === 'completed') totalCompleted++;
+                        else if (data.status === 'delivered') totalDelivered++;
+                    });
+
+                    // Calculate expenses
+                    const expensesQuery = query(expensesRef);
+                    const expensesSnapshot = await getDocs(expensesQuery);
+                    let totalExpenses = 0;
+                    expensesSnapshot.forEach(doc => {
+                        totalExpenses += doc.data().amount;
+                    });
+
+                    // Calculate fabric inventory value
+                    const fabricsQuery = query(fabricsRef);
+                    const fabricsSnapshot = await getDocs(fabricsQuery);
+                    let totalInventoryValue = 0;
+                    fabricsSnapshot.forEach(doc => {
+                        totalInventoryValue += doc.data().totalCost;
+                    });
+
+                    // Update dashboard displays
+                    document.getElementById('totalTailoringRevenue').textContent = formatCurrency(totalRevenue);
+                    document.getElementById('totalTailoringExpensesDisplay').textContent = formatCurrency(totalExpenses);
+                    document.getElementById('tailoringNetProfit').textContent = formatCurrency(totalRevenue - totalExpenses);
+                    document.getElementById('outstandingBalance').textContent = formatCurrency(outstandingBalance);
+                    document.getElementById('pendingOrders').textContent = totalPending;
+                    document.getElementById('inProgressOrders').textContent = totalInProgress;
+                    document.getElementById('completedOrders').textContent = totalCompleted;
+                    document.getElementById('totalInventoryValueDisplay').textContent = formatCurrency(totalInventoryValue);
+
+                } catch (error) {
+                    console.error("Error updating tailoring dashboard:", error);
+                }
+            }
+
+            static async loadDashboard() {
+                await this.loadCustomers();
+                await this.loadOrders();
+                await this.loadFabrics();
+                await this.loadExpenses();
+                await this.updateDashboard();
+            }
+
+            static initializeEventListeners() {
+                // Add event listeners for tailoring shop buttons
+                const addCustomerBtn = document.getElementById('addCustomerBtn');
+                const addOrderBtn = document.getElementById('addOrderBtn');
+                const addFabricBtn = document.getElementById('addFabricBtn');
+                const addTailoringExpenseBtn = document.getElementById('addTailoringExpenseBtn');
+
+                if (addCustomerBtn) {
+                    addCustomerBtn.addEventListener('click', () => this.addCustomer());
+                }
+                if (addOrderBtn) {
+                    addOrderBtn.addEventListener('click', () => this.addOrder());
+                }
+                if (addFabricBtn) {
+                    addFabricBtn.addEventListener('click', () => this.addFabric());
+                }
+                if (addTailoringExpenseBtn) {
+                    addTailoringExpenseBtn.addEventListener('click', () => this.addExpense());
+                }
+            }
+        }
+
+        // Initialize the application
+        const initTailoringApp = async () => {
+            try {
+                const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                todayDocumentId = getTodayDateId();
+                document.getElementById('current-date').textContent = todayDocumentId;
+
+                // Sign in anonymously
+                await signInAnonymously(auth);
+                console.log("Signed in anonymously successfully.");
+                isDatabaseReady = true;
+                
+                document.getElementById('status-message').textContent = 'Tailoring shop ready!';
+                
+                // Initialize tailoring manager
+                TailoringManager.initializeEventListeners();
+                TailoringManager.loadDashboard();
+                
+            } catch (error) {
+                console.error("Failed to initialize tailoring app:", error);
+                document.getElementById('status-message').textContent = 'Error initializing tailoring shop. Check console.';
+            }
+        };
+
+        // Make TailoringManager available globally
+        window.TailoringManager = TailoringManager;
+
+        // Initialize when page loads
+        window.onload = initTailoringApp;
     </script>
-    
-    <script src="tailoring-shop.js"></script>
 </body>
 </html>
