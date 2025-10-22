@@ -91,6 +91,18 @@
         .search-item:hover {
             background-color: #f9fafb;
         }
+        .order-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #e5e7eb;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .order-card.pending { border-left-color: #f59e0b; }
+        .order-card.in-progress { border-left-color: #3b82f6; }
+        .order-card.completed { border-left-color: #10b981; }
+        .order-card.delivered { border-left-color: #8b5cf6; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -123,13 +135,13 @@
                     <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
                 </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="clients">
-                    <i class="fas fa-users mr-2"></i> Clients
+                    <i class="fas fa-users mr-2"></i> Clients <span id="clientsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="orders">
-                    <i class="fas fa-clipboard-list mr-2"></i> Orders
+                    <i class="fas fa-clipboard-list mr-2"></i> Orders <span id="ordersCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
-                    <i class="fas fa-tshirt mr-2"></i> Designs
+                    <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="inventory">
                     <i class="fas fa-boxes mr-2"></i> Inventory
@@ -187,7 +199,7 @@
 
                     <!-- Quick Actions -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <button class="bg-blue-600 text-white p-4 rounded-xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center" onclick="switchTab('orders')">
+                        <button class="bg-blue-600 text-white p-4 rounded-xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center" onclick="openOrderModal()">
                             <i class="fas fa-plus-circle mr-2"></i> New Order
                         </button>
                         <button class="bg-green-600 text-white p-4 rounded-xl shadow-lg hover:bg-green-700 transition flex items-center justify-center" onclick="openClientModal()">
@@ -234,8 +246,8 @@
                     </div>
 
                     <!-- Clients List -->
-                    <div id="clientsList" class="space-y-4">
-                        <div class="text-gray-500 italic text-center py-8">No clients found</div>
+                    <div id="clientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>
                     </div>
                 </div>
             </div>
@@ -355,7 +367,7 @@
         <div class="modal-content w-full max-w-2xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-user mr-3"></i> Add New Client
+                    <i class="fas fa-user mr-3"></i> <span id="clientModalTitle">Add New Client</span>
                 </h2>
                 <button onclick="closeClientModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
                     <i class="fas fa-times"></i>
@@ -363,6 +375,7 @@
             </div>
             <div class="p-6">
                 <form id="clientForm" class="space-y-4">
+                    <input type="hidden" id="clientId">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-sm font-medium text-gray-700">Full Name *</label>
@@ -382,9 +395,14 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                        Save Client
-                    </button>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Client
+                        </button>
+                        <button type="button" id="deleteClientBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -395,7 +413,7 @@
         <div class="modal-content w-full max-w-4xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-plus mr-3"></i> New Order
+                    <i class="fas fa-plus mr-3"></i> <span id="orderModalTitle">New Order</span>
                 </h2>
                 <button onclick="closeOrderModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
                     <i class="fas fa-times"></i>
@@ -403,6 +421,7 @@
             </div>
             <div class="p-6">
                 <form id="orderForm" class="space-y-6">
+                    <input type="hidden" id="orderId">
                     <!-- Client Selection -->
                     <div class="bg-indigo-50 p-4 rounded-lg">
                         <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
@@ -449,6 +468,7 @@
                                     <option value="pending">Pending</option>
                                     <option value="in-progress">In Progress</option>
                                     <option value="completed">Completed</option>
+                                    <option value="delivered">Delivered</option>
                                 </select>
                             </div>
                         </div>
@@ -471,9 +491,14 @@
                         <textarea id="orderNotes" class="input-style" rows="3" placeholder="Additional notes..."></textarea>
                     </div>
 
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                        Create Order
-                    </button>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Order
+                        </button>
+                        <button type="button" id="deleteOrderBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -484,7 +509,7 @@
         <div class="modal-content w-full max-w-2xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-tshirt mr-3"></i> Add New Design
+                    <i class="fas fa-tshirt mr-3"></i> <span id="productModalTitle">Add New Design</span>
                 </h2>
                 <button onclick="closeProductModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
                     <i class="fas fa-times"></i>
@@ -492,6 +517,7 @@
             </div>
             <div class="p-6">
                 <form id="productForm" class="space-y-4">
+                    <input type="hidden" id="productId">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="text-sm font-medium text-gray-700">Design Name *</label>
@@ -518,9 +544,27 @@
                         <textarea id="productDescription" class="input-style" rows="3"></textarea>
                     </div>
 
-                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                        Save Design
-                    </button>
+                    <!-- Required Measurements -->
+                    <div class="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> Required Measurements
+                        </h3>
+                        <div id="productMeasurementsContainer" class="space-y-3">
+                            <!-- Measurements will be added here -->
+                        </div>
+                        <button type="button" onclick="addProductMeasurementField()" class="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition">
+                            <i class="fas fa-plus mr-2"></i> Add Measurement Field
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Design
+                        </button>
+                        <button type="button" id="deleteProductBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -539,6 +583,7 @@
             </div>
             <div class="p-6">
                 <form id="expenseForm" class="space-y-4">
+                    <input type="hidden" id="expenseId">
                     <div>
                         <label class="text-sm font-medium text-gray-700">Category *</label>
                         <select id="expenseCategory" class="input-style" required>
@@ -559,9 +604,14 @@
                         <textarea id="expenseDescription" class="input-style" rows="3" required></textarea>
                     </div>
 
-                    <button type="submit" class="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
-                        Record Expense
-                    </button>
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Expense
+                        </button>
+                        <button type="button" id="deleteExpenseBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -640,30 +690,61 @@
                     
                     this.renderClients();
                     this.populateClientDropdown();
+                    this.updateTabCounts();
                 } catch (error) {
                     console.error("Error loading clients:", error);
                     showNotification('Error loading clients', 'error');
                 }
             }
 
-            static async addClient(clientData) {
+            static async saveClient(clientData, clientId = null) {
                 const clientsRef = getCollectionRef('tailoring_clients');
                 if (!clientsRef) return;
 
                 try {
-                    await addDoc(clientsRef, {
-                        ...clientData,
-                        createdAt: new Date(),
-                        totalOrders: 0,
-                        totalSpent: 0
-                    });
+                    if (clientId) {
+                        // Update existing client
+                        const clientDoc = doc(db, clientsRef.path, clientId);
+                        await updateDoc(clientDoc, {
+                            ...clientData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Client updated successfully!', 'success');
+                    } else {
+                        // Add new client
+                        await addDoc(clientsRef, {
+                            ...clientData,
+                            createdAt: new Date(),
+                            totalOrders: 0,
+                            totalSpent: 0
+                        });
+                        showNotification('Client added successfully!', 'success');
+                    }
                     
-                    showNotification('Client added successfully!', 'success');
                     this.loadClients();
                     closeClientModal();
                 } catch (error) {
-                    console.error("Error adding client:", error);
-                    showNotification('Failed to add client', 'error');
+                    console.error("Error saving client:", error);
+                    showNotification('Failed to save client', 'error');
+                }
+            }
+
+            static async deleteClient(clientId) {
+                if (!confirm('Are you sure you want to delete this client?')) return;
+
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    const clientDoc = doc(db, clientsRef.path, clientId);
+                    await deleteDoc(clientDoc);
+                    
+                    showNotification('Client deleted successfully!', 'success');
+                    this.loadClients();
+                    closeClientModal();
+                } catch (error) {
+                    console.error("Error deleting client:", error);
+                    showNotification('Failed to delete client', 'error');
                 }
             }
 
@@ -677,12 +758,12 @@
                 );
 
                 if (filteredClients.length === 0) {
-                    clientsList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No clients found</div>';
+                    clientsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>';
                     return;
                 }
 
                 clientsList.innerHTML = filteredClients.map(client => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition" onclick="editClient('${client.id}')">
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
                                 <h3 class="text-lg font-bold text-gray-800">${client.name}</h3>
@@ -727,31 +808,64 @@
                     
                     this.renderOrders();
                     this.updateDashboard();
+                    this.updateTabCounts();
                 } catch (error) {
                     console.error("Error loading orders:", error);
                     showNotification('Error loading orders', 'error');
                 }
             }
 
-            static async addOrder(orderData) {
+            static async saveOrder(orderData, orderId = null) {
                 const ordersRef = getCollectionRef('tailoring_orders');
                 if (!ordersRef) return;
 
                 try {
                     const client = clients.find(c => c.id === orderData.clientId);
-                    await addDoc(ordersRef, {
-                        ...orderData,
-                        clientName: client?.name || 'Unknown Client',
-                        createdAt: new Date(),
-                        orderDate: getTodayDate()
-                    });
                     
-                    showNotification('Order created successfully!', 'success');
+                    if (orderId) {
+                        // Update existing order
+                        const orderDoc = doc(db, ordersRef.path, orderId);
+                        await updateDoc(orderDoc, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            updatedAt: new Date()
+                        });
+                        showNotification('Order updated successfully!', 'success');
+                    } else {
+                        // Add new order
+                        await addDoc(ordersRef, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            createdAt: new Date(),
+                            orderDate: getTodayDate()
+                        });
+                        showNotification('Order created successfully!', 'success');
+                    }
+                    
                     this.loadOrders();
                     closeOrderModal();
                 } catch (error) {
-                    console.error("Error adding order:", error);
-                    showNotification('Failed to create order', 'error');
+                    console.error("Error saving order:", error);
+                    showNotification('Failed to save order', 'error');
+                }
+            }
+
+            static async deleteOrder(orderId) {
+                if (!confirm('Are you sure you want to delete this order?')) return;
+
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const orderDoc = doc(db, ordersRef.path, orderId);
+                    await deleteDoc(orderDoc);
+                    
+                    showNotification('Order deleted successfully!', 'success');
+                    this.loadOrders();
+                    closeOrderModal();
+                } catch (error) {
+                    console.error("Error deleting order:", error);
+                    showNotification('Failed to delete order', 'error');
                 }
             }
 
@@ -783,15 +897,11 @@
                 }
 
                 ordersList.innerHTML = orders.map(order => {
-                    const statusClass = {
-                        'pending': 'status-pending',
-                        'in-progress': 'status-in-progress',
-                        'completed': 'status-completed',
-                        'delivered': 'status-delivered'
-                    }[order.status] || 'status-pending';
+                    const statusClass = order.status || 'pending';
+                    const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
 
                     return `
-                        <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer" onclick="editOrder('${order.id}')">
                             <div class="flex justify-between items-start mb-3">
                                 <div class="flex-1">
                                     <h3 class="text-lg font-bold text-gray-800">${order.garmentType} - ${order.orderType}</h3>
@@ -799,7 +909,7 @@
                                     <p class="text-sm text-gray-500">${order.orderDate || ''}</p>
                                 </div>
                                 <div class="text-right">
-                                    <span class="status-badge ${statusClass}">${order.status}</span>
+                                    <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
                                     <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
                                 </div>
                             </div>
@@ -808,12 +918,10 @@
                             ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
                             
                             <div class="flex gap-2 mt-3">
-                                ${order.status !== 'in-progress' ? 
-                                    `<button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>` : ''}
-                                ${order.status === 'in-progress' ? 
-                                    `<button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>` : ''}
-                                ${order.status === 'completed' ? 
-                                    `<button onclick="TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>` : ''}
+                                <button onclick="event.stopPropagation(); TailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Pending</button>
+                                <button onclick="event.stopPropagation(); TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">In Progress</button>
+                                <button onclick="event.stopPropagation(); TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                <button onclick="event.stopPropagation(); TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
                             </div>
                         </div>
                     `;
@@ -835,28 +943,59 @@
                     });
                     
                     this.renderProducts();
+                    this.updateTabCounts();
                 } catch (error) {
                     console.error("Error loading products:", error);
                     showNotification('Error loading designs', 'error');
                 }
             }
 
-            static async addProduct(productData) {
+            static async saveProduct(productData, productId = null) {
                 const productsRef = getCollectionRef('tailoring_products');
                 if (!productsRef) return;
 
                 try {
-                    await addDoc(productsRef, {
-                        ...productData,
-                        createdAt: new Date()
-                    });
+                    if (productId) {
+                        // Update existing product
+                        const productDoc = doc(db, productsRef.path, productId);
+                        await updateDoc(productDoc, {
+                            ...productData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Design updated successfully!', 'success');
+                    } else {
+                        // Add new product
+                        await addDoc(productsRef, {
+                            ...productData,
+                            createdAt: new Date()
+                        });
+                        showNotification('Design added successfully!', 'success');
+                    }
                     
-                    showNotification('Design added successfully!', 'success');
                     this.loadProducts();
                     closeProductModal();
                 } catch (error) {
-                    console.error("Error adding product:", error);
-                    showNotification('Failed to add design', 'error');
+                    console.error("Error saving product:", error);
+                    showNotification('Failed to save design', 'error');
+                }
+            }
+
+            static async deleteProduct(productId) {
+                if (!confirm('Are you sure you want to delete this design?')) return;
+
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    const productDoc = doc(db, productsRef.path, productId);
+                    await deleteDoc(productDoc);
+                    
+                    showNotification('Design deleted successfully!', 'success');
+                    this.loadProducts();
+                    closeProductModal();
+                } catch (error) {
+                    console.error("Error deleting product:", error);
+                    showNotification('Failed to delete design', 'error');
                 }
             }
 
@@ -869,7 +1008,7 @@
                 }
 
                 productsList.innerHTML = products.map(product => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm product-card">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition" onclick="editProduct('${product.id}')">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="text-lg font-bold text-gray-800">${product.name}</h3>
                             <div class="text-right">
@@ -878,6 +1017,19 @@
                             </div>
                         </div>
                         ${product.description ? `<p class="text-sm text-gray-600 mb-3">${product.description}</p>` : ''}
+                        ${product.requiredMeasurements && product.requiredMeasurements.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
+                                <div class="flex flex-wrap gap-1">
+                                    ${product.requiredMeasurements.slice(0, 3).map(measurement => `
+                                        <span class="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">${measurement}</span>
+                                    `).join('')}
+                                    ${product.requiredMeasurements.length > 3 ? `
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">+${product.requiredMeasurements.length - 3} more</span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
                         <div class="text-xs text-gray-400">
                             Added: ${product.createdAt?.toDate ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}
                         </div>
@@ -907,23 +1059,53 @@
                 }
             }
 
-            static async addExpense(expenseData) {
+            static async saveExpense(expenseData, expenseId = null) {
                 const expensesRef = getCollectionRef('tailoring_expenses');
                 if (!expensesRef) return;
 
                 try {
-                    await addDoc(expensesRef, {
-                        ...expenseData,
-                        createdAt: new Date(),
-                        date: getTodayDate()
-                    });
+                    if (expenseId) {
+                        // Update existing expense
+                        const expenseDoc = doc(db, expensesRef.path, expenseId);
+                        await updateDoc(expenseDoc, {
+                            ...expenseData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Expense updated successfully!', 'success');
+                    } else {
+                        // Add new expense
+                        await addDoc(expensesRef, {
+                            ...expenseData,
+                            createdAt: new Date(),
+                            date: getTodayDate()
+                        });
+                        showNotification('Expense recorded successfully!', 'success');
+                    }
                     
-                    showNotification('Expense recorded successfully!', 'success');
                     this.loadExpenses();
                     closeExpenseModal();
                 } catch (error) {
-                    console.error("Error adding expense:", error);
-                    showNotification('Failed to record expense', 'error');
+                    console.error("Error saving expense:", error);
+                    showNotification('Failed to save expense', 'error');
+                }
+            }
+
+            static async deleteExpense(expenseId) {
+                if (!confirm('Are you sure you want to delete this expense?')) return;
+
+                const expensesRef = getCollectionRef('tailoring_expenses');
+                if (!expensesRef) return;
+
+                try {
+                    const expenseDoc = doc(db, expensesRef.path, expenseId);
+                    await deleteDoc(expenseDoc);
+                    
+                    showNotification('Expense deleted successfully!', 'success');
+                    this.loadExpenses();
+                    closeExpenseModal();
+                } catch (error) {
+                    console.error("Error deleting expense:", error);
+                    showNotification('Failed to delete expense', 'error');
                 }
             }
 
@@ -936,7 +1118,7 @@
                 }
 
                 expensesList.innerHTML = expenses.slice(0, 10).map(expense => `
-                    <div class="bg-white p-3 rounded-lg border border-red-100">
+                    <div class="bg-white p-3 rounded-lg border border-red-100 cursor-pointer hover:shadow-md transition" onclick="editExpense('${expense.id}')">
                         <div class="flex justify-between items-center">
                             <div>
                                 <span class="font-medium text-gray-800">${expense.category}</span>
@@ -987,20 +1169,22 @@
                 };
 
                 statusBreakdown.innerHTML = Object.entries(statusCounts).map(([status, count]) => {
-                    const statusClass = {
-                        'pending': 'status-pending',
-                        'in-progress': 'status-in-progress',
-                        'completed': 'status-completed',
-                        'delivered': 'status-delivered'
-                    }[status] || 'status-pending';
+                    const statusClass = `status-${status}`;
+                    const statusText = status.replace('-', ' ');
 
                     return `
                         <div class="p-4 rounded-xl text-center ${statusClass}">
                             <div class="text-2xl font-bold">${count}</div>
-                            <div class="text-sm font-medium capitalize">${status.replace('-', ' ')}</div>
+                            <div class="text-sm font-medium capitalize">${statusText}</div>
                         </div>
                     `;
                 }).join('');
+            }
+
+            static updateTabCounts() {
+                document.getElementById('clientsCount').textContent = clients.length;
+                document.getElementById('ordersCount').textContent = orders.length;
+                document.getElementById('productsCount').textContent = products.length;
             }
 
             // Export functions
@@ -1041,12 +1225,13 @@
 
             static exportProducts() {
                 const csvContent = [
-                    ['Name', 'Category', 'Price', 'Description'],
+                    ['Name', 'Category', 'Price', 'Description', 'Required Measurements'],
                     ...products.map(product => [
                         product.name,
                         product.category,
                         product.price,
-                        product.description || ''
+                        product.description || '',
+                        (product.requiredMeasurements || []).join('; ')
                     ])
                 ].map(row => row.join(',')).join('\n');
 
@@ -1108,6 +1293,7 @@
             // Client form
             document.getElementById('clientForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const clientId = document.getElementById('clientId').value;
                 const formData = {
                     name: document.getElementById('clientName').value.trim(),
                     phone: document.getElementById('clientPhone').value.trim(),
@@ -1120,12 +1306,13 @@
                     return;
                 }
 
-                await TailoringManager.addClient(formData);
+                await TailoringManager.saveClient(formData, clientId || null);
             });
 
             // Order form
             document.getElementById('orderForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const orderId = document.getElementById('orderId').value;
                 const formData = {
                     clientId: document.getElementById('orderClientId').value,
                     orderType: document.getElementById('orderType').value,
@@ -1141,17 +1328,23 @@
                     return;
                 }
 
-                await TailoringManager.addOrder(formData);
+                await TailoringManager.saveOrder(formData, orderId || null);
             });
 
             // Product form
             document.getElementById('productForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const productId = document.getElementById('productId').value;
+                const measurements = Array.from(document.querySelectorAll('#productMeasurementsContainer input'))
+                    .map(input => input.value.trim())
+                    .filter(value => value !== '');
+                
                 const formData = {
                     name: document.getElementById('productName').value.trim(),
                     category: document.getElementById('productCategory').value,
                     price: parseFloat(document.getElementById('productPrice').value) || 0,
-                    description: document.getElementById('productDescription').value.trim()
+                    description: document.getElementById('productDescription').value.trim(),
+                    requiredMeasurements: measurements
                 };
 
                 if (!formData.name || !formData.category || formData.price <= 0) {
@@ -1159,12 +1352,13 @@
                     return;
                 }
 
-                await TailoringManager.addProduct(formData);
+                await TailoringManager.saveProduct(formData, productId || null);
             });
 
             // Expense form
             document.getElementById('expenseForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const expenseId = document.getElementById('expenseId').value;
                 const formData = {
                     category: document.getElementById('expenseCategory').value,
                     amount: parseFloat(document.getElementById('expenseAmount').value) || 0,
@@ -1176,12 +1370,33 @@
                     return;
                 }
 
-                await TailoringManager.addExpense(formData);
+                await TailoringManager.saveExpense(formData, expenseId || null);
             });
 
             // Search functionality
             document.getElementById('clientSearch').addEventListener('input', () => {
                 TailoringManager.renderClients();
+            });
+
+            // Delete buttons
+            document.getElementById('deleteClientBtn').addEventListener('click', () => {
+                const clientId = document.getElementById('clientId').value;
+                if (clientId) TailoringManager.deleteClient(clientId);
+            });
+
+            document.getElementById('deleteOrderBtn').addEventListener('click', () => {
+                const orderId = document.getElementById('orderId').value;
+                if (orderId) TailoringManager.deleteOrder(orderId);
+            });
+
+            document.getElementById('deleteProductBtn').addEventListener('click', () => {
+                const productId = document.getElementById('productId').value;
+                if (productId) TailoringManager.deleteProduct(productId);
+            });
+
+            document.getElementById('deleteExpenseBtn').addEventListener('click', () => {
+                const expenseId = document.getElementById('expenseId').value;
+                if (expenseId) TailoringManager.deleteExpense(expenseId);
             });
         }
 
@@ -1219,40 +1434,150 @@
         });
 
         // Modal management
-        function openClientModal() {
+        function openClientModal(clientId = null) {
+            document.getElementById('clientModalTitle').textContent = clientId ? 'Edit Client' : 'Add New Client';
+            document.getElementById('clientId').value = clientId || '';
+            document.getElementById('deleteClientBtn').classList.toggle('hidden', !clientId);
+            
+            if (clientId) {
+                const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+                if (client) {
+                    document.getElementById('clientName').value = client.name || '';
+                    document.getElementById('clientPhone').value = client.phone || '';
+                    document.getElementById('clientLocation').value = client.location || '';
+                    document.getElementById('clientNotes').value = client.notes || '';
+                }
+            } else {
+                document.getElementById('clientForm').reset();
+            }
+            
             document.getElementById('clientModal').classList.add('active');
-            document.getElementById('clientForm').reset();
         }
 
         function closeClientModal() {
             document.getElementById('clientModal').classList.remove('active');
         }
 
-        function openOrderModal() {
+        function openOrderModal(orderId = null) {
+            document.getElementById('orderModalTitle').textContent = orderId ? 'Edit Order' : 'New Order';
+            document.getElementById('orderId').value = orderId || '';
+            document.getElementById('deleteOrderBtn').classList.toggle('hidden', !orderId);
+            
+            if (orderId) {
+                const order = window.TailoringManager?.orders?.find(o => o.id === orderId);
+                if (order) {
+                    document.getElementById('orderClientId').value = order.clientId || '';
+                    document.getElementById('orderType').value = order.orderType || '';
+                    document.getElementById('garmentType').value = order.garmentType || '';
+                    document.getElementById('orderPrice').value = order.price || '';
+                    document.getElementById('orderStatus').value = order.status || 'pending';
+                    document.getElementById('orderMeasurements').value = order.measurements || '';
+                    document.getElementById('orderNotes').value = order.notes || '';
+                }
+            } else {
+                document.getElementById('orderForm').reset();
+            }
+            
             document.getElementById('orderModal').classList.add('active');
-            document.getElementById('orderForm').reset();
         }
 
         function closeOrderModal() {
             document.getElementById('orderModal').classList.remove('active');
         }
 
-        function openProductModal() {
+        function openProductModal(productId = null) {
+            document.getElementById('productModalTitle').textContent = productId ? 'Edit Design' : 'Add New Design';
+            document.getElementById('productId').value = productId || '';
+            document.getElementById('deleteProductBtn').classList.toggle('hidden', !productId);
+            
+            const container = document.getElementById('productMeasurementsContainer');
+            container.innerHTML = '';
+            
+            if (productId) {
+                const product = window.TailoringManager?.products?.find(p => p.id === productId);
+                if (product) {
+                    document.getElementById('productName').value = product.name || '';
+                    document.getElementById('productCategory').value = product.category || '';
+                    document.getElementById('productPrice').value = product.price || '';
+                    document.getElementById('productDescription').value = product.description || '';
+                    
+                    // Add measurement fields
+                    if (product.requiredMeasurements) {
+                        product.requiredMeasurements.forEach(measurement => {
+                            addProductMeasurementField(measurement);
+                        });
+                    }
+                }
+            } else {
+                document.getElementById('productForm').reset();
+                // Add one empty measurement field by default
+                addProductMeasurementField();
+            }
+            
             document.getElementById('productModal').classList.add('active');
-            document.getElementById('productForm').reset();
         }
 
         function closeProductModal() {
             document.getElementById('productModal').classList.remove('active');
         }
 
-        function openExpenseModal() {
+        function openExpenseModal(expenseId = null) {
+            document.getElementById('expenseId').value = expenseId || '';
+            document.getElementById('deleteExpenseBtn').classList.toggle('hidden', !expenseId);
+            
+            if (expenseId) {
+                const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+                if (expense) {
+                    document.getElementById('expenseCategory').value = expense.category || '';
+                    document.getElementById('expenseAmount').value = expense.amount || '';
+                    document.getElementById('expenseDescription').value = expense.description || '';
+                }
+            } else {
+                document.getElementById('expenseForm').reset();
+            }
+            
             document.getElementById('expenseModal').classList.add('active');
-            document.getElementById('expenseForm').reset();
         }
 
         function closeExpenseModal() {
             document.getElementById('expenseModal').classList.remove('active');
+        }
+
+        // Edit functions
+        function editClient(clientId) {
+            openClientModal(clientId);
+        }
+
+        function editOrder(orderId) {
+            openOrderModal(orderId);
+        }
+
+        function editProduct(productId) {
+            openProductModal(productId);
+        }
+
+        function editExpense(expenseId) {
+            openExpenseModal(expenseId);
+        }
+
+        // Product measurements
+        function addProductMeasurementField(value = '') {
+            const container = document.getElementById('productMeasurementsContainer');
+            const index = container.children.length;
+            const field = document.createElement('div');
+            field.className = 'flex space-x-2 items-center';
+            field.innerHTML = `
+                <input type="text" 
+                       value="${value}"
+                       placeholder="Measurement name (e.g., Chest, Waist)" 
+                       class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" 
+                        onclick="this.parentElement.remove()" 
+                        class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(field);
         }
 
         // Close modals when clicking outside
@@ -1297,6 +1622,7 @@
         }
 
         window.exportFinancialReport = exportFinancialReport;
+        window.addProductMeasurementField = addProductMeasurementField;
     </script>
 </body>
 </html>
