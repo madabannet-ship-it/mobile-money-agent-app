@@ -1107,9 +1107,14 @@
                                     ` : ''}
                                     ${order.status === 'in-progress' ? `
                                         <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
                                     ` : ''}
                                     ${order.status === 'completed' ? `
                                         <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
+                                    ` : ''}
+                                    ${order.status === 'delivered' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
                                     ` : ''}
                                 </div>
                                 <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
@@ -2001,9 +2006,22 @@
             document.getElementById('inventoryModal').classList.remove('active');
         }
 
-        // Edit functions
+        // Edit functions - FIXED: Now properly loads all data for editing
         function editClient(clientId) {
-            openClientModal(clientId);
+            const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+            if (client) {
+                document.getElementById('clientModalTitle').textContent = 'Edit Client';
+                document.getElementById('clientId').value = clientId;
+                document.getElementById('deleteClientBtn').classList.remove('hidden');
+                
+                // Load all client data into form fields
+                document.getElementById('clientName').value = client.name || '';
+                document.getElementById('clientPhone').value = client.phone || '';
+                document.getElementById('clientLocation').value = client.location || '';
+                document.getElementById('clientNotes').value = client.notes || '';
+                
+                document.getElementById('clientModal').classList.add('active');
+            }
         }
 
         function editOrder(orderId) {
@@ -2013,6 +2031,7 @@
                 document.getElementById('orderId').value = orderId;
                 document.getElementById('deleteOrderBtn').classList.remove('hidden');
                 
+                // Load all order data into form fields
                 document.getElementById('orderClientId').value = order.clientId || '';
                 document.getElementById('orderType').value = order.orderType || '';
                 document.getElementById('garmentType').value = order.garmentType || '';
@@ -2026,15 +2045,69 @@
         }
 
         function editProduct(productId) {
-            openProductModal(productId);
+            const product = window.TailoringManager?.products?.find(p => p.id === productId);
+            if (product) {
+                document.getElementById('productModalTitle').textContent = 'Edit Design';
+                document.getElementById('productId').value = productId;
+                document.getElementById('deleteProductBtn').classList.remove('hidden');
+                
+                // Load all product data into form fields
+                document.getElementById('productName').value = product.name || '';
+                document.getElementById('productCategory').value = product.category || '';
+                document.getElementById('productPrice').value = product.price || '';
+                document.getElementById('productDescription').value = product.description || '';
+                
+                // Clear and reload measurement fields
+                const container = document.getElementById('productMeasurementsContainer');
+                container.innerHTML = '';
+                
+                if (product.requiredMeasurements) {
+                    product.requiredMeasurements.forEach(measurement => {
+                        addProductMeasurementField(measurement);
+                    });
+                } else {
+                    addProductMeasurementField();
+                }
+                
+                document.getElementById('productModal').classList.add('active');
+            }
         }
 
         function editExpense(expenseId) {
-            openExpenseModal(expenseId);
+            const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+            if (expense) {
+                document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
+                document.getElementById('expenseId').value = expenseId;
+                document.getElementById('deleteExpenseBtn').classList.remove('hidden');
+                
+                // Load all expense data into form fields
+                document.getElementById('expenseCategory').value = expense.category || '';
+                document.getElementById('expenseAmount').value = expense.amount || '';
+                document.getElementById('expenseDescription').value = expense.description || '';
+                document.getElementById('expenseDate').value = expense.date || '';
+                
+                document.getElementById('expenseModal').classList.add('active');
+            }
         }
 
         function editInventory(inventoryId) {
-            openInventoryModal(inventoryId);
+            const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+            if (item) {
+                document.getElementById('inventoryModalTitle').textContent = 'Edit Inventory Item';
+                document.getElementById('inventoryId').value = inventoryId;
+                document.getElementById('deleteInventoryBtn').classList.remove('hidden');
+                
+                // Load all inventory data into form fields
+                document.getElementById('inventoryName').value = item.name || '';
+                document.getElementById('inventoryCategory').value = item.category || '';
+                document.getElementById('inventoryQuantity').value = item.quantity || '';
+                document.getElementById('inventoryUnit').value = item.unit || '';
+                document.getElementById('inventoryCost').value = item.cost || '';
+                document.getElementById('inventorySupplier').value = item.supplier || '';
+                document.getElementById('inventoryNotes').value = item.notes || '';
+                
+                document.getElementById('inventoryModal').classList.add('active');
+            }
         }
 
         // Use client for new order
@@ -2128,6 +2201,11 @@
         window.openProductModal = openProductModal;
         window.openExpenseModal = openExpenseModal;
         window.openInventoryModal = openInventoryModal;
+        window.editClient = editClient;
+        window.editOrder = editOrder;
+        window.editProduct = editProduct;
+        window.editExpense = editExpense;
+        window.editInventory = editInventory;
     </script>
 </body>
 </html>
