@@ -67,18 +67,50 @@
         .notification.warning {
             background-color: #f59e0b;
         }
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
+        .search-container {
+            position: relative;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .search-item:hover {
+            background-color: #f9fafb;
+        }
+        .order-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #e5e7eb;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .order-card.pending { border-left-color: #f59e0b; }
+        .order-card.in-progress { border-left-color: #3b82f6; }
+        .order-card.completed { border-left-color: #10b981; }
+        .order-card.delivered { border-left-color: #8b5cf6; }
+        .order-tab { 
+            @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
+        }
+        .order-tab.active {
+            @apply bg-indigo-600 text-white;
+        }
+        .order-tab:not(.active) {
+            @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
         }
     </style>
 </head>
@@ -105,15 +137,6 @@
         <!-- Notification -->
         <div id="notification" class="notification hidden"></div>
 
-        <!-- Loading Screen -->
-        <div id="loadingScreen" class="fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50">
-            <div class="text-center">
-                <div class="loading-spinner mb-4"></div>
-                <p class="text-lg font-semibold text-gray-700">Loading Tailoring Shop...</p>
-                <p id="loadingStatus" class="text-sm text-gray-500 mt-2">Initializing application</p>
-            </div>
-        </div>
-
         <!-- Navigation Tabs -->
         <nav class="bg-white shadow-lg rounded-lg mb-6">
             <div class="flex flex-wrap">
@@ -129,11 +152,20 @@
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
                     <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="inventory">
+                    <i class="fas fa-boxes mr-2"></i> Inventory
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="expenses">
+                    <i class="fas fa-money-bill-wave mr-2"></i> Expenses
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="revenue">
+                    <i class="fas fa-chart-bar mr-2"></i> Revenue
+                </button>
             </div>
         </nav>
 
         <!-- Main Content -->
-        <main id="mainContent" class="hidden">
+        <main>
             <!-- Dashboard Tab -->
             <div id="dashboard" class="tab-content active">
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
@@ -145,16 +177,35 @@
                             <div id="totalRevenue" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
                         </div>
                         <div class="summary-card bg-green-50 border border-green-200">
-                            <div class="text-green-600 text-sm font-medium">Pending Orders</div>
-                            <div id="pendingOrders" class="text-2xl font-bold text-green-800 mt-1">0</div>
+                            <div class="text-green-600 text-sm font-medium">Net Profit</div>
+                            <div id="netProfit" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
                         </div>
                         <div class="summary-card bg-purple-50 border border-purple-200">
-                            <div class="text-purple-600 text-sm font-medium">Total Clients</div>
-                            <div id="totalClients" class="text-2xl font-bold text-purple-800 mt-1">0</div>
+                            <div class="text-purple-600 text-sm font-medium">Outstanding Balance</div>
+                            <div id="outstandingBalance" class="text-2xl font-bold text-purple-800 mt-1">MWK 0.00</div>
                         </div>
                         <div class="summary-card bg-orange-50 border border-orange-200">
-                            <div class="text-orange-600 text-sm font-medium">Total Designs</div>
-                            <div id="totalDesigns" class="text-2xl font-bold text-orange-800 mt-1">0</div>
+                            <div class="text-orange-600 text-sm font-medium">Inventory Value</div>
+                            <div id="inventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="summary-card bg-yellow-50 border border-yellow-200">
+                            <div class="text-yellow-600 text-sm font-medium">Pending Orders</div>
+                            <div id="pendingOrders" class="text-2xl font-bold text-yellow-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">In Progress</div>
+                            <div id="inProgressOrders" class="text-2xl font-bold text-blue-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Completed</div>
+                            <div id="completedOrders" class="text-2xl font-bold text-green-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-red-50 border border-red-200">
+                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                            <div id="totalExpenses" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
                         </div>
                     </div>
 
@@ -171,11 +222,11 @@
                         </button>
                     </div>
 
-                    <!-- Recent Orders -->
+                    <!-- Recent Activity -->
                     <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Orders</h3>
-                        <div id="recentOrders" class="space-y-3">
-                            <div class="text-gray-500 italic text-center py-4">No recent orders</div>
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Activity</h3>
+                        <div id="recentActivity" class="space-y-3">
+                            <div class="text-gray-500 italic text-center py-4">No recent activity</div>
                         </div>
                     </div>
                 </div>
@@ -186,9 +237,24 @@
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
                     <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Client Management</h2>
-                        <button onclick="openClientModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                            <i class="fas fa-plus mr-2"></i> Add Client
-                        </button>
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportClients()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openClientModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Client
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-6">
+                        <div class="search-container">
+                            <div class="flex items-center">
+                                <i class="fas fa-search text-gray-500 mr-3"></i>
+                                <input type="text" id="clientSearch" placeholder="Search clients by name or phone..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Clients List -->
@@ -203,8 +269,29 @@
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
                     <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Order Management</h2>
-                        <button onclick="openOrderModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                            <i class="fas fa-plus mr-2"></i> New Order
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportOrders()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openOrderModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> New Order
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Order Status Tabs -->
+                    <div class="flex space-x-2 mb-6">
+                        <button class="order-tab active" data-order-status="pending">
+                            Pending <span id="pendingTabCount" class="ml-1 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="in-progress">
+                            In Progress <span id="inProgressTabCount" class="ml-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="completed">
+                            Completed <span id="completedTabCount" class="ml-1 bg-green-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="delivered">
+                            Delivered <span id="deliveredTabCount" class="ml-1 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">0</span>
                         </button>
                     </div>
 
@@ -220,9 +307,14 @@
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
                     <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Design Catalog</h2>
-                        <button onclick="openProductModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                            <i class="fas fa-plus mr-2"></i> Add Design
-                        </button>
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportProducts()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openProductModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Design
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Products Grid -->
@@ -231,25 +323,134 @@
                     </div>
                 </div>
             </div>
-        </main>
 
-        <!-- Error State -->
-        <div id="errorState" class="hidden text-center py-12">
-            <div class="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl mx-auto">
-                <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
-                <h2 class="text-2xl font-bold text-red-800 mb-2">Failed to Load Application</h2>
-                <p class="text-red-600 mb-4" id="errorMessage">Unable to initialize the tailoring shop application.</p>
-                <button onclick="location.reload()" class="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition">
-                    <i class="fas fa-redo mr-2"></i> Reload Application
-                </button>
+            <!-- Inventory Tab -->
+            <div id="inventory" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Inventory Management</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openInventoryModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Inventory Item
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Summary -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">Total Items</div>
+                            <div id="totalInventoryItems" class="text-2xl font-bold text-blue-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Low Stock Items</div>
+                            <div id="lowStockItems" class="text-2xl font-bold text-green-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-orange-50 border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Total Value</div>
+                            <div id="totalInventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Items -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Current Inventory</h3>
+                        <div id="inventoryList" class="space-y-3">
+                            <div class="text-gray-500 italic text-center py-8">No inventory items</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
+
+            <!-- Expenses Tab -->
+            <div id="expenses" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Expense Management</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openExpenseModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-red-600 hover:bg-red-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Expense
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Expense Analysis -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="summary-card bg-red-50 border border-red-200">
+                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                            <div id="totalExpensesAmount" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">This Month</div>
+                            <div id="monthlyExpenses" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-purple-50 border border-purple-200">
+                            <div class="text-purple-600 text-sm font-medium">Top Category</div>
+                            <div id="topCategory" class="text-2xl font-bold text-purple-800 mt-1">-</div>
+                        </div>
+                        <div class="summary-card bg-orange-50 border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Avg Monthly</div>
+                            <div id="avgMonthlyExpenses" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Expense Categories</h3>
+                            <div id="expenseCategories" class="space-y-3">
+                                <div class="text-gray-500 italic text-center py-8">No expense data</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Expenses -->
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Expenses</h3>
+                            <div id="expensesList" class="space-y-3 max-h-96 overflow-y-auto">
+                                <div class="text-gray-500 italic text-center py-8">No expenses recorded</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Tab -->
+            <div id="revenue" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Overview</h2>
+
+                    <!-- Revenue Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Realized Revenue</div>
+                            <div id="realizedRevenue" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-yellow-50 border border-yellow-200">
+                            <div class="text-yellow-600 text-sm font-medium">Pending Revenue</div>
+                            <div id="pendingRevenue" class="text-2xl font-bold text-yellow-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-indigo-50 border border-indigo-200">
+                            <div class="text-indigo-600 text-sm font-medium">Total Revenue</div>
+                            <div id="totalPotentialRevenue" class="text-2xl font-bold text-indigo-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Status Breakdown -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Order Status Breakdown</h3>
+                        <div id="statusBreakdown" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <!-- Status breakdown will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Modals -->
     <!-- Client Modal -->
     <div id="clientModal" class="modal">
-        <div class="modal-content w-full max-w-md">
+        <div class="modal-content w-full max-w-2xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
                     <i class="fas fa-user mr-3"></i> <span id="clientModalTitle">Add New Client</span>
@@ -261,25 +462,33 @@
             <div class="p-6">
                 <form id="clientForm" class="space-y-4">
                     <input type="hidden" id="clientId">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Full Name *</label>
-                        <input type="text" id="clientName" class="input-style" required>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Full Name *</label>
+                            <input type="text" id="clientName" class="input-style" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Phone Number *</label>
+                            <input type="tel" id="clientPhone" class="input-style" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-sm font-medium text-gray-700">Location/Address</label>
+                            <input type="text" id="clientLocation" class="input-style">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-sm font-medium text-gray-700">Notes</label>
+                            <textarea id="clientNotes" class="input-style" rows="2"></textarea>
+                        </div>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Phone Number *</label>
-                        <input type="tel" id="clientPhone" class="input-style" required>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Client
+                        </button>
+                        <button type="button" id="deleteClientBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Location/Address</label>
-                        <input type="text" id="clientLocation" class="input-style">
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Notes</label>
-                        <textarea id="clientNotes" class="input-style" rows="2"></textarea>
-                    </div>
-                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                        <i class="fas fa-save mr-2"></i> Save Client
-                    </button>
                 </form>
             </div>
         </div>
@@ -287,7 +496,7 @@
 
     <!-- Order Modal -->
     <div id="orderModal" class="modal">
-        <div class="modal-content w-full max-w-2xl">
+        <div class="modal-content w-full max-w-4xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
                     <i class="fas fa-plus mr-3"></i> <span id="orderModalTitle">New Order</span>
@@ -297,37 +506,85 @@
                 </button>
             </div>
             <div class="p-6">
-                <form id="orderForm" class="space-y-4">
+                <form id="orderForm" class="space-y-6">
                     <input type="hidden" id="orderId">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Select Client *</label>
-                        <select id="orderClientId" class="input-style" required>
-                            <option value="">-- Choose a Client --</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Client Selection -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-user mr-2"></i> 1. Select Client
+                        </h3>
                         <div>
-                            <label class="text-sm font-medium text-gray-700">Garment Type *</label>
-                            <select id="garmentType" class="input-style" required>
-                                <option value="Shirt">Shirt</option>
-                                <option value="Trousers">Trousers</option>
-                                <option value="Jacket">Jacket</option>
-                                <option value="Dress">Dress</option>
-                                <option value="Other">Other</option>
+                            <label class="text-sm font-medium text-gray-700">Select Client *</label>
+                            <select id="orderClientId" class="input-style" required>
+                                <option value="">-- Choose a Client --</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
-                            <input type="number" id="orderPrice" class="input-style" step="0.01" min="0" required>
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> 2. Order Details
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Order Type *</label>
+                                <select id="orderType" class="input-style" required>
+                                    <option value="Production Order">Production Order</option>
+                                    <option value="Alteration">Alteration</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Garment Type *</label>
+                                <select id="garmentType" class="input-style" required>
+                                    <option value="Shirt">Shirt</option>
+                                    <option value="Trousers">Trousers</option>
+                                    <option value="Jacket">Jacket</option>
+                                    <option value="Dress">Dress</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
+                                <input type="number" id="orderPrice" class="input-style" step="0.01" min="0" required>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Status</label>
+                                <select id="orderStatus" class="input-style">
+                                    <option value="pending">Pending</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="delivered">Delivered</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- Measurements -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-ruler-combined mr-2"></i> 3. Measurements
+                        </h3>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Measurement Notes</label>
+                            <textarea id="orderMeasurements" class="input-style" rows="3" placeholder="Enter measurements details..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
                     <div>
                         <label class="text-sm font-medium text-gray-700">Order Notes</label>
                         <textarea id="orderNotes" class="input-style" rows="3" placeholder="Additional notes..."></textarea>
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                        <i class="fas fa-save mr-2"></i> Save Order
-                    </button>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Order
+                        </button>
+                        <button type="button" id="deleteOrderBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -335,7 +592,7 @@
 
     <!-- Product Modal -->
     <div id="productModal" class="modal">
-        <div class="modal-content w-full max-w-md">
+        <div class="modal-content w-full max-w-2xl">
             <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
                 <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
                     <i class="fas fa-tshirt mr-3"></i> <span id="productModalTitle">Add New Design</span>
@@ -347,41 +604,210 @@
             <div class="p-6">
                 <form id="productForm" class="space-y-4">
                     <input type="hidden" id="productId">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Design Name *</label>
-                        <input type="text" id="productName" class="input-style" required>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Design Name *</label>
+                            <input type="text" id="productName" class="input-style" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Category *</label>
+                            <select id="productCategory" class="input-style" required>
+                                <option value="Shirt">Shirt</option>
+                                <option value="Trousers">Trousers</option>
+                                <option value="Jacket">Jacket</option>
+                                <option value="Dress">Dress</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
+                            <input type="number" id="productPrice" class="input-style" step="0.01" min="0" required>
+                        </div>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Category *</label>
-                        <select id="productCategory" class="input-style" required>
-                            <option value="Shirt">Shirt</option>
-                            <option value="Trousers">Trousers</option>
-                            <option value="Jacket">Jacket</option>
-                            <option value="Dress">Dress</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
-                        <input type="number" id="productPrice" class="input-style" step="0.01" min="0" required>
-                    </div>
+
                     <div>
                         <label class="text-sm font-medium text-gray-700">Description</label>
                         <textarea id="productDescription" class="input-style" rows="3"></textarea>
                     </div>
-                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                        <i class="fas fa-save mr-2"></i> Save Design
-                    </button>
+
+                    <!-- Required Measurements -->
+                    <div class="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> Required Measurements
+                        </h3>
+                        <div id="productMeasurementsContainer" class="space-y-3">
+                            <!-- Measurements will be added here -->
+                        </div>
+                        <button type="button" onclick="addProductMeasurementField()" class="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition">
+                            <i class="fas fa-plus mr-2"></i> Add Measurement Field
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Design
+                        </button>
+                        <button type="button" id="deleteProductBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <script>
-        // Simple data storage (fallback when Firebase fails)
-        let clients = JSON.parse(localStorage.getItem('tailoring_clients')) || [];
-        let orders = JSON.parse(localStorage.getItem('tailoring_orders')) || [];
-        let products = JSON.parse(localStorage.getItem('tailoring_products')) || [];
+    <!-- Expense Modal -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content w-full max-w-md">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-red-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-red-800 flex items-center">
+                    <i class="fas fa-money-bill-wave mr-3"></i> <span id="expenseModalTitle">Add Expense</span>
+                </h2>
+                <button onclick="closeExpenseModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="expenseForm" class="space-y-4">
+                    <input type="hidden" id="expenseId">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Category *</label>
+                        <select id="expenseCategory" class="input-style" required>
+                            <option value="Materials">Materials</option>
+                            <option value="Labor">Labor</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Equipment">Equipment</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Amount (MWK) *</label>
+                        <input type="number" id="expenseAmount" class="input-style" step="0.01" min="0" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Description *</label>
+                        <textarea id="expenseDescription" class="input-style" rows="3" required></textarea>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Date</label>
+                        <input type="date" id="expenseDate" class="input-style">
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Expense
+                        </button>
+                        <button type="button" id="deleteExpenseBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventoryModal" class="modal">
+        <div class="modal-content w-full max-w-md">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-green-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-green-800 flex items-center">
+                    <i class="fas fa-box mr-3"></i> <span id="inventoryModalTitle">Add Inventory Item</span>
+                </h2>
+                <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="inventoryForm" class="space-y-4">
+                    <input type="hidden" id="inventoryId">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Item Name *</label>
+                        <input type="text" id="inventoryName" class="input-style" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Category *</label>
+                        <select id="inventoryCategory" class="input-style" required>
+                            <option value="Fabric">Fabric</option>
+                            <option value="Thread">Thread</option>
+                            <option value="Buttons">Buttons</option>
+                            <option value="Zippers">Zippers</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Quantity *</label>
+                            <input type="number" id="inventoryQuantity" class="input-style" min="0" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Unit</label>
+                            <select id="inventoryUnit" class="input-style">
+                                <option value="meters">Meters</option>
+                                <option value="pieces">Pieces</option>
+                                <option value="rolls">Rolls</option>
+                                <option value="packs">Packs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Cost per Unit (MWK) *</label>
+                        <input type="number" id="inventoryCost" class="input-style" step="0.01" min="0" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Supplier</label>
+                        <input type="text" id="inventorySupplier" class="input-style">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="inventoryNotes" class="input-style" rows="2"></textarea>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Item
+                        </button>
+                        <button type="button" id="deleteInventoryBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, updateDoc, deleteDoc, doc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Configuration
+        const SHARED_AGENT_ID = "Accolado"; 
+        const CUSTOM_APP_ID = "mobile-money-agent"; 
+        const USER_PROVIDED_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+            projectId: "mobile-money-app-4cf66",
+            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+            messagingSenderId: "822891731705",
+            appId: "1:822891731705:web:e666599c76ce413f0a6028"
+        };
+
+        let db = null;
+        let auth = null;
+        let isDatabaseReady = false;
+
+        // Data storage
+        let clients = [];
+        let orders = [];
+        let products = [];
+        let expenses = [];
+        let inventory = [];
+        let currentOrderStatus = 'pending'; // Default order status filter
 
         // Utility functions
         const formatCurrency = (amount) => {
@@ -399,37 +825,124 @@
             }, 5000);
         };
 
-        const updateLoadingStatus = (message) => {
-            const statusElement = document.getElementById('loadingStatus');
-            if (statusElement) {
-                statusElement.textContent = message;
-            }
+        const getTodayDate = () => {
+            return new Date().toISOString().split('T')[0];
         };
 
-        // Data Management
+        const getCurrentMonth = () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        };
+
+        // Firebase References
+        const getCollectionRef = (collectionName) => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/${collectionName}`;
+            return collection(db, collectionPath);
+        };
+
+        // Data Management Class
         class TailoringManager {
-            static saveToLocalStorage() {
-                localStorage.setItem('tailoring_clients', JSON.stringify(clients));
-                localStorage.setItem('tailoring_orders', JSON.stringify(orders));
-                localStorage.setItem('tailoring_products', JSON.stringify(products));
+            // Clients
+            static async loadClients() {
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    const q = query(clientsRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    clients = [];
+                    querySnapshot.forEach((doc) => {
+                        clients.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderClients();
+                    this.populateClientDropdown();
+                    this.updateTabCounts();
+                } catch (error) {
+                    console.error("Error loading clients:", error);
+                    showNotification('Error loading clients', 'error');
+                }
             }
 
-            static loadClients() {
-                updateLoadingStatus('Loading clients...');
+            static async saveClient(clientData, clientId = null) {
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    if (clientId) {
+                        // Update existing client
+                        const clientDoc = doc(db, clientsRef.path, clientId);
+                        await updateDoc(clientDoc, {
+                            ...clientData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Client updated successfully!', 'success');
+                    } else {
+                        // Add new client
+                        await addDoc(clientsRef, {
+                            ...clientData,
+                            createdAt: new Date(),
+                            totalOrders: 0,
+                            totalSpent: 0
+                        });
+                        showNotification('Client added successfully!', 'success');
+                    }
+                    
+                    this.loadClients();
+                    closeClientModal();
+                } catch (error) {
+                    console.error("Error saving client:", error);
+                    showNotification('Failed to save client', 'error');
+                }
+            }
+
+            static async deleteClient(clientId) {
+                if (!confirm('Are you sure you want to delete this client?')) return;
+
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    const clientDoc = doc(db, clientsRef.path, clientId);
+                    await deleteDoc(clientDoc);
+                    
+                    showNotification('Client deleted successfully!', 'success');
+                    this.loadClients();
+                    closeClientModal();
+                } catch (error) {
+                    console.error("Error deleting client:", error);
+                    showNotification('Failed to delete client', 'error');
+                }
+            }
+
+            static renderClients() {
                 const clientsList = document.getElementById('clientsList');
+                const searchTerm = document.getElementById('clientSearch').value.toLowerCase();
                 
-                if (clients.length === 0) {
+                const filteredClients = clients.filter(client => 
+                    client.name.toLowerCase().includes(searchTerm) ||
+                    (client.phone && client.phone.includes(searchTerm))
+                );
+
+                if (filteredClients.length === 0) {
                     clientsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>';
                     return;
                 }
 
-                clientsList.innerHTML = clients.map(client => `
+                clientsList.innerHTML = filteredClients.map(client => `
                     <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex-1">
                                 <h3 class="text-lg font-bold text-gray-800">${client.name}</h3>
                                 <p class="text-gray-600">${client.phone || 'No phone'}</p>
                                 <p class="text-sm text-gray-500">${client.location || 'No location'}</p>
+                                ${client.notes ? `<p class="text-sm text-gray-400 mt-1">${client.notes}</p>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-semibold text-green-600">${formatCurrency(client.totalSpent || 0)}</div>
+                                <div class="text-xs text-gray-500">${client.totalOrders || 0} orders</div>
                             </div>
                         </div>
                         <div class="flex justify-between items-center">
@@ -437,209 +950,11 @@
                                 <i class="fas fa-edit mr-1"></i> Edit
                             </button>
                             <button onclick="useClientForOrder('${client.id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-                                <i class="fas fa-cart-plus mr-1"></i> New Order
+                                <i class="fas fa-cart-plus mr-1"></i> Use Client
                             </button>
                         </div>
                     </div>
                 `).join('');
-            }
-
-            static loadOrders() {
-                updateLoadingStatus('Loading orders...');
-                const ordersList = document.getElementById('ordersList');
-                
-                if (orders.length === 0) {
-                    ordersList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No orders found</div>';
-                    return;
-                }
-
-                ordersList.innerHTML = orders.map(order => {
-                    const client = clients.find(c => c.id === order.clientId);
-                    const statusClass = order.status || 'pending';
-                    const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
-
-                    return `
-                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                            <div class="flex justify-between items-start mb-3">
-                                <div class="flex-1">
-                                    <h3 class="text-lg font-bold text-gray-800">${order.garmentType} - ${client?.name || 'Unknown Client'}</h3>
-                                    <p class="text-gray-600">Client: ${client?.phone || 'N/A'}</p>
-                                    <p class="text-sm text-gray-500">${order.orderDate || ''}</p>
-                                </div>
-                                <div class="text-right">
-                                    <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
-                                    <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
-                                </div>
-                            </div>
-                            ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            static loadProducts() {
-                updateLoadingStatus('Loading designs...');
-                const productsList = document.getElementById('productsList');
-                
-                if (products.length === 0) {
-                    productsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>';
-                    return;
-                }
-
-                productsList.innerHTML = products.map(product => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="text-lg font-bold text-gray-800">${product.name}</h3>
-                            <div class="text-right">
-                                <div class="text-sm font-semibold text-green-600">${formatCurrency(product.price)}</div>
-                                <span class="text-xs text-gray-500">${product.category}</span>
-                            </div>
-                        </div>
-                        ${product.description ? `<p class="text-sm text-gray-600 mb-3">${product.description}</p>` : ''}
-                        <div class="text-xs text-gray-400">
-                            Added: ${product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A'}
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            static updateDashboard() {
-                updateLoadingStatus('Updating dashboard...');
-                
-                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
-                const pendingOrders = orders.filter(o => o.status === 'pending').length;
-                
-                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
-                document.getElementById('pendingOrders').textContent = pendingOrders;
-                document.getElementById('totalClients').textContent = clients.length;
-                document.getElementById('totalDesigns').textContent = products.length;
-
-                // Update recent orders
-                const recentOrders = document.getElementById('recentOrders');
-                const recentOrdersList = orders.slice(0, 5);
-                
-                if (recentOrdersList.length === 0) {
-                    recentOrders.innerHTML = '<div class="text-gray-500 italic text-center py-4">No recent orders</div>';
-                    return;
-                }
-
-                recentOrders.innerHTML = recentOrdersList.map(order => {
-                    const client = clients.find(c => c.id === order.clientId);
-                    return `
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">${order.garmentType} for ${client?.name || 'Unknown Client'}</p>
-                                    <p class="text-xs text-gray-500">${formatCurrency(order.price)}</p>
-                                </div>
-                            </div>
-                            <span class="text-xs text-gray-400">${order.orderDate || 'Recently'}</span>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            static updateTabCounts() {
-                document.getElementById('clientsCount').textContent = clients.length;
-                document.getElementById('ordersCount').textContent = orders.length;
-                document.getElementById('productsCount').textContent = products.length;
-            }
-
-            static async saveClient(clientData, clientId = null) {
-                try {
-                    if (clientId) {
-                        const index = clients.findIndex(c => c.id === clientId);
-                        if (index !== -1) {
-                            clients[index] = { ...clients[index], ...clientData, updatedAt: new Date().toISOString() };
-                        }
-                    } else {
-                        const newClient = {
-                            id: 'client_' + Date.now(),
-                            ...clientData,
-                            createdAt: new Date().toISOString(),
-                            totalOrders: 0,
-                            totalSpent: 0
-                        };
-                        clients.push(newClient);
-                    }
-                    
-                    this.saveToLocalStorage();
-                    this.loadClients();
-                    this.updateDashboard();
-                    this.updateTabCounts();
-                    closeClientModal();
-                    showNotification('Client saved successfully!', 'success');
-                } catch (error) {
-                    console.error("Error saving client:", error);
-                    showNotification('Failed to save client', 'error');
-                }
-            }
-
-            static async saveOrder(orderData, orderId = null) {
-                try {
-                    const client = clients.find(c => c.id === orderData.clientId);
-                    
-                    if (orderId) {
-                        const index = orders.findIndex(o => o.id === orderId);
-                        if (index !== -1) {
-                            orders[index] = { 
-                                ...orders[index], 
-                                ...orderData,
-                                clientName: client?.name || 'Unknown Client',
-                                updatedAt: new Date().toISOString()
-                            };
-                        }
-                    } else {
-                        const newOrder = {
-                            id: 'order_' + Date.now(),
-                            ...orderData,
-                            clientName: client?.name || 'Unknown Client',
-                            createdAt: new Date().toISOString(),
-                            orderDate: new Date().toISOString().split('T')[0],
-                            status: 'pending'
-                        };
-                        orders.push(newOrder);
-                    }
-                    
-                    this.saveToLocalStorage();
-                    this.loadOrders();
-                    this.updateDashboard();
-                    this.updateTabCounts();
-                    closeOrderModal();
-                    showNotification('Order saved successfully!', 'success');
-                } catch (error) {
-                    console.error("Error saving order:", error);
-                    showNotification('Failed to save order', 'error');
-                }
-            }
-
-            static async saveProduct(productData, productId = null) {
-                try {
-                    if (productId) {
-                        const index = products.findIndex(p => p.id === productId);
-                        if (index !== -1) {
-                            products[index] = { ...products[index], ...productData, updatedAt: new Date().toISOString() };
-                        }
-                    } else {
-                        const newProduct = {
-                            id: 'product_' + Date.now(),
-                            ...productData,
-                            createdAt: new Date().toISOString()
-                        };
-                        products.push(newProduct);
-                    }
-                    
-                    this.saveToLocalStorage();
-                    this.loadProducts();
-                    this.updateDashboard();
-                    this.updateTabCounts();
-                    closeProductModal();
-                    showNotification('Design saved successfully!', 'success');
-                } catch (error) {
-                    console.error("Error saving product:", error);
-                    showNotification('Failed to save design', 'error');
-                }
             }
 
             static populateClientDropdown() {
@@ -654,45 +969,711 @@
                 });
             }
 
-            static async loadAllData() {
+            // Orders
+            static async loadOrders() {
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
                 try {
-                    updateLoadingStatus('Loading application data...');
+                    const q = query(ordersRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
                     
-                    this.loadClients();
-                    this.loadOrders();
-                    this.loadProducts();
+                    orders = [];
+                    querySnapshot.forEach((doc) => {
+                        orders.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderOrders();
                     this.updateDashboard();
                     this.updateTabCounts();
-                    this.populateClientDropdown();
-                    
-                    // Hide loading screen and show main content
-                    setTimeout(() => {
-                        document.getElementById('loadingScreen').classList.add('hidden');
-                        document.getElementById('mainContent').classList.remove('hidden');
-                        showNotification('Tailoring shop ready!', 'success');
-                    }, 1000);
-                    
                 } catch (error) {
-                    console.error("Error loading data:", error);
-                    this.showErrorState('Failed to load application data: ' + error.message);
+                    console.error("Error loading orders:", error);
+                    showNotification('Error loading orders', 'error');
                 }
             }
 
-            static showErrorState(message) {
-                document.getElementById('loadingScreen').classList.add('hidden');
-                document.getElementById('mainContent').classList.add('hidden');
-                document.getElementById('errorState').classList.remove('hidden');
-                document.getElementById('errorMessage').textContent = message;
+            static async saveOrder(orderData, orderId = null) {
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const client = clients.find(c => c.id === orderData.clientId);
+                    
+                    if (orderId) {
+                        // Update existing order
+                        const orderDoc = doc(db, ordersRef.path, orderId);
+                        await updateDoc(orderDoc, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            updatedAt: new Date()
+                        });
+                        showNotification('Order updated successfully!', 'success');
+                    } else {
+                        // Add new order
+                        await addDoc(ordersRef, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            createdAt: new Date(),
+                            orderDate: getTodayDate()
+                        });
+                        showNotification('Order created successfully!', 'success');
+                    }
+                    
+                    this.loadOrders();
+                    closeOrderModal();
+                } catch (error) {
+                    console.error("Error saving order:", error);
+                    showNotification('Failed to save order', 'error');
+                }
+            }
+
+            static async deleteOrder(orderId) {
+                if (!confirm('Are you sure you want to delete this order?')) return;
+
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const orderDoc = doc(db, ordersRef.path, orderId);
+                    await deleteDoc(orderDoc);
+                    
+                    showNotification('Order deleted successfully!', 'success');
+                    this.loadOrders();
+                    closeOrderModal();
+                } catch (error) {
+                    console.error("Error deleting order:", error);
+                    showNotification('Failed to delete order', 'error');
+                }
+            }
+
+            static async updateOrderStatus(orderId, newStatus) {
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const orderDoc = doc(db, ordersRef.path, orderId);
+                    await updateDoc(orderDoc, {
+                        status: newStatus,
+                        updatedAt: new Date()
+                    });
+                    
+                    showNotification('Order status updated!', 'success');
+                    this.loadOrders();
+                } catch (error) {
+                    console.error("Error updating order:", error);
+                    showNotification('Failed to update order', 'error');
+                }
+            }
+
+            static renderOrders() {
+                const ordersList = document.getElementById('ordersList');
+                
+                // Filter orders by current status
+                const filteredOrders = orders.filter(order => order.status === currentOrderStatus);
+                
+                // Update tab counts
+                this.updateOrderTabCounts();
+
+                if (filteredOrders.length === 0) {
+                    ordersList.innerHTML = `<div class="text-gray-500 italic text-center py-8">No ${currentOrderStatus.replace('-', ' ')} orders found</div>`;
+                    return;
+                }
+
+                ordersList.innerHTML = filteredOrders.map(order => {
+                    const statusClass = order.status || 'pending';
+                    const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
+
+                    return `
+                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex-1">
+                                    <h3 class="text-lg font-bold text-gray-800">${order.garmentType} - ${order.orderType}</h3>
+                                    <p class="text-gray-600">Client: ${order.clientName}</p>
+                                    <p class="text-sm text-gray-500">${order.orderDate || ''}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
+                                    <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
+                                </div>
+                            </div>
+                            
+                            ${order.measurements ? `<p class="text-sm text-gray-600 mb-2">${order.measurements}</p>` : ''}
+                            ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
+                            
+                            <div class="flex justify-between items-center mt-3">
+                                <div class="flex gap-2">
+                                    ${order.status === 'pending' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
+                                    ` : ''}
+                                    ${order.status === 'in-progress' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
+                                    ` : ''}
+                                    ${order.status === 'completed' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
+                                    ` : ''}
+                                    ${order.status === 'delivered' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
+                                    ` : ''}
+                                </div>
+                                <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                    <i class="fas fa-edit mr-1"></i> Edit
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            static updateOrderTabCounts() {
+                const pendingCount = orders.filter(o => o.status === 'pending').length;
+                const inProgressCount = orders.filter(o => o.status === 'in-progress').length;
+                const completedCount = orders.filter(o => o.status === 'completed').length;
+                const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+
+                document.getElementById('pendingTabCount').textContent = pendingCount;
+                document.getElementById('inProgressTabCount').textContent = inProgressCount;
+                document.getElementById('completedTabCount').textContent = completedCount;
+                document.getElementById('deliveredTabCount').textContent = deliveredCount;
+            }
+
+            // Products
+            static async loadProducts() {
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    const q = query(productsRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    products = [];
+                    querySnapshot.forEach((doc) => {
+                        products.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderProducts();
+                    this.updateTabCounts();
+                } catch (error) {
+                    console.error("Error loading products:", error);
+                    showNotification('Error loading designs', 'error');
+                }
+            }
+
+            static async saveProduct(productData, productId = null) {
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    if (productId) {
+                        // Update existing product
+                        const productDoc = doc(db, productsRef.path, productId);
+                        await updateDoc(productDoc, {
+                            ...productData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Design updated successfully!', 'success');
+                    } else {
+                        // Add new product
+                        await addDoc(productsRef, {
+                            ...productData,
+                            createdAt: new Date()
+                        });
+                        showNotification('Design added successfully!', 'success');
+                    }
+                    
+                    this.loadProducts();
+                    closeProductModal();
+                } catch (error) {
+                    console.error("Error saving product:", error);
+                    showNotification('Failed to save design', 'error');
+                }
+            }
+
+            static async deleteProduct(productId) {
+                if (!confirm('Are you sure you want to delete this design?')) return;
+
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    const productDoc = doc(db, productsRef.path, productId);
+                    await deleteDoc(productDoc);
+                    
+                    showNotification('Design deleted successfully!', 'success');
+                    this.loadProducts();
+                    closeProductModal();
+                } catch (error) {
+                    console.error("Error deleting product:", error);
+                    showNotification('Failed to delete design', 'error');
+                }
+            }
+
+            static renderProducts() {
+                const productsList = document.getElementById('productsList');
+                
+                if (products.length === 0) {
+                    productsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>';
+                    return;
+                }
+
+                productsList.innerHTML = products.map(product => `
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition" onclick="editProduct('${product.id}')">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-bold text-gray-800">${product.name}</h3>
+                            <div class="text-right">
+                                <div class="text-sm font-semibold text-green-600">${formatCurrency(product.price)}</div>
+                                <span class="text-xs text-gray-500">${product.category}</span>
+                            </div>
+                        </div>
+                        ${product.description ? `<p class="text-sm text-gray-600 mb-3">${product.description}</p>` : ''}
+                        ${product.requiredMeasurements && product.requiredMeasurements.length > 0 ? `
+                            <div class="mb-3">
+                                <p class="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
+                                <div class="flex flex-wrap gap-1">
+                                    ${product.requiredMeasurements.slice(0, 3).map(measurement => `
+                                        <span class="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">${measurement}</span>
+                                    `).join('')}
+                                    ${product.requiredMeasurements.length > 3 ? `
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">+${product.requiredMeasurements.length - 3} more</span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="text-xs text-gray-400">
+                            Added: ${product.createdAt?.toDate ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Expenses
+            static async loadExpenses() {
+                const expensesRef = getCollectionRef('tailoring_expenses');
+                if (!expensesRef) return;
+
+                try {
+                    const q = query(expensesRef, orderBy('date', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    expenses = [];
+                    querySnapshot.forEach((doc) => {
+                        expenses.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderExpenses();
+                    this.updateExpenseAnalysis();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error loading expenses:", error);
+                    showNotification('Error loading expenses', 'error');
+                }
+            }
+
+            static async saveExpense(expenseData, expenseId = null) {
+                const expensesRef = getCollectionRef('tailoring_expenses');
+                if (!expensesRef) return;
+
+                try {
+                    if (expenseId) {
+                        // Update existing expense
+                        const expenseDoc = doc(db, expensesRef.path, expenseId);
+                        await updateDoc(expenseDoc, {
+                            ...expenseData,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Expense updated successfully!', 'success');
+                    } else {
+                        // Add new expense
+                        await addDoc(expensesRef, {
+                            ...expenseData,
+                            createdAt: new Date(),
+                            date: expenseData.date || getTodayDate()
+                        });
+                        showNotification('Expense recorded successfully!', 'success');
+                    }
+                    
+                    this.loadExpenses();
+                    closeExpenseModal();
+                } catch (error) {
+                    console.error("Error saving expense:", error);
+                    showNotification('Failed to save expense', 'error');
+                }
+            }
+
+            static async deleteExpense(expenseId) {
+                if (!confirm('Are you sure you want to delete this expense?')) return;
+
+                const expensesRef = getCollectionRef('tailoring_expenses');
+                if (!expensesRef) return;
+
+                try {
+                    const expenseDoc = doc(db, expensesRef.path, expenseId);
+                    await deleteDoc(expenseDoc);
+                    
+                    showNotification('Expense deleted successfully!', 'success');
+                    this.loadExpenses();
+                    closeExpenseModal();
+                } catch (error) {
+                    console.error("Error deleting expense:", error);
+                    showNotification('Failed to delete expense', 'error');
+                }
+            }
+
+            static renderExpenses() {
+                const expensesList = document.getElementById('expensesList');
+                
+                if (expenses.length === 0) {
+                    expensesList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expenses recorded</div>';
+                    return;
+                }
+
+                expensesList.innerHTML = expenses.slice(0, 10).map(expense => `
+                    <div class="bg-white p-3 rounded-lg border border-red-100 cursor-pointer hover:shadow-md transition" onclick="editExpense('${expense.id}')">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <span class="font-medium text-gray-800">${expense.category}</span>
+                                <p class="text-sm text-gray-600">${expense.description}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-red-600 font-bold">${formatCurrency(expense.amount)}</div>
+                                <div class="text-xs text-gray-500">${expense.date || ''}</div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            static updateExpenseAnalysis() {
+                const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+                const currentMonth = getCurrentMonth();
+                const monthlyExpenses = expenses
+                    .filter(expense => expense.date && expense.date.startsWith(currentMonth))
+                    .reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+
+                // Category breakdown
+                const categoryTotals = {};
+                expenses.forEach(expense => {
+                    const category = expense.category || 'Other';
+                    categoryTotals[category] = (categoryTotals[category] || 0) + (parseFloat(expense.amount) || 0);
+                });
+
+                // Find top category
+                let topCategory = '-';
+                let topAmount = 0;
+                Object.entries(categoryTotals).forEach(([category, amount]) => {
+                    if (amount > topAmount) {
+                        topCategory = category;
+                        topAmount = amount;
+                    }
+                });
+
+                // Average monthly expenses (last 3 months)
+                const last3Months = [];
+                const now = new Date();
+                for (let i = 0; i < 3; i++) {
+                    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+                    last3Months.push(monthStr);
+                }
+
+                const recentExpenses = expenses.filter(expense => 
+                    expense.date && last3Months.some(month => expense.date.startsWith(month))
+                );
+                const avgMonthlyExpenses = recentExpenses.length > 0 ? 
+                    recentExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0) / 3 : 0;
+
+                // Update displays
+                document.getElementById('totalExpensesAmount').textContent = formatCurrency(totalExpenses);
+                document.getElementById('monthlyExpenses').textContent = formatCurrency(monthlyExpenses);
+                document.getElementById('topCategory').textContent = topCategory;
+                document.getElementById('avgMonthlyExpenses').textContent = formatCurrency(avgMonthlyExpenses);
+
+                // Update category breakdown
+                const categoriesContainer = document.getElementById('expenseCategories');
+                if (Object.keys(categoryTotals).length === 0) {
+                    categoriesContainer.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expense data</div>';
+                } else {
+                    categoriesContainer.innerHTML = Object.entries(categoryTotals)
+                        .sort(([,a], [,b]) => b - a)
+                        .map(([category, amount]) => `
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <span class="font-medium text-gray-700">${category}</span>
+                                <div class="text-right">
+                                    <div class="text-red-600 font-bold">${formatCurrency(amount)}</div>
+                                    <div class="text-xs text-gray-500">
+                                        ${((amount / totalExpenses) * 100).toFixed(1)}% of total
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                }
+            }
+
+            // Inventory
+            static async loadInventory() {
+                const inventoryRef = getCollectionRef('tailoring_inventory');
+                if (!inventoryRef) return;
+
+                try {
+                    const q = query(inventoryRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    inventory = [];
+                    querySnapshot.forEach((doc) => {
+                        inventory.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderInventory();
+                    this.updateDashboard();
+                } catch (error) {
+                    console.error("Error loading inventory:", error);
+                    showNotification('Error loading inventory', 'error');
+                }
+            }
+
+            static async saveInventory(inventoryData, inventoryId = null) {
+                const inventoryRef = getCollectionRef('tailoring_inventory');
+                if (!inventoryRef) return;
+
+                try {
+                    const totalValue = (parseFloat(inventoryData.quantity) || 0) * (parseFloat(inventoryData.cost) || 0);
+                    
+                    if (inventoryId) {
+                        // Update existing inventory
+                        const inventoryDoc = doc(db, inventoryRef.path, inventoryId);
+                        await updateDoc(inventoryDoc, {
+                            ...inventoryData,
+                            totalValue: totalValue,
+                            updatedAt: new Date()
+                        });
+                        showNotification('Inventory item updated successfully!', 'success');
+                    } else {
+                        // Add new inventory
+                        await addDoc(inventoryRef, {
+                            ...inventoryData,
+                            totalValue: totalValue,
+                            createdAt: new Date()
+                        });
+                        showNotification('Inventory item added successfully!', 'success');
+                    }
+                    
+                    this.loadInventory();
+                    closeInventoryModal();
+                } catch (error) {
+                    console.error("Error saving inventory:", error);
+                    showNotification('Failed to save inventory item', 'error');
+                }
+            }
+
+            static async deleteInventory(inventoryId) {
+                if (!confirm('Are you sure you want to delete this inventory item?')) return;
+
+                const inventoryRef = getCollectionRef('tailoring_inventory');
+                if (!inventoryRef) return;
+
+                try {
+                    const inventoryDoc = doc(db, inventoryRef.path, inventoryId);
+                    await deleteDoc(inventoryDoc);
+                    
+                    showNotification('Inventory item deleted successfully!', 'success');
+                    this.loadInventory();
+                    closeInventoryModal();
+                } catch (error) {
+                    console.error("Error deleting inventory:", error);
+                    showNotification('Failed to delete inventory item', 'error');
+                }
+            }
+
+            static renderInventory() {
+                const inventoryList = document.getElementById('inventoryList');
+                
+                if (inventory.length === 0) {
+                    inventoryList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No inventory items</div>';
+                    return;
+                }
+
+                // Calculate inventory summary
+                const totalItems = inventory.length;
+                const lowStockItems = inventory.filter(item => (parseFloat(item.quantity) || 0) <= 5).length;
+                const totalValue = inventory.reduce((sum, item) => sum + (parseFloat(item.totalValue) || 0), 0);
+
+                document.getElementById('totalInventoryItems').textContent = totalItems;
+                document.getElementById('lowStockItems').textContent = lowStockItems;
+                document.getElementById('totalInventoryValue').textContent = formatCurrency(totalValue);
+
+                inventoryList.innerHTML = inventory.map(item => {
+                    const isLowStock = (parseFloat(item.quantity) || 0) <= 5;
+                    const stockClass = isLowStock ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
+                    
+                    return `
+                        <div class="${stockClass} p-4 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition" onclick="editInventory('${item.id}')">
+                            <div class="flex justify-between items-start mb-2">
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800">${item.name}</h4>
+                                    <p class="text-sm text-gray-600">${item.category} • ${item.quantity} ${item.unit}</p>
+                                    ${item.supplier ? `<p class="text-xs text-gray-500">Supplier: ${item.supplier}</p>` : ''}
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-green-600 font-bold">${formatCurrency(item.totalValue)}</div>
+                                    <div class="text-sm text-gray-500">${formatCurrency(item.cost)}/${item.unit}</div>
+                                </div>
+                            </div>
+                            ${isLowStock ? `
+                                <div class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded inline-block">
+                                    <i class="fas fa-exclamation-triangle mr-1"></i> Low Stock
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Dashboard
+            static updateDashboard() {
+                // Revenue calculations
+                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+                const totalExpensesAmount = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+                const netProfit = totalRevenue - totalExpensesAmount;
+
+                // Order counts
+                const pendingOrders = orders.filter(o => o.status === 'pending').length;
+                const inProgressOrders = orders.filter(o => o.status === 'in-progress').length;
+                const completedOrders = orders.filter(o => o.status === 'completed').length;
+
+                // Inventory value
+                const inventoryValue = inventory.reduce((sum, item) => sum + (parseFloat(item.totalValue) || 0), 0);
+
+                // Update dashboard displays
+                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+                document.getElementById('netProfit').textContent = formatCurrency(netProfit);
+                document.getElementById('totalExpenses').textContent = formatCurrency(totalExpensesAmount);
+                document.getElementById('pendingOrders').textContent = pendingOrders;
+                document.getElementById('inProgressOrders').textContent = inProgressOrders;
+                document.getElementById('completedOrders').textContent = completedOrders;
+                document.getElementById('inventoryValue').textContent = formatCurrency(inventoryValue);
+
+                // Revenue tab
+                document.getElementById('realizedRevenue').textContent = formatCurrency(totalRevenue);
+                document.getElementById('pendingRevenue').textContent = formatCurrency(0); // Placeholder
+                document.getElementById('totalPotentialRevenue').textContent = formatCurrency(totalRevenue);
+
+                // Status breakdown
+                const statusBreakdown = document.getElementById('statusBreakdown');
+                const statusCounts = {
+                    'pending': orders.filter(o => o.status === 'pending').length,
+                    'in-progress': orders.filter(o => o.status === 'in-progress').length,
+                    'completed': orders.filter(o => o.status === 'completed').length,
+                    'delivered': orders.filter(o => o.status === 'delivered').length
+                };
+
+                statusBreakdown.innerHTML = Object.entries(statusCounts).map(([status, count]) => {
+                    const statusClass = `status-${status}`;
+                    const statusText = status.replace('-', ' ');
+
+                    return `
+                        <div class="p-4 rounded-xl text-center ${statusClass}">
+                            <div class="text-2xl font-bold">${count}</div>
+                            <div class="text-sm font-medium capitalize">${statusText}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            static updateTabCounts() {
+                document.getElementById('clientsCount').textContent = clients.length;
+                document.getElementById('ordersCount').textContent = orders.length;
+                document.getElementById('productsCount').textContent = products.length;
+            }
+
+            // Export functions
+            static exportClients() {
+                const csvContent = [
+                    ['Name', 'Phone', 'Location', 'Total Orders', 'Total Spent', 'Notes'],
+                    ...clients.map(client => [
+                        client.name,
+                        client.phone || '',
+                        client.location || '',
+                        client.totalOrders || 0,
+                        client.totalSpent || 0,
+                        client.notes || ''
+                    ])
+                ].map(row => row.join(',')).join('\n');
+
+                this.downloadCSV(csvContent, 'clients');
+                showNotification('Clients exported successfully!', 'success');
+            }
+
+            static exportOrders() {
+                const csvContent = [
+                    ['Client', 'Garment Type', 'Order Type', 'Status', 'Price', 'Date', 'Notes'],
+                    ...orders.map(order => [
+                        order.clientName,
+                        order.garmentType,
+                        order.orderType,
+                        order.status,
+                        order.price,
+                        order.orderDate,
+                        order.notes || ''
+                    ])
+                ].map(row => row.join(',')).join('\n');
+
+                this.downloadCSV(csvContent, 'orders');
+                showNotification('Orders exported successfully!', 'success');
+            }
+
+            static exportProducts() {
+                const csvContent = [
+                    ['Name', 'Category', 'Price', 'Description', 'Required Measurements'],
+                    ...products.map(product => [
+                        product.name,
+                        product.category,
+                        product.price,
+                        product.description || '',
+                        (product.requiredMeasurements || []).join('; ')
+                    ])
+                ].map(row => row.join(',')).join('\n');
+
+                this.downloadCSV(csvContent, 'designs');
+                showNotification('Designs exported successfully!', 'success');
+            }
+
+            static downloadCSV(csvContent, filename) {
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${filename}_${getTodayDate()}.csv`;
+                link.click();
+                window.URL.revokeObjectURL(url);
+            }
+
+            // Initialize all data
+            static async loadAllData() {
+                await this.loadClients();
+                await this.loadOrders();
+                await this.loadProducts();
+                await this.loadExpenses();
+                await this.loadInventory();
+                this.updateDashboard();
             }
         }
 
         // Initialize the application
         const initTailoringApp = async () => {
             try {
-                updateLoadingStatus('Initializing application...');
+                const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
+                db = getFirestore(app);
+                auth = getAuth(app);
                 
                 // Set current date
-                document.getElementById('currentDate').textContent = new Date().toISOString().split('T')[0];
+                document.getElementById('currentDate').textContent = getTodayDate();
+                document.getElementById('expenseDate').value = getTodayDate();
+
+                // Sign in anonymously
+                await signInAnonymously(auth);
+                console.log("Signed in anonymously successfully.");
+                isDatabaseReady = true;
                 
                 // Initialize event listeners
                 initializeEventListeners();
@@ -700,9 +1681,11 @@
                 // Load all data
                 await TailoringManager.loadAllData();
                 
+                showNotification('Tailoring shop ready!', 'success');
+                
             } catch (error) {
                 console.error("Failed to initialize tailoring app:", error);
-                TailoringManager.showErrorState(error.message);
+                showNotification('Error initializing tailoring shop', 'error');
             }
         };
 
@@ -733,8 +1716,11 @@
                 const orderId = document.getElementById('orderId').value;
                 const formData = {
                     clientId: document.getElementById('orderClientId').value,
+                    orderType: document.getElementById('orderType').value,
                     garmentType: document.getElementById('garmentType').value,
                     price: parseFloat(document.getElementById('orderPrice').value) || 0,
+                    status: document.getElementById('orderStatus').value,
+                    measurements: document.getElementById('orderMeasurements').value.trim(),
                     notes: document.getElementById('orderNotes').value.trim()
                 };
 
@@ -750,11 +1736,16 @@
             document.getElementById('productForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const productId = document.getElementById('productId').value;
+                const measurements = Array.from(document.querySelectorAll('#productMeasurementsContainer input'))
+                    .map(input => input.value.trim())
+                    .filter(value => value !== '');
+                
                 const formData = {
                     name: document.getElementById('productName').value.trim(),
                     category: document.getElementById('productCategory').value,
                     price: parseFloat(document.getElementById('productPrice').value) || 0,
-                    description: document.getElementById('productDescription').value.trim()
+                    description: document.getElementById('productDescription').value.trim(),
+                    requiredMeasurements: measurements
                 };
 
                 if (!formData.name || !formData.category || formData.price <= 0) {
@@ -764,82 +1755,104 @@
 
                 await TailoringManager.saveProduct(formData, productId || null);
             });
-        }
 
-        // Modal management
-        function openClientModal(clientId = null) {
-            document.getElementById('clientModalTitle').textContent = clientId ? 'Edit Client' : 'Add New Client';
-            document.getElementById('clientId').value = clientId || '';
-            
-            if (clientId) {
-                const client = clients.find(c => c.id === clientId);
-                if (client) {
-                    document.getElementById('clientName').value = client.name || '';
-                    document.getElementById('clientPhone').value = client.phone || '';
-                    document.getElementById('clientLocation').value = client.location || '';
-                    document.getElementById('clientNotes').value = client.notes || '';
+            // Expense form
+            document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const expenseId = document.getElementById('expenseId').value;
+                const formData = {
+                    category: document.getElementById('expenseCategory').value,
+                    amount: parseFloat(document.getElementById('expenseAmount').value) || 0,
+                    description: document.getElementById('expenseDescription').value.trim(),
+                    date: document.getElementById('expenseDate').value
+                };
+
+                if (formData.amount <= 0 || !formData.description) {
+                    showNotification('Please enter valid amount and description', 'error');
+                    return;
                 }
-            } else {
-                document.getElementById('clientForm').reset();
-            }
-            
-            document.getElementById('clientModal').classList.add('active');
-        }
 
-        function closeClientModal() {
-            document.getElementById('clientModal').classList.remove('active');
-        }
+                await TailoringManager.saveExpense(formData, expenseId || null);
+            });
 
-        function openOrderModal(clientId = null) {
-            document.getElementById('orderModalTitle').textContent = 'New Order';
-            document.getElementById('orderId').value = '';
-            
-            document.getElementById('orderForm').reset();
-            
-            if (clientId) {
-                document.getElementById('orderClientId').value = clientId;
-            }
-            
-            document.getElementById('orderModal').classList.add('active');
-        }
+            // Inventory form
+            document.getElementById('inventoryForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const inventoryId = document.getElementById('inventoryId').value;
+                const formData = {
+                    name: document.getElementById('inventoryName').value.trim(),
+                    category: document.getElementById('inventoryCategory').value,
+                    quantity: parseFloat(document.getElementById('inventoryQuantity').value) || 0,
+                    unit: document.getElementById('inventoryUnit').value,
+                    cost: parseFloat(document.getElementById('inventoryCost').value) || 0,
+                    supplier: document.getElementById('inventorySupplier').value.trim(),
+                    notes: document.getElementById('inventoryNotes').value.trim()
+                };
 
-        function closeOrderModal() {
-            document.getElementById('orderModal').classList.remove('active');
-        }
-
-        function openProductModal(productId = null) {
-            document.getElementById('productModalTitle').textContent = productId ? 'Edit Design' : 'Add New Design';
-            document.getElementById('productId').value = productId || '';
-            
-            if (productId) {
-                const product = products.find(p => p.id === productId);
-                if (product) {
-                    document.getElementById('productName').value = product.name || '';
-                    document.getElementById('productCategory').value = product.category || '';
-                    document.getElementById('productPrice').value = product.price || '';
-                    document.getElementById('productDescription').value = product.description || '';
+                if (!formData.name || !formData.category || formData.quantity <= 0 || formData.cost <= 0) {
+                    showNotification('Please fill in all required fields with valid data', 'error');
+                    return;
                 }
-            } else {
-                document.getElementById('productForm').reset();
-            }
-            
-            document.getElementById('productModal').classList.add('active');
+
+                await TailoringManager.saveInventory(formData, inventoryId || null);
+            });
+
+            // Search functionality
+            document.getElementById('clientSearch').addEventListener('input', () => {
+                TailoringManager.renderClients();
+            });
+
+            // Order status tabs
+            document.querySelectorAll('.order-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    // Update active tab
+                    document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    // Update current status and re-render
+                    currentOrderStatus = tab.getAttribute('data-order-status');
+                    TailoringManager.renderOrders();
+                });
+            });
+
+            // Delete buttons
+            document.getElementById('deleteClientBtn').addEventListener('click', () => {
+                const clientId = document.getElementById('clientId').value;
+                if (clientId) TailoringManager.deleteClient(clientId);
+            });
+
+            document.getElementById('deleteOrderBtn').addEventListener('click', () => {
+                const orderId = document.getElementById('orderId').value;
+                if (orderId) TailoringManager.deleteOrder(orderId);
+            });
+
+            document.getElementById('deleteProductBtn').addEventListener('click', () => {
+                const productId = document.getElementById('productId').value;
+                if (productId) TailoringManager.deleteProduct(productId);
+            });
+
+            document.getElementById('deleteExpenseBtn').addEventListener('click', () => {
+                const expenseId = document.getElementById('expenseId').value;
+                if (expenseId) TailoringManager.deleteExpense(expenseId);
+            });
+
+            document.getElementById('deleteInventoryBtn').addEventListener('click', () => {
+                const inventoryId = document.getElementById('inventoryId').value;
+                if (inventoryId) TailoringManager.deleteInventory(inventoryId);
+            });
         }
 
-        function closeProductModal() {
-            document.getElementById('productModal').classList.remove('active');
-        }
+        // Make TailoringManager available globally
+        window.TailoringManager = TailoringManager;
+        window.exportClients = () => TailoringManager.exportClients();
+        window.exportOrders = () => TailoringManager.exportOrders();
+        window.exportProducts = () => TailoringManager.exportProducts();
 
-        // Edit functions
-        function editClient(clientId) {
-            openClientModal(clientId);
-        }
+        // Initialize when page loads
+        window.onload = initTailoringApp;
+    </script>
 
-        function useClientForOrder(clientId) {
-            switchTab('orders');
-            openOrderModal(clientId);
-        }
-
+    <script>
         // Tab management
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -862,6 +1875,267 @@
             });
         });
 
+        // Modal management
+        function openClientModal(clientId = null) {
+            document.getElementById('clientModalTitle').textContent = clientId ? 'Edit Client' : 'Add New Client';
+            document.getElementById('clientId').value = clientId || '';
+            document.getElementById('deleteClientBtn').classList.toggle('hidden', !clientId);
+            
+            if (clientId) {
+                const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+                if (client) {
+                    document.getElementById('clientName').value = client.name || '';
+                    document.getElementById('clientPhone').value = client.phone || '';
+                    document.getElementById('clientLocation').value = client.location || '';
+                    document.getElementById('clientNotes').value = client.notes || '';
+                }
+            } else {
+                document.getElementById('clientForm').reset();
+            }
+            
+            document.getElementById('clientModal').classList.add('active');
+        }
+
+        function closeClientModal() {
+            document.getElementById('clientModal').classList.remove('active');
+        }
+
+        function openOrderModal(clientId = null) {
+            document.getElementById('orderModalTitle').textContent = 'New Order';
+            document.getElementById('orderId').value = '';
+            document.getElementById('deleteOrderBtn').classList.add('hidden');
+            
+            // If clientId is provided, pre-fill the client
+            if (clientId) {
+                document.getElementById('orderClientId').value = clientId;
+            }
+            
+            document.getElementById('orderForm').reset();
+            document.getElementById('orderModal').classList.add('active');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('active');
+        }
+
+        function openProductModal(productId = null) {
+            document.getElementById('productModalTitle').textContent = productId ? 'Edit Design' : 'Add New Design';
+            document.getElementById('productId').value = productId || '';
+            document.getElementById('deleteProductBtn').classList.toggle('hidden', !productId);
+            
+            const container = document.getElementById('productMeasurementsContainer');
+            container.innerHTML = '';
+            
+            if (productId) {
+                const product = window.TailoringManager?.products?.find(p => p.id === productId);
+                if (product) {
+                    document.getElementById('productName').value = product.name || '';
+                    document.getElementById('productCategory').value = product.category || '';
+                    document.getElementById('productPrice').value = product.price || '';
+                    document.getElementById('productDescription').value = product.description || '';
+                    
+                    // Add measurement fields
+                    if (product.requiredMeasurements) {
+                        product.requiredMeasurements.forEach(measurement => {
+                            addProductMeasurementField(measurement);
+                        });
+                    }
+                }
+            } else {
+                document.getElementById('productForm').reset();
+                // Add one empty measurement field by default
+                addProductMeasurementField();
+            }
+            
+            document.getElementById('productModal').classList.add('active');
+        }
+
+        function closeProductModal() {
+            document.getElementById('productModal').classList.remove('active');
+        }
+
+        function openExpenseModal(expenseId = null) {
+            document.getElementById('expenseModalTitle').textContent = expenseId ? 'Edit Expense' : 'Add Expense';
+            document.getElementById('expenseId').value = expenseId || '';
+            document.getElementById('deleteExpenseBtn').classList.toggle('hidden', !expenseId);
+            
+            if (expenseId) {
+                const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+                if (expense) {
+                    document.getElementById('expenseCategory').value = expense.category || '';
+                    document.getElementById('expenseAmount').value = expense.amount || '';
+                    document.getElementById('expenseDescription').value = expense.description || '';
+                    document.getElementById('expenseDate').value = expense.date || '';
+                }
+            } else {
+                document.getElementById('expenseForm').reset();
+                document.getElementById('expenseDate').value = getTodayDate();
+            }
+            
+            document.getElementById('expenseModal').classList.add('active');
+        }
+
+        function closeExpenseModal() {
+            document.getElementById('expenseModal').classList.remove('active');
+        }
+
+        function openInventoryModal(inventoryId = null) {
+            document.getElementById('inventoryModalTitle').textContent = inventoryId ? 'Edit Inventory Item' : 'Add Inventory Item';
+            document.getElementById('inventoryId').value = inventoryId || '';
+            document.getElementById('deleteInventoryBtn').classList.toggle('hidden', !inventoryId);
+            
+            if (inventoryId) {
+                const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+                if (item) {
+                    document.getElementById('inventoryName').value = item.name || '';
+                    document.getElementById('inventoryCategory').value = item.category || '';
+                    document.getElementById('inventoryQuantity').value = item.quantity || '';
+                    document.getElementById('inventoryUnit').value = item.unit || '';
+                    document.getElementById('inventoryCost').value = item.cost || '';
+                    document.getElementById('inventorySupplier').value = item.supplier || '';
+                    document.getElementById('inventoryNotes').value = item.notes || '';
+                }
+            } else {
+                document.getElementById('inventoryForm').reset();
+            }
+            
+            document.getElementById('inventoryModal').classList.add('active');
+        }
+
+        function closeInventoryModal() {
+            document.getElementById('inventoryModal').classList.remove('active');
+        }
+
+        // Edit functions - FIXED: Now properly loads all data for editing
+        function editClient(clientId) {
+            const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+            if (client) {
+                document.getElementById('clientModalTitle').textContent = 'Edit Client';
+                document.getElementById('clientId').value = clientId;
+                document.getElementById('deleteClientBtn').classList.remove('hidden');
+                
+                // Load all client data into form fields
+                document.getElementById('clientName').value = client.name || '';
+                document.getElementById('clientPhone').value = client.phone || '';
+                document.getElementById('clientLocation').value = client.location || '';
+                document.getElementById('clientNotes').value = client.notes || '';
+                
+                document.getElementById('clientModal').classList.add('active');
+            }
+        }
+
+        function editOrder(orderId) {
+            const order = window.TailoringManager?.orders?.find(o => o.id === orderId);
+            if (order) {
+                document.getElementById('orderModalTitle').textContent = 'Edit Order';
+                document.getElementById('orderId').value = orderId;
+                document.getElementById('deleteOrderBtn').classList.remove('hidden');
+                
+                // Load all order data into form fields
+                document.getElementById('orderClientId').value = order.clientId || '';
+                document.getElementById('orderType').value = order.orderType || '';
+                document.getElementById('garmentType').value = order.garmentType || '';
+                document.getElementById('orderPrice').value = order.price || '';
+                document.getElementById('orderStatus').value = order.status || 'pending';
+                document.getElementById('orderMeasurements').value = order.measurements || '';
+                document.getElementById('orderNotes').value = order.notes || '';
+                
+                document.getElementById('orderModal').classList.add('active');
+            }
+        }
+
+        function editProduct(productId) {
+            const product = window.TailoringManager?.products?.find(p => p.id === productId);
+            if (product) {
+                document.getElementById('productModalTitle').textContent = 'Edit Design';
+                document.getElementById('productId').value = productId;
+                document.getElementById('deleteProductBtn').classList.remove('hidden');
+                
+                // Load all product data into form fields
+                document.getElementById('productName').value = product.name || '';
+                document.getElementById('productCategory').value = product.category || '';
+                document.getElementById('productPrice').value = product.price || '';
+                document.getElementById('productDescription').value = product.description || '';
+                
+                // Clear and reload measurement fields
+                const container = document.getElementById('productMeasurementsContainer');
+                container.innerHTML = '';
+                
+                if (product.requiredMeasurements) {
+                    product.requiredMeasurements.forEach(measurement => {
+                        addProductMeasurementField(measurement);
+                    });
+                } else {
+                    addProductMeasurementField();
+                }
+                
+                document.getElementById('productModal').classList.add('active');
+            }
+        }
+
+        function editExpense(expenseId) {
+            const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+            if (expense) {
+                document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
+                document.getElementById('expenseId').value = expenseId;
+                document.getElementById('deleteExpenseBtn').classList.remove('hidden');
+                
+                // Load all expense data into form fields
+                document.getElementById('expenseCategory').value = expense.category || '';
+                document.getElementById('expenseAmount').value = expense.amount || '';
+                document.getElementById('expenseDescription').value = expense.description || '';
+                document.getElementById('expenseDate').value = expense.date || '';
+                
+                document.getElementById('expenseModal').classList.add('active');
+            }
+        }
+
+        function editInventory(inventoryId) {
+            const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+            if (item) {
+                document.getElementById('inventoryModalTitle').textContent = 'Edit Inventory Item';
+                document.getElementById('inventoryId').value = inventoryId;
+                document.getElementById('deleteInventoryBtn').classList.remove('hidden');
+                
+                // Load all inventory data into form fields
+                document.getElementById('inventoryName').value = item.name || '';
+                document.getElementById('inventoryCategory').value = item.category || '';
+                document.getElementById('inventoryQuantity').value = item.quantity || '';
+                document.getElementById('inventoryUnit').value = item.unit || '';
+                document.getElementById('inventoryCost').value = item.cost || '';
+                document.getElementById('inventorySupplier').value = item.supplier || '';
+                document.getElementById('inventoryNotes').value = item.notes || '';
+                
+                document.getElementById('inventoryModal').classList.add('active');
+            }
+        }
+
+        // Use client for new order
+        function useClientForOrder(clientId) {
+            switchTab('orders');
+            openOrderModal(clientId);
+        }
+
+        // Product measurements
+        function addProductMeasurementField(value = '') {
+            const container = document.getElementById('productMeasurementsContainer');
+            const index = container.children.length;
+            const field = document.createElement('div');
+            field.className = 'flex space-x-2 items-center';
+            field.innerHTML = `
+                <input type="text" 
+                       value="${value}"
+                       placeholder="Measurement name (e.g., Chest, Waist)" 
+                       class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" 
+                        onclick="this.parentElement.remove()" 
+                        class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(field);
+        }
+
         // Close modals when clicking outside
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
@@ -871,16 +2145,67 @@
             });
         });
 
-        // Make TailoringManager available globally
-        window.TailoringManager = TailoringManager;
+        // Export financial report
+        function exportFinancialReport() {
+            const orders = window.TailoringManager?.orders || [];
+            const expenses = window.TailoringManager?.expenses || [];
+            
+            const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+            const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+            const netProfit = totalRevenue - totalExpenses;
+
+            const reportData = [
+                ['Metric', 'Value'],
+                ['Total Revenue', `MWK ${totalRevenue.toFixed(2)}`],
+                ['Total Expenses', `MWK ${totalExpenses.toFixed(2)}`],
+                ['Net Profit', `MWK ${netProfit.toFixed(2)}`],
+                ['Total Orders', orders.length],
+                ['Completed Orders', orders.filter(o => o.status === 'completed').length],
+                ['Pending Orders', orders.filter(o => o.status === 'pending').length]
+            ];
+
+            const csvContent = reportData.map(row => row.join(',')).join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `financial_report_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+
+            showNotification('Financial report exported successfully!', 'success');
+        }
+
+        // Utility functions
+        function getTodayDate() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 5000);
+        }
+
+        window.exportFinancialReport = exportFinancialReport;
+        window.addProductMeasurementField = addProductMeasurementField;
+        window.useClientForOrder = useClientForOrder;
         window.openOrderModal = openOrderModal;
         window.openClientModal = openClientModal;
         window.openProductModal = openProductModal;
+        window.openExpenseModal = openExpenseModal;
+        window.openInventoryModal = openInventoryModal;
         window.editClient = editClient;
-        window.useClientForOrder = useClientForOrder;
-
-        // Initialize when page loads
-        window.onload = initTailoringApp;
+        window.editOrder = editOrder;
+        window.editProduct = editProduct;
+        window.editExpense = editExpense;
+        window.editInventory = editInventory;
     </script>
 </body>
 </html>
