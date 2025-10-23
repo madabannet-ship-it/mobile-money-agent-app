@@ -3,27 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tailoring Shop Manager</title>
+    <title>Advanced Tailoring Shop Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; }
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #3b82f6;
+        }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+        }
+        
         .input-style {
             @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-150;
         }
+        
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
         .summary-card {
             @apply p-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl;
         }
+        
         .status-badge {
             @apply px-2 py-1 rounded-full text-xs font-medium;
         }
+        
         .status-pending { @apply bg-yellow-100 text-yellow-800; }
         .status-in-progress { @apply bg-blue-100 text-blue-800; }
         .status-completed { @apply bg-green-100 text-green-800; }
         .status-delivered { @apply bg-purple-100 text-purple-800; }
         .status-review { @apply bg-red-100 text-red-800; }
+        
         .modal {
             display: none;
             position: fixed;
@@ -36,9 +55,11 @@
             align-items: center;
             justify-content: center;
         }
+        
         .modal.active {
             display: flex;
         }
+        
         .modal-content {
             background: white;
             border-radius: 12px;
@@ -47,6 +68,7 @@
             overflow-y: auto;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
         }
+        
         .notification {
             position: fixed;
             top: 20px;
@@ -58,18 +80,13 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
-        .notification.success {
-            background-color: #10b981;
-        }
-        .notification.error {
-            background-color: #ef4444;
-        }
-        .notification.warning {
-            background-color: #f59e0b;
-        }
-        .search-container {
-            position: relative;
-        }
+        
+        .notification.success { background-color: var(--secondary); }
+        .notification.error { background-color: var(--danger); }
+        .notification.warning { background-color: var(--warning); }
+        
+        .search-container { position: relative; }
+        
         .search-results {
             position: absolute;
             top: 100%;
@@ -83,34 +100,81 @@
             z-index: 10;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
+        
         .search-item {
             padding: 10px 15px;
             cursor: pointer;
             border-bottom: 1px solid #f3f4f6;
         }
-        .search-item:hover {
-            background-color: #f9fafb;
-        }
+        
+        .search-item:hover { background-color: #f9fafb; }
+        
         .order-card {
             transition: all 0.3s ease;
             border-left: 4px solid #e5e7eb;
         }
+        
         .order-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
         }
-        .order-card.pending { border-left-color: #f59e0b; }
-        .order-card.in-progress { border-left-color: #3b82f6; }
-        .order-card.completed { border-left-color: #10b981; }
-        .order-card.delivered { border-left-color: #8b5cf6; }
+        
+        .order-card.pending { border-left-color: var(--warning); }
+        .order-card.in-progress { border-left-color: var(--info); }
+        .order-card.completed { border-left-color: var(--secondary); }
+        .order-card.delivered { border-left-color: var(--primary); }
+        
         .order-tab { 
             @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
         }
-        .order-tab.active {
-            @apply bg-indigo-600 text-white;
+        
+        .order-tab.active { @apply bg-indigo-600 text-white; }
+        .order-tab:not(.active) { @apply bg-gray-200 text-gray-700 hover:bg-gray-300; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .order-tab:not(.active) {
-            @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+        
+        .loading { 
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .kanban-column {
+            min-height: 500px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .kanban-item {
+            background: white;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            cursor: move;
+        }
+        
+        .drag-over {
+            background: #e0f2fe;
+            border: 2px dashed #0ea5e9;
         }
     </style>
 </head>
@@ -120,7 +184,7 @@
         <header class="bg-indigo-700 text-white p-4 rounded-xl mb-6 shadow-xl">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-extrabold flex items-center">
-                    <i class="fas fa-ruler-combined mr-3 text-yellow-300"></i> Tailor Shop Manager
+                    <i class="fas fa-ruler-combined mr-3 text-yellow-300"></i> Advanced Tailor Shop Manager
                 </h1>
                 <div class="flex items-center space-x-4">
                     <select id="measurementUnit" class="bg-indigo-600 border border-indigo-500 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-300">
@@ -149,6 +213,9 @@
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="orders">
                     <i class="fas fa-clipboard-list mr-2"></i> Orders <span id="ordersCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="kanban">
+                    <i class="fas fa-columns mr-2"></i> Kanban Board
+                </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
                     <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
@@ -158,8 +225,8 @@
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="expenses">
                     <i class="fas fa-money-bill-wave mr-2"></i> Expenses
                 </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="revenue">
-                    <i class="fas fa-chart-bar mr-2"></i> Revenue
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="reports">
+                    <i class="fas fa-chart-bar mr-2"></i> Reports
                 </button>
             </div>
         </nav>
@@ -209,6 +276,22 @@
                         </div>
                     </div>
 
+                    <!-- Charts Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Revenue vs Expenses</h3>
+                            <div class="chart-container">
+                                <canvas id="revenueExpenseChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Order Status Distribution</h3>
+                            <div class="chart-container">
+                                <canvas id="orderStatusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Quick Actions -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <button class="bg-blue-600 text-white p-4 rounded-xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center" onclick="openOrderModal()">
@@ -252,7 +335,7 @@
                         <div class="search-container">
                             <div class="flex items-center">
                                 <i class="fas fa-search text-gray-500 mr-3"></i>
-                                <input type="text" id="clientSearch" placeholder="Search clients by name or phone..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                                <input type="text" id="clientSearch" placeholder="Search clients by name, phone, or location..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
                             </div>
                         </div>
                     </div>
@@ -298,6 +381,47 @@
                     <!-- Orders List -->
                     <div id="ordersList" class="space-y-4">
                         <div class="text-gray-500 italic text-center py-8">No orders found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kanban Board Tab -->
+            <div id="kanban" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Order Kanban Board</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openOrderModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> New Order
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="kanban-column" data-status="pending">
+                            <h3 class="text-lg font-bold text-yellow-700 mb-4 text-center">Pending</h3>
+                            <div id="kanban-pending" class="kanban-list">
+                                <!-- Orders will be populated here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="in-progress">
+                            <h3 class="text-lg font-bold text-blue-700 mb-4 text-center">In Progress</h3>
+                            <div id="kanban-in-progress" class="kanban-list">
+                                <!-- Orders will be populated here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="completed">
+                            <h3 class="text-lg font-bold text-green-700 mb-4 text-center">Completed</h3>
+                            <div id="kanban-completed" class="kanban-list">
+                                <!-- Orders will be populated here -->
+                            </div>
+                        </div>
+                        <div class="kanban-column" data-status="delivered">
+                            <h3 class="text-lg font-bold text-purple-700 mb-4 text-center">Delivered</h3>
+                            <div id="kanban-delivered" class="kanban-list">
+                                <!-- Orders will be populated here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -414,40 +538,66 @@
                 </div>
             </div>
 
-            <!-- Revenue Tab -->
-            <div id="revenue" class="tab-content">
+            <!-- Reports Tab -->
+            <div id="reports" class="tab-content">
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Overview</h2>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Advanced Reports & Analytics</h2>
 
-                    <!-- Revenue Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div class="summary-card bg-green-50 border border-green-200">
-                            <div class="text-green-600 text-sm font-medium">Realized Revenue</div>
-                            <div id="realizedRevenue" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
+                    <!-- Report Controls -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Report Type</label>
+                            <select id="reportType" class="input-style">
+                                <option value="financial">Financial Summary</option>
+                                <option value="orders">Order Analysis</option>
+                                <option value="clients">Client Analysis</option>
+                                <option value="inventory">Inventory Analysis</option>
+                            </select>
                         </div>
-                        <div class="summary-card bg-yellow-50 border border-yellow-200">
-                            <div class="text-yellow-600 text-sm font-medium">Pending Revenue</div>
-                            <div id="pendingRevenue" class="text-2xl font-bold text-yellow-800 mt-1">MWK 0.00</div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Date Range</label>
+                            <select id="dateRange" class="input-style">
+                                <option value="week">Last 7 Days</option>
+                                <option value="month">Last 30 Days</option>
+                                <option value="quarter">Last 3 Months</option>
+                                <option value="year">Last 12 Months</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
                         </div>
-                        <div class="summary-card bg-indigo-50 border border-indigo-200">
-                            <div class="text-indigo-600 text-sm font-medium">Total Revenue</div>
-                            <div id="totalPotentialRevenue" class="text-2xl font-bold text-indigo-800 mt-1">MWK 0.00</div>
+                        <div id="customDateRange" class="hidden md:col-span-2">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">From</label>
+                                    <input type="date" id="dateFrom" class="input-style">
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">To</label>
+                                    <input type="date" id="dateTo" class="input-style">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Status Breakdown -->
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Order Status Breakdown</h3>
-                        <div id="statusBreakdown" class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <!-- Status breakdown will be populated here -->
-                        </div>
+                    <!-- Report Actions -->
+                    <div class="flex space-x-2 mb-6">
+                        <button onclick="generateReport()" class="bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center">
+                            <i class="fas fa-chart-bar mr-2"></i> Generate Report
+                        </button>
+                        <button onclick="exportReport()" class="bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center">
+                            <i class="fas fa-download mr-2"></i> Export Report
+                        </button>
+                    </div>
+
+                    <!-- Report Results -->
+                    <div id="reportResults" class="space-y-6">
+                        <div class="text-gray-500 italic text-center py-8">Select report parameters and generate a report</div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Modals -->
+    <!-- Modals (same as before but with improved functionality) -->
     <!-- Client Modal -->
     <div id="clientModal" class="modal">
         <div class="modal-content w-full max-w-2xl">
@@ -555,6 +705,18 @@
                                     <option value="in-progress">In Progress</option>
                                     <option value="completed">Completed</option>
                                     <option value="delivered">Delivered</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Due Date</label>
+                                <input type="date" id="orderDueDate" class="input-style">
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Priority</label>
+                                <select id="orderPriority" class="input-style">
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
                                 </select>
                             </div>
                         </div>
@@ -781,6 +943,7 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
+        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, getDocs, query, orderBy, updateDoc, deleteDoc, doc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -842,7 +1005,7 @@
         };
 
         // Data Management Class
-        class TailoringManager {
+        class AdvancedTailoringManager {
             // Clients
             static async loadClients() {
                 const clientsRef = getCollectionRef('tailoring_clients');
@@ -923,7 +1086,8 @@
                 
                 const filteredClients = clients.filter(client => 
                     client.name.toLowerCase().includes(searchTerm) ||
-                    (client.phone && client.phone.includes(searchTerm))
+                    (client.phone && client.phone.includes(searchTerm)) ||
+                    (client.location && client.location.toLowerCase().includes(searchTerm))
                 );
 
                 if (filteredClients.length === 0) {
@@ -932,7 +1096,7 @@
                 }
 
                 clientsList.innerHTML = filteredClients.map(client => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in">
                         <div class="flex justify-between items-start mb-3">
                             <div class="flex-1">
                                 <h3 class="text-lg font-bold text-gray-800">${client.name}</h3>
@@ -984,6 +1148,7 @@
                     });
                     
                     this.renderOrders();
+                    this.renderKanbanBoard();
                     this.updateDashboard();
                     this.updateTabCounts();
                 } catch (error) {
@@ -1082,17 +1247,22 @@
                 ordersList.innerHTML = filteredOrders.map(order => {
                     const statusClass = order.status || 'pending';
                     const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
+                    const priorityClass = order.priority === 'high' ? 'bg-red-100 text-red-800' : 
+                                         order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                                         'bg-blue-100 text-blue-800';
 
                     return `
-                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in">
                             <div class="flex justify-between items-start mb-3">
                                 <div class="flex-1">
                                     <h3 class="text-lg font-bold text-gray-800">${order.garmentType} - ${order.orderType}</h3>
                                     <p class="text-gray-600">Client: ${order.clientName}</p>
                                     <p class="text-sm text-gray-500">${order.orderDate || ''}</p>
+                                    ${order.dueDate ? `<p class="text-sm ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
                                 </div>
                                 <div class="text-right">
                                     <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
+                                    ${order.priority ? `<span class="status-badge ${priorityClass} capitalize ml-1">${order.priority}</span>` : ''}
                                     <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
                                 </div>
                             </div>
@@ -1103,18 +1273,18 @@
                             <div class="flex justify-between items-center mt-3">
                                 <div class="flex gap-2">
                                     ${order.status === 'pending' ? `
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
                                     ` : ''}
                                     ${order.status === 'in-progress' ? `
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
                                     ` : ''}
                                     ${order.status === 'completed' ? `
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
                                     ` : ''}
                                     ${order.status === 'delivered' ? `
-                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
+                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
                                     ` : ''}
                                 </div>
                                 <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
@@ -1124,6 +1294,87 @@
                         </div>
                     `;
                 }).join('');
+            }
+
+            static renderKanbanBoard() {
+                const statuses = ['pending', 'in-progress', 'completed', 'delivered'];
+                
+                statuses.forEach(status => {
+                    const container = document.getElementById(`kanban-${status}`);
+                    const statusOrders = orders.filter(order => order.status === status);
+                    
+                    if (statusOrders.length === 0) {
+                        container.innerHTML = `<div class="text-gray-500 italic text-center py-4">No ${status.replace('-', ' ')} orders</div>`;
+                        return;
+                    }
+                    
+                    container.innerHTML = statusOrders.map(order => {
+                        const priorityClass = order.priority === 'high' ? 'border-l-red-500' : 
+                                             order.priority === 'medium' ? 'border-l-yellow-500' : 
+                                             'border-l-blue-500';
+                        
+                        return `
+                            <div class="kanban-item ${priorityClass} border-l-4" draggable="true" data-order-id="${order.id}">
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-bold text-gray-800 text-sm">${order.garmentType}</h4>
+                                    <span class="text-xs font-semibold text-green-600">${formatCurrency(order.price)}</span>
+                                </div>
+                                <p class="text-xs text-gray-600 mb-1">${order.clientName}</p>
+                                ${order.dueDate ? `<p class="text-xs ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
+                                <div class="flex justify-between items-center mt-2">
+                                    <button onclick="editOrder('${order.id}')" class="text-xs text-blue-600 hover:text-blue-800">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <span class="text-xs px-2 py-1 rounded-full ${priorityClass.replace('border-l-', 'bg-').replace('-500', '-100')} ${priorityClass.replace('border-l-', 'text-').replace('-500', '-800')}">
+                                        ${order.priority || 'low'}
+                                    </span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                });
+                
+                // Initialize drag and drop
+                this.initializeKanbanDragAndDrop();
+            }
+
+            static initializeKanbanDragAndDrop() {
+                const kanbanItems = document.querySelectorAll('.kanban-item');
+                const kanbanColumns = document.querySelectorAll('.kanban-column');
+                
+                kanbanItems.forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('text/plain', item.getAttribute('data-order-id'));
+                        setTimeout(() => item.classList.add('opacity-50'), 0);
+                    });
+                    
+                    item.addEventListener('dragend', () => {
+                        item.classList.remove('opacity-50');
+                    });
+                });
+                
+                kanbanColumns.forEach(column => {
+                    column.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        column.classList.add('drag-over');
+                    });
+                    
+                    column.addEventListener('dragleave', () => {
+                        column.classList.remove('drag-over');
+                    });
+                    
+                    column.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        column.classList.remove('drag-over');
+                        
+                        const orderId = e.dataTransfer.getData('text/plain');
+                        const newStatus = column.getAttribute('data-status');
+                        
+                        if (orderId && newStatus) {
+                            this.updateOrderStatus(orderId, newStatus);
+                        }
+                    });
+                });
             }
 
             static updateOrderTabCounts() {
@@ -1218,7 +1469,7 @@
                 }
 
                 productsList.innerHTML = products.map(product => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition" onclick="editProduct('${product.id}')">
+                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition fade-in" onclick="editProduct('${product.id}')">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="text-lg font-bold text-gray-800">${product.name}</h3>
                             <div class="text-right">
@@ -1329,7 +1580,7 @@
                 }
 
                 expensesList.innerHTML = expenses.slice(0, 10).map(expense => `
-                    <div class="bg-white p-3 rounded-lg border border-red-100 cursor-pointer hover:shadow-md transition" onclick="editExpense('${expense.id}')">
+                    <div class="bg-white p-3 rounded-lg border border-red-100 cursor-pointer hover:shadow-md transition fade-in" onclick="editExpense('${expense.id}')">
                         <div class="flex justify-between items-center">
                             <div>
                                 <span class="font-medium text-gray-800">${expense.category}</span>
@@ -1397,7 +1648,7 @@
                     categoriesContainer.innerHTML = Object.entries(categoryTotals)
                         .sort(([,a], [,b]) => b - a)
                         .map(([category, amount]) => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg fade-in">
                                 <span class="font-medium text-gray-700">${category}</span>
                                 <div class="text-right">
                                     <div class="text-red-600 font-bold">${formatCurrency(amount)}</div>
@@ -1507,7 +1758,7 @@
                     const stockClass = isLowStock ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
                     
                     return `
-                        <div class="${stockClass} p-4 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition" onclick="editInventory('${item.id}')">
+                        <div class="${stockClass} p-4 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition fade-in" onclick="editInventory('${item.id}')">
                             <div class="flex justify-between items-start mb-2">
                                 <div class="flex-1">
                                     <h4 class="font-bold text-gray-800">${item.name}</h4>
@@ -1553,31 +1804,132 @@
                 document.getElementById('completedOrders').textContent = completedOrders;
                 document.getElementById('inventoryValue').textContent = formatCurrency(inventoryValue);
 
-                // Revenue tab
-                document.getElementById('realizedRevenue').textContent = formatCurrency(totalRevenue);
-                document.getElementById('pendingRevenue').textContent = formatCurrency(0); // Placeholder
-                document.getElementById('totalPotentialRevenue').textContent = formatCurrency(totalRevenue);
+                // Update charts
+                this.updateCharts();
+            }
 
-                // Status breakdown
-                const statusBreakdown = document.getElementById('statusBreakdown');
+            static updateCharts() {
+                // Revenue vs Expenses Chart
+                const revenueExpenseCtx = document.getElementById('revenueExpenseChart').getContext('2d');
+                
+                // Get last 6 months data
+                const months = [];
+                const revenueData = [];
+                const expenseData = [];
+                
+                const now = new Date();
+                for (let i = 5; i >= 0; i--) {
+                    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthStr = month.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                    months.push(monthStr);
+                    
+                    const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
+                    
+                    // Calculate revenue for this month
+                    const monthRevenue = orders
+                        .filter(order => order.orderDate && order.orderDate.startsWith(monthKey))
+                        .reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+                    revenueData.push(monthRevenue);
+                    
+                    // Calculate expenses for this month
+                    const monthExpenses = expenses
+                        .filter(expense => expense.date && expense.date.startsWith(monthKey))
+                        .reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+                    expenseData.push(monthExpenses);
+                }
+                
+                // Destroy existing chart if it exists
+                if (window.revenueExpenseChart) {
+                    window.revenueExpenseChart.destroy();
+                }
+                
+                window.revenueExpenseChart = new Chart(revenueExpenseCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: months,
+                        datasets: [
+                            {
+                                label: 'Revenue',
+                                data: revenueData,
+                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                borderColor: 'rgb(34, 197, 94)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Expenses',
+                                data: expenseData,
+                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                                borderColor: 'rgb(239, 68, 68)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'MWK ' + value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                
+                // Order Status Chart
+                const orderStatusCtx = document.getElementById('orderStatusChart').getContext('2d');
                 const statusCounts = {
                     'pending': orders.filter(o => o.status === 'pending').length,
                     'in-progress': orders.filter(o => o.status === 'in-progress').length,
                     'completed': orders.filter(o => o.status === 'completed').length,
                     'delivered': orders.filter(o => o.status === 'delivered').length
                 };
-
-                statusBreakdown.innerHTML = Object.entries(statusCounts).map(([status, count]) => {
-                    const statusClass = `status-${status}`;
-                    const statusText = status.replace('-', ' ');
-
-                    return `
-                        <div class="p-4 rounded-xl text-center ${statusClass}">
-                            <div class="text-2xl font-bold">${count}</div>
-                            <div class="text-sm font-medium capitalize">${statusText}</div>
-                        </div>
-                    `;
-                }).join('');
+                
+                // Destroy existing chart if it exists
+                if (window.orderStatusChart) {
+                    window.orderStatusChart.destroy();
+                }
+                
+                window.orderStatusChart = new Chart(orderStatusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Pending', 'In Progress', 'Completed', 'Delivered'],
+                        datasets: [{
+                            data: [
+                                statusCounts['pending'],
+                                statusCounts['in-progress'],
+                                statusCounts['completed'],
+                                statusCounts['delivered']
+                            ],
+                            backgroundColor: [
+                                'rgba(245, 158, 11, 0.7)',
+                                'rgba(59, 130, 246, 0.7)',
+                                'rgba(34, 197, 94, 0.7)',
+                                'rgba(139, 92, 246, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgb(245, 158, 11)',
+                                'rgb(59, 130, 246)',
+                                'rgb(34, 197, 94)',
+                                'rgb(139, 92, 246)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                            }
+                        }
+                    }
+                });
             }
 
             static updateTabCounts() {
@@ -1648,6 +2000,320 @@
                 window.URL.revokeObjectURL(url);
             }
 
+            // Report Generation
+            static generateReport() {
+                const reportType = document.getElementById('reportType').value;
+                const dateRange = document.getElementById('dateRange').value;
+                
+                let startDate, endDate;
+                
+                // Calculate date range
+                const today = new Date();
+                switch(dateRange) {
+                    case 'week':
+                        startDate = new Date(today);
+                        startDate.setDate(today.getDate() - 7);
+                        break;
+                    case 'month':
+                        startDate = new Date(today);
+                        startDate.setMonth(today.getMonth() - 1);
+                        break;
+                    case 'quarter':
+                        startDate = new Date(today);
+                        startDate.setMonth(today.getMonth() - 3);
+                        break;
+                    case 'year':
+                        startDate = new Date(today);
+                        startDate.setFullYear(today.getFullYear() - 1);
+                        break;
+                    case 'custom':
+                        startDate = new Date(document.getElementById('dateFrom').value);
+                        endDate = new Date(document.getElementById('dateTo').value);
+                        break;
+                    default:
+                        startDate = new Date(today);
+                        startDate.setDate(today.getDate() - 7);
+                }
+                
+                if (!endDate) endDate = today;
+                
+                // Filter data based on date range
+                const filteredOrders = orders.filter(order => {
+                    const orderDate = new Date(order.orderDate || order.createdAt?.toDate?.() || today);
+                    return orderDate >= startDate && orderDate <= endDate;
+                });
+                
+                const filteredExpenses = expenses.filter(expense => {
+                    const expenseDate = new Date(expense.date || expense.createdAt?.toDate?.() || today);
+                    return expenseDate >= startDate && expenseDate <= endDate;
+                });
+                
+                // Generate report based on type
+                let reportHTML = '';
+                
+                switch(reportType) {
+                    case 'financial':
+                        reportHTML = this.generateFinancialReport(filteredOrders, filteredExpenses, startDate, endDate);
+                        break;
+                    case 'orders':
+                        reportHTML = this.generateOrderReport(filteredOrders, startDate, endDate);
+                        break;
+                    case 'clients':
+                        reportHTML = this.generateClientReport(filteredOrders, startDate, endDate);
+                        break;
+                    case 'inventory':
+                        reportHTML = this.generateInventoryReport(startDate, endDate);
+                        break;
+                }
+                
+                document.getElementById('reportResults').innerHTML = reportHTML;
+            }
+            
+            static generateFinancialReport(orders, expenses, startDate, endDate) {
+                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+                const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+                const netProfit = totalRevenue - totalExpenses;
+                
+                // Calculate by category
+                const revenueByCategory = {};
+                orders.forEach(order => {
+                    const category = order.garmentType || 'Other';
+                    revenueByCategory[category] = (revenueByCategory[category] || 0) + (parseFloat(order.price) || 0);
+                });
+                
+                const expensesByCategory = {};
+                expenses.forEach(expense => {
+                    const category = expense.category || 'Other';
+                    expensesByCategory[category] = (expensesByCategory[category] || 0) + (parseFloat(expense.amount) || 0);
+                });
+                
+                return `
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Financial Report</h3>
+                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="summary-card bg-green-50 border border-green-200">
+                                <div class="text-green-600 text-sm font-medium">Total Revenue</div>
+                                <div class="text-2xl font-bold text-green-800 mt-1">${formatCurrency(totalRevenue)}</div>
+                            </div>
+                            <div class="summary-card bg-red-50 border border-red-200">
+                                <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                                <div class="text-2xl font-bold text-red-800 mt-1">${formatCurrency(totalExpenses)}</div>
+                            </div>
+                            <div class="summary-card bg-blue-50 border border-blue-200">
+                                <div class="text-blue-600 text-sm font-medium">Net Profit</div>
+                                <div class="text-2xl font-bold text-blue-800 mt-1">${formatCurrency(netProfit)}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Revenue by Garment Type</h4>
+                                <div class="space-y-2">
+                                    ${Object.entries(revenueByCategory)
+                                        .sort(([,a], [,b]) => b - a)
+                                        .map(([category, amount]) => `
+                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span class="font-medium">${category}</span>
+                                                <span class="text-green-600 font-bold">${formatCurrency(amount)}</span>
+                                            </div>
+                                        `).join('')}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Expenses by Category</h4>
+                                <div class="space-y-2">
+                                    ${Object.entries(expensesByCategory)
+                                        .sort(([,a], [,b]) => b - a)
+                                        .map(([category, amount]) => `
+                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span class="font-medium">${category}</span>
+                                                <span class="text-red-600 font-bold">${formatCurrency(amount)}</span>
+                                            </div>
+                                        `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            static generateOrderReport(orders, startDate, endDate) {
+                const statusCounts = {
+                    'pending': orders.filter(o => o.status === 'pending').length,
+                    'in-progress': orders.filter(o => o.status === 'in-progress').length,
+                    'completed': orders.filter(o => o.status === 'completed').length,
+                    'delivered': orders.filter(o => o.status === 'delivered').length
+                };
+                
+                const typeCounts = {};
+                orders.forEach(order => {
+                    const type = order.orderType || 'Unknown';
+                    typeCounts[type] = (typeCounts[type] || 0) + 1;
+                });
+                
+                const garmentCounts = {};
+                orders.forEach(order => {
+                    const garment = order.garmentType || 'Unknown';
+                    garmentCounts[garment] = (garmentCounts[garment] || 0) + 1;
+                });
+                
+                return `
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Order Analysis Report</h3>
+                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                                <div class="text-2xl font-bold text-yellow-800">${statusCounts.pending}</div>
+                                <div class="text-sm text-yellow-600">Pending</div>
+                            </div>
+                            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                                <div class="text-2xl font-bold text-blue-800">${statusCounts['in-progress']}</div>
+                                <div class="text-sm text-blue-600">In Progress</div>
+                            </div>
+                            <div class="text-center p-4 bg-green-50 rounded-lg">
+                                <div class="text-2xl font-bold text-green-800">${statusCounts.completed}</div>
+                                <div class="text-sm text-green-600">Completed</div>
+                            </div>
+                            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                                <div class="text-2xl font-bold text-purple-800">${statusCounts.delivered}</div>
+                                <div class="text-sm text-purple-600">Delivered</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Orders by Type</h4>
+                                <div class="space-y-2">
+                                    ${Object.entries(typeCounts)
+                                        .sort(([,a], [,b]) => b - a)
+                                        .map(([type, count]) => `
+                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span class="font-medium">${type}</span>
+                                                <span class="text-indigo-600 font-bold">${count}</span>
+                                            </div>
+                                        `).join('')}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Orders by Garment Type</h4>
+                                <div class="space-y-2">
+                                    ${Object.entries(garmentCounts)
+                                        .sort(([,a], [,b]) => b - a)
+                                        .map(([garment, count]) => `
+                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span class="font-medium">${garment}</span>
+                                                <span class="text-indigo-600 font-bold">${count}</span>
+                                            </div>
+                                        `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            static generateClientReport(orders, startDate, endDate) {
+                // Group orders by client
+                const clientOrders = {};
+                orders.forEach(order => {
+                    if (!clientOrders[order.clientId]) {
+                        clientOrders[order.clientId] = {
+                            name: order.clientName,
+                            orders: [],
+                            totalSpent: 0
+                        };
+                    }
+                    clientOrders[order.clientId].orders.push(order);
+                    clientOrders[order.clientId].totalSpent += parseFloat(order.price) || 0;
+                });
+                
+                // Convert to array and sort by total spent
+                const clientArray = Object.values(clientOrders).sort((a, b) => b.totalSpent - a.totalSpent);
+                
+                return `
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Client Analysis Report</h3>
+                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
+                        
+                        <div class="space-y-4">
+                            ${clientArray.map(client => `
+                                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                                    <div>
+                                        <h4 class="font-bold text-gray-800">${client.name}</h4>
+                                        <p class="text-sm text-gray-600">${client.orders.length} orders</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-green-600 font-bold">${formatCurrency(client.totalSpent)}</div>
+                                        <div class="text-xs text-gray-500">Avg: ${formatCurrency(client.totalSpent / client.orders.length)}</div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            static generateInventoryReport(startDate, endDate) {
+                const lowStockItems = inventory.filter(item => (parseFloat(item.quantity) || 0) <= 5);
+                const categoryValue = {};
+                
+                inventory.forEach(item => {
+                    const category = item.category || 'Other';
+                    categoryValue[category] = (categoryValue[category] || 0) + (parseFloat(item.totalValue) || 0);
+                });
+                
+                return `
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-xl font-bold text-gray-800 mb-4">Inventory Analysis Report</h3>
+                        <p class="text-gray-600 mb-6">As of ${endDate.toLocaleDateString()}</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="summary-card bg-blue-50 border border-blue-200">
+                                <div class="text-blue-600 text-sm font-medium">Total Items</div>
+                                <div class="text-2xl font-bold text-blue-800 mt-1">${inventory.length}</div>
+                            </div>
+                            <div class="summary-card bg-red-50 border border-red-200">
+                                <div class="text-red-600 text-sm font-medium">Low Stock Items</div>
+                                <div class="text-2xl font-bold text-red-800 mt-1">${lowStockItems.length}</div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Inventory Value by Category</h4>
+                            <div class="space-y-2">
+                                ${Object.entries(categoryValue)
+                                    .sort(([,a], [,b]) => b - a)
+                                    .map(([category, value]) => `
+                                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span class="font-medium">${category}</span>
+                                            <span class="text-green-600 font-bold">${formatCurrency(value)}</span>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                        
+                        ${lowStockItems.length > 0 ? `
+                            <div class="mt-6">
+                                <h4 class="text-lg font-semibold text-red-700 mb-3">Low Stock Items</h4>
+                                <div class="space-y-2">
+                                    ${lowStockItems.map(item => `
+                                        <div class="flex justify-between items-center p-2 bg-red-50 rounded">
+                                            <span class="font-medium">${item.name}</span>
+                                            <span class="text-red-600 font-bold">${item.quantity} ${item.unit}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
             // Initialize all data
             static async loadAllData() {
                 await this.loadClients();
@@ -1660,7 +2326,7 @@
         }
 
         // Initialize the application
-        const initTailoringApp = async () => {
+        const initAdvancedTailoringApp = async () => {
             try {
                 const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
                 db = getFirestore(app);
@@ -1669,6 +2335,7 @@
                 // Set current date
                 document.getElementById('currentDate').textContent = getTodayDate();
                 document.getElementById('expenseDate').value = getTodayDate();
+                document.getElementById('orderDueDate').value = getTodayDate();
 
                 // Sign in anonymously
                 await signInAnonymously(auth);
@@ -1679,9 +2346,9 @@
                 initializeEventListeners();
                 
                 // Load all data
-                await TailoringManager.loadAllData();
+                await AdvancedTailoringManager.loadAllData();
                 
-                showNotification('Tailoring shop ready!', 'success');
+                showNotification('Advanced tailoring shop ready!', 'success');
                 
             } catch (error) {
                 console.error("Failed to initialize tailoring app:", error);
@@ -1707,7 +2374,7 @@
                     return;
                 }
 
-                await TailoringManager.saveClient(formData, clientId || null);
+                await AdvancedTailoringManager.saveClient(formData, clientId || null);
             });
 
             // Order form
@@ -1720,6 +2387,8 @@
                     garmentType: document.getElementById('garmentType').value,
                     price: parseFloat(document.getElementById('orderPrice').value) || 0,
                     status: document.getElementById('orderStatus').value,
+                    priority: document.getElementById('orderPriority').value,
+                    dueDate: document.getElementById('orderDueDate').value,
                     measurements: document.getElementById('orderMeasurements').value.trim(),
                     notes: document.getElementById('orderNotes').value.trim()
                 };
@@ -1729,7 +2398,7 @@
                     return;
                 }
 
-                await TailoringManager.saveOrder(formData, orderId || null);
+                await AdvancedTailoringManager.saveOrder(formData, orderId || null);
             });
 
             // Product form
@@ -1753,7 +2422,7 @@
                     return;
                 }
 
-                await TailoringManager.saveProduct(formData, productId || null);
+                await AdvancedTailoringManager.saveProduct(formData, productId || null);
             });
 
             // Expense form
@@ -1772,7 +2441,7 @@
                     return;
                 }
 
-                await TailoringManager.saveExpense(formData, expenseId || null);
+                await AdvancedTailoringManager.saveExpense(formData, expenseId || null);
             });
 
             // Inventory form
@@ -1794,12 +2463,12 @@
                     return;
                 }
 
-                await TailoringManager.saveInventory(formData, inventoryId || null);
+                await AdvancedTailoringManager.saveInventory(formData, inventoryId || null);
             });
 
             // Search functionality
             document.getElementById('clientSearch').addEventListener('input', () => {
-                TailoringManager.renderClients();
+                AdvancedTailoringManager.renderClients();
             });
 
             // Order status tabs
@@ -1811,45 +2480,67 @@
                     
                     // Update current status and re-render
                     currentOrderStatus = tab.getAttribute('data-order-status');
-                    TailoringManager.renderOrders();
+                    AdvancedTailoringManager.renderOrders();
                 });
+            });
+
+            // Report controls
+            document.getElementById('dateRange').addEventListener('change', function() {
+                const customRange = document.getElementById('customDateRange');
+                if (this.value === 'custom') {
+                    customRange.classList.remove('hidden');
+                } else {
+                    customRange.classList.add('hidden');
+                }
             });
 
             // Delete buttons
             document.getElementById('deleteClientBtn').addEventListener('click', () => {
                 const clientId = document.getElementById('clientId').value;
-                if (clientId) TailoringManager.deleteClient(clientId);
+                if (clientId) AdvancedTailoringManager.deleteClient(clientId);
             });
 
             document.getElementById('deleteOrderBtn').addEventListener('click', () => {
                 const orderId = document.getElementById('orderId').value;
-                if (orderId) TailoringManager.deleteOrder(orderId);
+                if (orderId) AdvancedTailoringManager.deleteOrder(orderId);
             });
 
             document.getElementById('deleteProductBtn').addEventListener('click', () => {
                 const productId = document.getElementById('productId').value;
-                if (productId) TailoringManager.deleteProduct(productId);
+                if (productId) AdvancedTailoringManager.deleteProduct(productId);
             });
 
             document.getElementById('deleteExpenseBtn').addEventListener('click', () => {
                 const expenseId = document.getElementById('expenseId').value;
-                if (expenseId) TailoringManager.deleteExpense(expenseId);
+                if (expenseId) AdvancedTailoringManager.deleteExpense(expenseId);
             });
 
             document.getElementById('deleteInventoryBtn').addEventListener('click', () => {
                 const inventoryId = document.getElementById('inventoryId').value;
-                if (inventoryId) TailoringManager.deleteInventory(inventoryId);
+                if (inventoryId) AdvancedTailoringManager.deleteInventory(inventoryId);
             });
         }
 
-        // Make TailoringManager available globally
-        window.TailoringManager = TailoringManager;
-        window.exportClients = () => TailoringManager.exportClients();
-        window.exportOrders = () => TailoringManager.exportOrders();
-        window.exportProducts = () => TailoringManager.exportProducts();
+        // Make AdvancedTailoringManager available globally
+        window.AdvancedTailoringManager = AdvancedTailoringManager;
+        window.exportClients = () => AdvancedTailoringManager.exportClients();
+        window.exportOrders = () => AdvancedTailoringManager.exportOrders();
+        window.exportProducts = () => AdvancedTailoringManager.exportProducts();
+        window.generateReport = () => AdvancedTailoringManager.generateReport();
+        window.exportReport = () => {
+            const reportResults = document.getElementById('reportResults').innerText;
+            const blob = new Blob([reportResults], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `report_${getTodayDate()}.txt`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+            showNotification('Report exported successfully!', 'success');
+        };
 
         // Initialize when page loads
-        window.onload = initTailoringApp;
+        window.onload = initAdvancedTailoringApp;
     </script>
 
     <script>
@@ -1882,7 +2573,7 @@
             document.getElementById('deleteClientBtn').classList.toggle('hidden', !clientId);
             
             if (clientId) {
-                const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+                const client = window.AdvancedTailoringManager?.clients?.find(c => c.id === clientId);
                 if (client) {
                     document.getElementById('clientName').value = client.name || '';
                     document.getElementById('clientPhone').value = client.phone || '';
@@ -1911,6 +2602,7 @@
             }
             
             document.getElementById('orderForm').reset();
+            document.getElementById('orderDueDate').value = getTodayDate();
             document.getElementById('orderModal').classList.add('active');
         }
 
@@ -1927,7 +2619,7 @@
             container.innerHTML = '';
             
             if (productId) {
-                const product = window.TailoringManager?.products?.find(p => p.id === productId);
+                const product = window.AdvancedTailoringManager?.products?.find(p => p.id === productId);
                 if (product) {
                     document.getElementById('productName').value = product.name || '';
                     document.getElementById('productCategory').value = product.category || '';
@@ -1960,7 +2652,7 @@
             document.getElementById('deleteExpenseBtn').classList.toggle('hidden', !expenseId);
             
             if (expenseId) {
-                const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+                const expense = window.AdvancedTailoringManager?.expenses?.find(e => e.id === expenseId);
                 if (expense) {
                     document.getElementById('expenseCategory').value = expense.category || '';
                     document.getElementById('expenseAmount').value = expense.amount || '';
@@ -1985,7 +2677,7 @@
             document.getElementById('deleteInventoryBtn').classList.toggle('hidden', !inventoryId);
             
             if (inventoryId) {
-                const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+                const item = window.AdvancedTailoringManager?.inventory?.find(i => i.id === inventoryId);
                 if (item) {
                     document.getElementById('inventoryName').value = item.name || '';
                     document.getElementById('inventoryCategory').value = item.category || '';
@@ -2008,7 +2700,7 @@
 
         // Edit functions - FIXED: Now properly loads all data for editing
         function editClient(clientId) {
-            const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+            const client = window.AdvancedTailoringManager?.clients?.find(c => c.id === clientId);
             if (client) {
                 document.getElementById('clientModalTitle').textContent = 'Edit Client';
                 document.getElementById('clientId').value = clientId;
@@ -2025,7 +2717,7 @@
         }
 
         function editOrder(orderId) {
-            const order = window.TailoringManager?.orders?.find(o => o.id === orderId);
+            const order = window.AdvancedTailoringManager?.orders?.find(o => o.id === orderId);
             if (order) {
                 document.getElementById('orderModalTitle').textContent = 'Edit Order';
                 document.getElementById('orderId').value = orderId;
@@ -2037,6 +2729,8 @@
                 document.getElementById('garmentType').value = order.garmentType || '';
                 document.getElementById('orderPrice').value = order.price || '';
                 document.getElementById('orderStatus').value = order.status || 'pending';
+                document.getElementById('orderPriority').value = order.priority || 'medium';
+                document.getElementById('orderDueDate').value = order.dueDate || '';
                 document.getElementById('orderMeasurements').value = order.measurements || '';
                 document.getElementById('orderNotes').value = order.notes || '';
                 
@@ -2045,7 +2739,7 @@
         }
 
         function editProduct(productId) {
-            const product = window.TailoringManager?.products?.find(p => p.id === productId);
+            const product = window.AdvancedTailoringManager?.products?.find(p => p.id === productId);
             if (product) {
                 document.getElementById('productModalTitle').textContent = 'Edit Design';
                 document.getElementById('productId').value = productId;
@@ -2074,7 +2768,7 @@
         }
 
         function editExpense(expenseId) {
-            const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+            const expense = window.AdvancedTailoringManager?.expenses?.find(e => e.id === expenseId);
             if (expense) {
                 document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
                 document.getElementById('expenseId').value = expenseId;
@@ -2091,7 +2785,7 @@
         }
 
         function editInventory(inventoryId) {
-            const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+            const item = window.AdvancedTailoringManager?.inventory?.find(i => i.id === inventoryId);
             if (item) {
                 document.getElementById('inventoryModalTitle').textContent = 'Edit Inventory Item';
                 document.getElementById('inventoryId').value = inventoryId;
@@ -2145,38 +2839,6 @@
             });
         });
 
-        // Export financial report
-        function exportFinancialReport() {
-            const orders = window.TailoringManager?.orders || [];
-            const expenses = window.TailoringManager?.expenses || [];
-            
-            const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
-            const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-            const netProfit = totalRevenue - totalExpenses;
-
-            const reportData = [
-                ['Metric', 'Value'],
-                ['Total Revenue', `MWK ${totalRevenue.toFixed(2)}`],
-                ['Total Expenses', `MWK ${totalExpenses.toFixed(2)}`],
-                ['Net Profit', `MWK ${netProfit.toFixed(2)}`],
-                ['Total Orders', orders.length],
-                ['Completed Orders', orders.filter(o => o.status === 'completed').length],
-                ['Pending Orders', orders.filter(o => o.status === 'pending').length]
-            ];
-
-            const csvContent = reportData.map(row => row.join(',')).join('\n');
-            
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `financial_report_${new Date().toISOString().split('T')[0]}.csv`;
-            link.click();
-            window.URL.revokeObjectURL(url);
-
-            showNotification('Financial report exported successfully!', 'success');
-        }
-
         // Utility functions
         function getTodayDate() {
             return new Date().toISOString().split('T')[0];
@@ -2193,7 +2855,6 @@
             }, 5000);
         }
 
-        window.exportFinancialReport = exportFinancialReport;
         window.addProductMeasurementField = addProductMeasurementField;
         window.useClientForOrder = useClientForOrder;
         window.openOrderModal = openOrderModal;
