@@ -1,1185 +1,2670 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Tailoring Shop Manager</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #4f46e5;
-            --primary-dark: #4338ca;
-            --secondary: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --info: #3b82f6;
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// Lucide icons for a clean look
+import { Gauge, User, Plus, Search, Trash2, Ruler, Save, ClipboardList, X, History, DollarSign, BarChart3, TrendingUp, Hand, Factory, MapPin, Pencil, Download, Filter, Calendar, AlertCircle, CheckCircle, Loader, Image, Package, ShoppingBag } from 'lucide-react';
+// Firebase imports
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, collection, query, onSnapshot, addDoc, doc, deleteDoc, updateDoc, where, Timestamp } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+
+// --- CONFIGURATION AND INITIALIZATION ---
+// Global variables provided by the Canvas environment
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+// New Order Types
+const ORDER_TYPES = ['Production Order', 'Alteration'];
+
+// Measurement Units Configuration
+const MEASUREMENT_UNITS = {
+  imperial: 'inches',
+  metric: 'cm'
+};
+
+// Standard Measurement sets for different garments (only used for Production Orders)
+const measurementTemplates = {
+  Shirt: ['Neck', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Length'],
+  Trousers: ['Waist', 'Hip', 'Inseam', 'Thigh', 'Cuff'],
+  Jacket: ['Chest', 'Waist', 'Shoulder', 'Sleeve', 'Back Length', 'Bicep'],
+  Kurta: ['Neck', 'Chest', 'Shoulder', 'Length', 'Knee Length'],
+  Other: ['Custom 1', 'Custom 2', 'Notes'],
+};
+
+const statusColors = {
+    'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-500',
+    'In Progress': 'bg-blue-100 text-blue-800 border-blue-500',
+    'Completed': 'bg-green-100 text-green-800 border-green-500',
+    'Review': 'bg-red-100 text-red-800 border-red-500',
+};
+
+const CURRENCY_SYMBOL = 'MWK'; // Set the currency globally
+
+// Utility function to convert measurements object to array for form state
+const objToArray = (obj) => {
+    return Object.entries(obj || {}).map(([key, value]) => ({ key, value }));
+};
+
+// Utility function to convert measurements array to object for Firestore
+const arrayToObj = (arr) => {
+    return (arr || [])
+        .filter(m => m.key && m.value)
+        .reduce((acc, current) => {
+            acc[current.key] = current.value;
+            return acc;
+        }, {});
+};
+
+// Validation functions - FIXED: Added safe optional chaining
+const validateOrder = (order) => {
+  const errors = {};
+  if (!order.clientId && order.isNewClient && !order.name?.trim()) {
+    errors.name = "Client name is required";
+  }
+  if (order.price <= 0) {
+    errors.price = "Valid price is required";
+  }
+  if (order.isNewClient && !order.phone?.trim()) {
+    errors.phone = "Phone number is required for new clients";
+  }
+  return errors;
+};
+
+const validateClient = (client) => {
+  const errors = {};
+  if (!client.name?.trim()) {
+    errors.name = "Client name is required";
+  }
+  if (!client.phone?.trim()) {
+    errors.phone = "Phone number is required";
+  }
+  return errors;
+};
+
+const validateProduct = (product) => {
+  const errors = {};
+  if (!product.name?.trim()) {
+    errors.name = "Product name is required";
+  }
+  if (product.price <= 0) {
+    errors.price = "Valid price is required";
+  }
+  if (!product.category?.trim()) {
+    errors.category = "Category is required";
+  }
+  return errors;
+};
+
+// Debounce hook for search
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+// Export utilities
+const exportToCSV = (data, filename) => {
+  if (!data.length) return;
+  
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => headers.map(header => {
+      const value = row[header];
+      return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
+    }).join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv' });
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+  window.URL.revokeObjectURL(url);
+};
+
+// The main App component
+const App = () => {
+  const [db, setDb] = useState(null);
+  const [storage, setStorage] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [measurementUnit, setMeasurementUnit] = useState('imperial');
+  
+  const [clients, setClients] = useState([]); 
+  const [orders, setOrders] = useState([]); 
+  const [products, setProducts] = useState([]); // NEW: Products state
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const [activeTab, setActiveTab] = useState('orders'); 
+  
+  // Enhanced filtering state
+  const [filters, setFilters] = useState({
+    status: '',
+    orderType: '',
+    dateRange: '',
+    minPrice: '',
+    maxPrice: ''
+  });
+
+  // Notification state
+  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+
+  // NEW State for Client Profile Viewing/Editing
+  const [selectedClientForProfile, setSelectedClientForProfile] = useState(null); 
+  const [isClientProfileModalOpen, setIsClientProfileModalOpen] = useState(false);
+
+  // NEW State for Product Management
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+
+  // State for adding a new order
+  const [newOrder, setNewOrder] = useState({ 
+    clientId: '', 
+    name: '', 
+    phone: '', 
+    garment: 'Shirt', 
+    orderType: 'Production Order', 
+    measurements: {}, 
+    notes: '',
+    status: 'Pending',
+    price: 0,
+    isNewClient: true,
+    selectedProductId: '', // NEW: Selected product for order
+  });
+
+  // Loading states
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false); // NEW: Image upload state
+  
+  // State for the Detail Modal (holds selected Order data)
+  const [selectedOrder, setSelectedOrder] = useState(null); 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Show notification function
+  const showNotification = (message, type = 'success') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
+  };
+
+  // --- FIREBASE INITIALIZATION AND AUTHENTICATION ---
+  useEffect(() => {
+    if (Object.keys(firebaseConfig).length === 0) {
+      console.error("Firebase config is missing.");
+      setIsLoading(false);
+      showNotification("Firebase configuration error", "error");
+      return;
+    }
+
+    try {
+      const app = initializeApp(firebaseConfig);
+      const firestore = getFirestore(app);
+      const firebaseStorage = getStorage(app);
+      const firebaseAuth = getAuth(app);
+      setDb(firestore);
+      setStorage(firebaseStorage);
+      setAuth(firebaseAuth);
+
+      const setupAuth = async () => {
+        try {
+          if (initialAuthToken) {
+            await signInWithCustomToken(firebaseAuth, initialAuthToken);
+          } else {
+            await signInAnonymously(firebaseAuth);
+          }
+        } catch (error) {
+          console.error("Firebase Auth failed, attempting anonymous sign-in:", error);
+          await signInAnonymously(firebaseAuth);
         }
-        
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background-color: #f8fafc; 
+      };
+      
+      onAuthStateChanged(firebaseAuth, (user) => {
+        if (user) {
+          setUserId(user.uid);
+          console.log(`Authenticated as user: ${user.uid}`);
+        } else {
+          setUserId(null);
         }
-        
-        .input-style {
-            @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-150;
+        setIsLoading(false);
+      });
+
+      setupAuth();
+    } catch (e) {
+      console.error("Error initializing Firebase:", e);
+      setIsLoading(false);
+      showNotification("Failed to initialize application", "error");
+    }
+  }, []); 
+
+  // --- FIRESTORE DATA LISTENERS ---
+  useEffect(() => {
+    if (!db || !userId) return;
+
+    // 1. Clients Listener
+    const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
+    const clientsCollectionRef = collection(db, clientCollectionPath);
+    const qClients = query(clientsCollectionRef, where("creatorId", "==", userId));
+
+    const unsubscribeClients = onSnapshot(qClients, (snapshot) => {
+      const clientList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        measurements: doc.data().measurements || {}, 
+      }));
+      setClients(clientList);
+    }, (error) => {
+      console.error("Error fetching clients:", error);
+      showNotification("Error loading clients", "error");
+    });
+    
+    // 2. Orders Listener
+    const orderCollectionPath = `artifacts/${appId}/public/data/orders`;
+    const ordersCollectionRef = collection(db, orderCollectionPath);
+
+    const qOrders = query(ordersCollectionRef, where("creatorId", "==", userId));
+
+    const unsubscribeOrders = onSnapshot(qOrders, (snapshot) => {
+      const orderList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        price: parseFloat(doc.data().price) || 0, // Ensure price is number
+      }));
+      setOrders(orderList);
+    }, (error) => {
+      console.error("Error fetching orders:", error);
+      showNotification("Error loading orders", "error");
+    });
+
+    // 3. NEW: Products Listener
+    const productCollectionPath = `artifacts/${appId}/public/data/products`;
+    const productsCollectionRef = collection(db, productCollectionPath);
+    const qProducts = query(productsCollectionRef, where("creatorId", "==", userId));
+
+    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
+      const productList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        price: parseFloat(doc.data().price) || 0,
+        requiredMeasurements: doc.data().requiredMeasurements || [],
+      }));
+      setProducts(productList);
+    }, (error) => {
+      console.error("Error fetching products:", error);
+      showNotification("Error loading products", "error");
+    });
+
+    return () => {
+        unsubscribeClients();
+        unsubscribeOrders();
+        unsubscribeProducts();
+    }; // Cleanup all listeners
+  }, [db, userId]); 
+
+  // Helper function to get client info from an ID
+  const getClientInfo = useCallback((clientId) => {
+      const client = clients.find(c => c.id === clientId);
+      return {
+          name: client ? client.name : 'Unknown Client',
+          phone: client ? client.phone : 'N/A',
+          location: client ? client.location : 'N/A',
+          measurements: client ? client.measurements : {},
+      };
+  }, [clients]);
+
+  // Helper function to get product info from an ID
+  const getProductInfo = useCallback((productId) => {
+      const product = products.find(p => p.id === productId);
+      return product || null;
+  }, [products]);
+
+  // --- DATA MANAGEMENT FUNCTIONS ---
+
+  // Handle input changes for the new order form
+  const handleNewOrderChange = (field, value) => {
+    const finalValue = field === 'price' ? parseFloat(value) || 0 : value;
+    setNewOrder(prev => ({ ...prev, [field]: finalValue }));
+  };
+
+  // Handle measurement input changes (only for production orders)
+  const handleOrderMeasurementChange = (key, value) => {
+    setNewOrder(prev => ({
+      ...prev,
+      measurements: {
+        ...prev.measurements,
+        [key]: value,
+      }
+    }));
+  };
+
+  // NEW: Handle product selection in order form
+  const handleProductSelection = (productId) => {
+    if (!productId) {
+      // Clear product selection
+      setNewOrder(prev => ({
+        ...prev,
+        selectedProductId: '',
+        garment: 'Shirt',
+        measurements: {},
+        price: 0
+      }));
+      return;
+    }
+
+    const selectedProduct = getProductInfo(productId);
+    if (selectedProduct) {
+      // Auto-fill order details from product
+      const clientMeasurements = newOrder.clientId ? getClientInfo(newOrder.clientId).measurements : {};
+      
+      // Pre-fill measurements from client profile if available
+      const autoFilledMeasurements = {};
+      selectedProduct.requiredMeasurements.forEach(measurement => {
+        if (clientMeasurements[measurement]) {
+          autoFilledMeasurements[measurement] = clientMeasurements[measurement];
         }
+      });
+
+      setNewOrder(prev => ({
+        ...prev,
+        selectedProductId: productId,
+        garment: selectedProduct.category,
+        measurements: autoFilledMeasurements,
+        price: selectedProduct.price,
+        notes: selectedProduct.description ? `Design: ${selectedProduct.name}\n${selectedProduct.description}` : `Design: ${selectedProduct.name}`
+      }));
+    }
+  };
+  
+  // NEW: Function to handle updating an existing client profile
+  const handleUpdateClient = async (clientId, updatedData) => {
+      if (!db || !userId) {
+          console.error("Database or User not ready.");
+          showNotification("Database not ready", "error");
+          return;
+      }
+      
+      const errors = validateClient(updatedData);
+      if (Object.keys(errors).length > 0) {
+        showNotification("Please fix validation errors", "error");
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+          const clientDocRef = doc(db, `artifacts/${appId}/public/data/clients`, clientId);
+          await updateDoc(clientDocRef, {
+              ...updatedData,
+              updatedAt: Timestamp.now(),
+          });
+          console.log(`Client ${clientId} successfully updated.`);
+          showNotification("Client updated successfully");
+      } catch (error) {
+          console.error("Error updating client: ", error);
+          showNotification("Error updating client", "error");
+      } finally {
+        setIsSubmitting(false);
+      }
+  };
+
+  // Function to create a NEW client profile
+  const handleCreateClient = async (clientData) => {
+    if (!db || !userId) {
+        console.error("Database or User not ready.");
+        showNotification("Database not ready", "error");
+        return;
+    }
+    
+    const errors = validateClient(clientData);
+    if (Object.keys(errors).length > 0) {
+      showNotification("Please fix validation errors", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        const clientToAdd = {
+            name: (clientData.name || '').trim(),
+            phone: (clientData.phone || '').trim(),
+            location: (clientData.location || 'N/A').trim(),
+            measurements: clientData.measurements || {}, 
+            notes: (clientData.notes || '').trim(),
+            createdAt: Timestamp.now(),
+            creatorId: userId,
+        };
+        const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
+        await addDoc(collection(db, clientCollectionPath), clientToAdd);
+        console.log("Client successfully added.");
+        showNotification("Client added successfully");
+        setSearchTerm('');
+    } catch (error) {
+        console.error("Error adding client: ", error);
+        showNotification("Error adding client", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // NEW: Function to create a product/design
+  const handleCreateProduct = async (productData, imageFile) => {
+    if (!db || !userId || !storage) {
+        console.error("Database, Storage or User not ready.");
+        showNotification("System not ready", "error");
+        return;
+    }
+    
+    const errors = validateProduct(productData);
+    if (Object.keys(errors).length > 0) {
+      showNotification("Please fix validation errors", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadingImage(true);
+    try {
+        let imageUrl = '';
         
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .summary-card {
-            @apply p-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl;
+        // Upload image if provided
+        if (imageFile) {
+            const imageRef = ref(storage, `products/${userId}/${Date.now()}_${imageFile.name}`);
+            await uploadBytes(imageRef, imageFile);
+            imageUrl = await getDownloadURL(imageRef);
         }
+
+        const productToAdd = {
+            name: (productData.name || '').trim(),
+            description: (productData.description || '').trim(),
+            category: (productData.category || '').trim(),
+            price: parseFloat(productData.price) || 0,
+            requiredMeasurements: productData.requiredMeasurements || [],
+            imageUrl: imageUrl,
+            createdAt: Timestamp.now(),
+            creatorId: userId,
+        };
         
-        .status-badge {
-            @apply px-2 py-1 rounded-full text-xs font-medium;
+        const productCollectionPath = `artifacts/${appId}/public/data/products`;
+        await addDoc(collection(db, productCollectionPath), productToAdd);
+        console.log("Product successfully added.");
+        showNotification("Product added successfully");
+        setIsAddProductModalOpen(false);
+    } catch (error) {
+        console.error("Error adding product: ", error);
+        showNotification("Error adding product", "error");
+    } finally {
+      setIsSubmitting(false);
+      setUploadingImage(false);
+    }
+  };
+
+  // NEW: Function to update a product
+  const handleUpdateProduct = async (productId, productData, imageFile) => {
+    if (!db || !userId || !storage) {
+        console.error("Database, Storage or User not ready.");
+        showNotification("System not ready", "error");
+        return;
+    }
+    
+    const errors = validateProduct(productData);
+    if (Object.keys(errors).length > 0) {
+      showNotification("Please fix validation errors", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadingImage(true);
+    try {
+        let imageUrl = productData.imageUrl || '';
+        
+        // Upload new image if provided
+        if (imageFile) {
+            const imageRef = ref(storage, `products/${userId}/${Date.now()}_${imageFile.name}`);
+            await uploadBytes(imageRef, imageFile);
+            imageUrl = await getDownloadURL(imageRef);
         }
+
+        const productToUpdate = {
+            name: (productData.name || '').trim(),
+            description: (productData.description || '').trim(),
+            category: (productData.category || '').trim(),
+            price: parseFloat(productData.price) || 0,
+            requiredMeasurements: productData.requiredMeasurements || [],
+            imageUrl: imageUrl,
+            updatedAt: Timestamp.now(),
+        };
         
-        .status-pending { @apply bg-yellow-100 text-yellow-800; }
-        .status-in-progress { @apply bg-blue-100 text-blue-800; }
-        .status-completed { @apply bg-green-100 text-green-800; }
-        .status-delivered { @apply bg-purple-100 text-purple-800; }
-        .status-review { @apply bg-red-100 text-red-800; }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+        const productDocRef = doc(db, `artifacts/${appId}/public/data/products`, productId);
+        await updateDoc(productDocRef, productToUpdate);
+        console.log("Product successfully updated.");
+        showNotification("Product updated successfully");
+        setIsProductModalOpen(false);
+    } catch (error) {
+        console.error("Error updating product: ", error);
+        showNotification("Error updating product", "error");
+    } finally {
+      setIsSubmitting(false);
+      setUploadingImage(false);
+    }
+  };
+
+  // NEW: Function to delete a product
+  const handleDeleteProduct = async (productId, productName) => {
+    if (!db || !userId) {
+        console.error("Database or User not ready.");
+        showNotification("Database not ready", "error");
+        return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete the product "${productName}"?`)) {
+        setDeletingId(productId);
+        try {
+            const productDocRef = doc(db, `artifacts/${appId}/public/data/products`, productId);
+            await deleteDoc(productDocRef);
+            console.log(`Product ${productName} deleted.`);
+            showNotification("Product deleted successfully");
+        } catch (error) {
+            console.error("Error deleting product: ", error);
+            showNotification("Error deleting product", "error");
+        } finally {
+          setDeletingId(null);
         }
-        
-        .modal.active {
-            display: flex;
+    }
+  };
+
+  // Handle adding a new order (includes logic for adding a new client first)
+  const handleAddOrder = async (e) => {
+    e.preventDefault();
+    if (!db || !userId) {
+      console.error("Database or User not ready.");
+      showNotification("Database not ready", "error");
+      return;
+    }
+    
+    const errors = validateOrder(newOrder);
+    if (Object.keys(errors).length > 0) {
+      showNotification("Please fix validation errors", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let finalClientId = newOrder.clientId;
+
+      // 1. Add new client if requested
+      if (newOrder.isNewClient) {
+        const clientData = {
+          name: (newOrder.name || '').trim(),
+          phone: (newOrder.phone || '').trim(),
+          location: 'N/A',
+          measurements: {}, 
+          createdAt: Timestamp.now(),
+          creatorId: userId,
+        };
+        const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
+        const docRef = await addDoc(collection(db, clientCollectionPath), clientData);
+        finalClientId = docRef.id; // Use the new client's ID
+      }
+
+      // 2. Add the order
+      const orderData = {
+        clientId: finalClientId,
+        garment: newOrder.garment,
+        orderType: newOrder.orderType,
+        measurements: newOrder.orderType === 'Production Order' ? newOrder.measurements : {},
+        notes: (newOrder.notes || '').trim(),
+        status: newOrder.status,
+        price: parseFloat(newOrder.price) || 0,
+        productId: newOrder.selectedProductId || null, // NEW: Store product reference
+        createdAt: Timestamp.now(),
+        creatorId: userId,
+      };
+
+      const orderCollectionPath = `artifacts/${appId}/public/data/orders`;
+      await addDoc(collection(db, orderCollectionPath), orderData);
+
+      // Reset form and switch tab
+      setNewOrder({ clientId: '', name: '', phone: '', garment: 'Shirt', orderType: 'Production Order', measurements: {}, notes: '', status: 'Pending', price: 0, isNewClient: true, selectedProductId: '' });
+      setActiveTab('orders');
+      console.log("Order successfully added.");
+      showNotification("Order added successfully");
+
+    } catch (error) {
+      console.error("Error adding order: ", error);
+      showNotification("Error adding order", "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handle deleting an order 
+  const handleDeleteOrder = async (id, clientName) => {
+    if (!db || !userId) {
+      console.error("Database or User not ready.");
+      showNotification("Database not ready", "error");
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete the order for ${clientName}?`)) {
+        setDeletingId(id);
+        try {
+            const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, id);
+            await deleteDoc(orderDocRef);
+            console.log("Order successfully deleted.");
+            showNotification("Order deleted successfully");
+        } catch (error) {
+            console.error("Error deleting order: ", error);
+            showNotification("Error deleting order", "error");
+        } finally {
+          setDeletingId(null);
         }
-        
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            max-width: 90%;
-            max-height: 90%;
-            overflow-y: auto;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+  };
+  
+  // Handle deleting a client (and all associated orders)
+  const handleDeleteClient = async (id, name) => {
+      if (!db || !userId) {
+          console.error("Database or User not ready.");
+          showNotification("Database not ready", "error");
+          return;
+      }
+
+      const associatedOrders = orders.filter(o => o.clientId === id);
+      const confirmationMessage = associatedOrders.length > 0
+          ? `WARNING: This client has ${associatedOrders.length} active order(s). Deleting the client (${name}) will delete all associated orders. Are you sure?`
+          : `Are you sure you want to delete client ${name}?`;
+
+      if (window.confirm(confirmationMessage)) {
+          setDeletingId(id);
+          try {
+              // 1. Delete client document
+              const clientDocRef = doc(db, `artifacts/${appId}/public/data/clients`, id);
+              await deleteDoc(clientDocRef);
+              console.log(`Client ${name} deleted.`);
+
+              // 2. Delete associated orders
+              await Promise.all(associatedOrders.map(async (order) => {
+                  const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, order.id);
+                  await deleteDoc(orderDocRef);
+              }));
+              
+              console.log(`${associatedOrders.length} associated orders deleted.`);
+              showNotification("Client and associated orders deleted successfully");
+
+          } catch (error) {
+              console.error("Error deleting client or associated orders: ", error);
+              showNotification("Error deleting client", "error");
+          } finally {
+            setDeletingId(null);
+          }
+      }
+  };
+
+  // Handle status update (for order)
+  const handleUpdateStatus = async (id, newStatus) => {
+    if (!db) {
+        console.error("Database not ready.");
+        showNotification("Database not ready", "error");
+        return;
+    }
+    try {
+        const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, id);
+        await updateDoc(orderDocRef, {
+            status: newStatus,
+            updatedAt: Timestamp.now()
+        });
+        // If modal is open, update selected order's state too
+        if (selectedOrder && selectedOrder.id === id) {
+            setSelectedOrder(prev => ({ ...prev, status: newStatus }));
         }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 8px;
-            color: white;
-            z-index: 1001;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-        
-        .notification.success { background-color: var(--secondary); }
-        .notification.error { background-color: var(--danger); }
-        .notification.warning { background-color: var(--warning); }
-        
-        .search-container { position: relative; }
-        
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            max-height: 200px;
-            overflow-y: auto;
-            z-index: 10;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        }
-        
-        .search-item {
-            padding: 10px 15px;
-            cursor: pointer;
-            border-bottom: 1px solid #f3f4f6;
-        }
-        
-        .search-item:hover { background-color: #f9fafb; }
-        
-        .order-card {
-            transition: all 0.3s ease;
-            border-left: 4px solid #e5e7eb;
-            cursor: pointer;
-        }
-        
-        .order-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .order-card.pending { border-left-color: var(--warning); }
-        .order-card.in-progress { border-left-color: var(--info); }
-        .order-card.completed { border-left-color: var(--secondary); }
-        .order-card.delivered { border-left-color: var(--primary); }
-        
-        .order-tab { 
-            @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
-        }
-        
-        .order-tab.active { @apply bg-indigo-600 text-white; }
-        .order-tab:not(.active) { @apply bg-gray-200 text-gray-700 hover:bg-gray-300; }
-        
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .client-option, .design-option {
-            padding: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .client-option:hover, .design-option:hover {
-            background-color: #f3f4f6;
-            border-color: #d1d5db;
-        }
-        
-        .client-option.selected, .design-option.selected {
-            background-color: #e0e7ff;
-            border-color: #4f46e5;
-        }
-        
-        .section-toggle {
-            display: flex;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            overflow: hidden;
-            margin-bottom: 15px;
-        }
-        
-        .toggle-option {
-            flex: 1;
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-            background-color: #f9fafb;
-            transition: all 0.2s;
-        }
-        
-        .toggle-option.active {
-            background-color: #4f46e5;
-            color: white;
-        }
-        
-        .toggle-option:not(.active):hover {
-            background-color: #e5e7eb;
-        }
-    </style>
-</head>
-<body class="bg-gray-50">
-    <div class="max-w-7xl mx-auto p-4 md:p-8">
-        <!-- Header -->
-        <header class="bg-indigo-700 text-white p-4 rounded-xl mb-6 shadow-xl">
-            <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-extrabold flex items-center">
-                    <i class="fas fa-ruler-combined mr-3 text-yellow-300"></i> Advanced Tailor Shop Manager
-                </h1>
-                <div class="flex items-center space-x-4">
-                    <select id="measurementUnit" class="bg-indigo-600 border border-indigo-500 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-300">
-                        <option value="imperial">Inches</option>
-                        <option value="metric">Centimeters</option>
-                    </select>
-                    <div class="text-xs opacity-75 hidden sm:block">
-                        <p>Date: <span id="currentDate" class="font-mono text-yellow-300"></span></p>
-                    </div>
+        console.log(`Status updated to: ${newStatus}`);
+        showNotification("Status updated successfully");
+    } catch (error) {
+        console.error("Error updating status:", error);
+        showNotification("Error updating status", "error");
+    }
+  };
+
+  // Enhanced filtering with memoization
+  const filteredOrders = useMemo(() => {
+    let filtered = orders.filter(o => {
+      const info = getClientInfo(o.clientId);
+      const matchesSearch = info.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+             info.phone.includes(debouncedSearchTerm);
+      
+      const matchesFilters = 
+        (!filters.status || o.status === filters.status) &&
+        (!filters.orderType || o.orderType === filters.orderType) &&
+        (!filters.minPrice || o.price >= parseFloat(filters.minPrice)) &&
+        (!filters.maxPrice || o.price <= parseFloat(filters.maxPrice));
+
+      return matchesSearch && matchesFilters;
+    });
+
+    // Date range filtering
+    if (filters.dateRange) {
+      const now = new Date();
+      const rangeMap = {
+        'today': new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+        'week': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+        'month': new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()),
+      };
+      
+      if (rangeMap[filters.dateRange]) {
+        filtered = filtered.filter(o => 
+          o.createdAt?.toDate() >= rangeMap[filters.dateRange]
+        );
+      }
+    }
+
+    return filtered;
+  }, [orders, debouncedSearchTerm, filters, getClientInfo]);
+  
+  // Filter clients based on name or phone
+  const filteredClients = useMemo(() => 
+    clients.filter(c => 
+      c.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+      c.phone.includes(debouncedSearchTerm)
+    ), [clients, debouncedSearchTerm]
+  );
+
+  // NEW: Filter products based on name or category
+  const filteredProducts = useMemo(() => 
+    products.filter(p => 
+      p.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+      p.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+    ), [products, debouncedSearchTerm]
+  );
+
+  // Export functions
+  const exportOrders = () => {
+    const exportData = filteredOrders.map(order => {
+      const client = getClientInfo(order.clientId);
+      const product = order.productId ? getProductInfo(order.productId) : null;
+      return {
+        'Order ID': order.id,
+        'Client Name': client.name,
+        'Client Phone': client.phone,
+        'Garment': order.garment,
+        'Order Type': order.orderType,
+        'Status': order.status,
+        'Price': order.price,
+        'Product Design': product ? product.name : 'Custom',
+        'Created Date': order.createdAt?.toDate().toLocaleDateString(),
+        'Notes': order.notes
+      };
+    });
+    exportToCSV(exportData, 'orders');
+    showNotification("Orders exported successfully");
+  };
+
+  const exportClients = () => {
+    const exportData = filteredClients.map(client => ({
+      'Client ID': client.id,
+      'Name': client.name,
+      'Phone': client.phone,
+      'Location': client.location,
+      'Total Orders': orders.filter(o => o.clientId === client.id).length,
+      'Created Date': client.createdAt?.toDate().toLocaleDateString(),
+      'Notes': client.notes
+    }));
+    exportToCSV(exportData, 'clients');
+    showNotification("Clients exported successfully");
+  };
+
+  // NEW: Export products
+  const exportProducts = () => {
+    const exportData = filteredProducts.map(product => ({
+      'Product ID': product.id,
+      'Name': product.name,
+      'Category': product.category,
+      'Price': product.price,
+      'Required Measurements': product.requiredMeasurements.join(', '),
+      'Created Date': product.createdAt?.toDate().toLocaleDateString(),
+      'Description': product.description
+    }));
+    exportToCSV(exportData, 'products');
+    showNotification("Products exported successfully");
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setFilters({
+      status: '',
+      orderType: '',
+      dateRange: '',
+      minPrice: '',
+      maxPrice: ''
+    });
+  };
+
+  // --- UI RENDER COMPONENTS ---
+
+  const Header = () => (
+    <header className="bg-indigo-700 text-white p-4 shadow-xl sticky top-0 z-20 rounded-b-lg">
+      <div className="flex justify-between items-center max-w-5xl mx-auto">
+        <h1 className="text-2xl font-extrabold flex items-center">
+          <Ruler className="mr-3 h-6 w-6 text-yellow-300" /> Tailor Shop Manager
+        </h1>
+        <div className="flex items-center space-x-4">
+          <select
+            value={measurementUnit}
+            onChange={(e) => setMeasurementUnit(e.target.value)}
+            className="bg-indigo-600 border border-indigo-500 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-300"
+          >
+            <option value="imperial">Inches</option>
+            <option value="metric">Centimeters</option>
+          </select>
+          <div className="text-xs opacity-75 hidden sm:block">
+            <p>Manager ID: <span className="font-mono text-yellow-300">{userId || 'Loading...'}</span></p>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+
+  // Notification Component
+  const Notification = () => {
+    if (!notification.show) return null;
+
+    return (
+      <div className={`fixed top-20 right-4 z-50 max-w-sm ${
+        notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'
+      } text-white p-4 rounded-lg shadow-lg transform transition-transform duration-300`}>
+        <div className="flex items-center">
+          {notification.type === 'error' ? (
+            <AlertCircle className="h-5 w-5 mr-2" />
+          ) : (
+            <CheckCircle className="h-5 w-5 mr-2" />
+          )}
+          <span>{notification.message}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Order Detail Modal (Updated with product information)
+  const OrderDetailModal = ({ order, onClose, onUpdateStatus }) => {
+    if (!order) return null;
+    const { name: clientName, phone: clientPhone } = getClientInfo(order.clientId);
+    const product = order.productId ? getProductInfo(order.productId) : null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-100 transition-all duration-300">
+                
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
+                        <User className="mr-3 h-6 w-6" /> Order for {clientName}
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                        <X className="h-6 w-6" />
+                    </button>
                 </div>
-            </div>
-        </header>
 
-        <!-- Notification -->
-        <div id="notification" class="notification hidden"></div>
-
-        <!-- Navigation Tabs -->
-        <nav class="bg-white shadow-lg rounded-lg mb-6">
-            <div class="flex flex-wrap">
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-indigo-600 text-indigo-700" data-tab="dashboard">
-                    <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="clients">
-                    <i class="fas fa-users mr-2"></i> Clients <span id="clientsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="orders">
-                    <i class="fas fa-clipboard-list mr-2"></i> Orders <span id="ordersCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
-                    <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
-                </button>
-            </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main>
-            <!-- Orders Tab -->
-            <div id="orders" class="tab-content active">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Order Management</h2>
-                        <div class="flex space-x-2 w-full sm:w-auto">
-                            <button onclick="exportOrders()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
-                                <i class="fas fa-download mr-2"></i> Export
-                            </button>
-                            <button onclick="openOrderModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                                <i class="fas fa-plus mr-2"></i> New Order
-                            </button>
+                <div className="p-6 space-y-6">
+                    {/* Basic Info */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b pb-4">
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-700">Client Phone:</span> <span className="text-indigo-600 font-medium">{clientPhone}</span>
+                        </p>
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-700">Garment:</span> {order.garment || 'N/A'}
+                        </p>
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-700">Order Type:</span> 
+                            <span className="font-medium text-gray-900 ml-2">
+                                {order.orderType === 'Alteration' ? <Hand className="h-4 w-4 inline mr-1 text-red-500"/> : <Factory className="h-4 w-4 inline mr-1 text-blue-500"/>} 
+                                {order.orderType}
+                            </span>
+                        </p>
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-700">Order Date:</span> {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A'}
+                        </p>
+                        <p className="text-sm">
+                            <span className="font-semibold text-gray-700">Price:</span> <span className="text-green-600 font-medium font-mono">{CURRENCY_SYMBOL} {order.price ? order.price.toFixed(2) : '0.00'}</span>
+                        </p>
+                        <div className="flex items-center text-sm">
+                            <span className="font-semibold text-gray-700 mr-2">Status:</span>
+                            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[order.status]}`}>
+                                {order.status}
+                            </span>
                         </div>
                     </div>
 
-                    <!-- Order Status Tabs -->
-                    <div class="flex space-x-2 mb-6">
-                        <button class="order-tab active" data-order-status="pending">
-                            Pending <span id="pendingTabCount" class="ml-1 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">0</span>
-                        </button>
-                        <button class="order-tab" data-order-status="in-progress">
-                            In Progress <span id="inProgressTabCount" class="ml-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">0</span>
-                        </button>
-                        <button class="order-tab" data-order-status="completed">
-                            Completed <span id="completedTabCount" class="ml-1 bg-green-500 text-white text-xs px-2 py-1 rounded-full">0</span>
-                        </button>
-                        <button class="order-tab" data-order-status="delivered">
-                            Delivered <span id="deliveredTabCount" class="ml-1 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">0</span>
-                        </button>
+                    {/* Product Design Information */}
+                    {product && (
+                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                            <h3 className="text-lg font-semibold text-blue-700 mb-2 flex items-center">
+                                <ShoppingBag className="h-5 w-5 mr-2" /> Design Information
+                            </h3>
+                            <div className="flex items-center space-x-4">
+                                {product.imageUrl && (
+                                    <img 
+                                        src={product.imageUrl} 
+                                        alt={product.name}
+                                        className="w-16 h-16 object-cover rounded-lg border border-blue-300"
+                                    />
+                                )}
+                                <div>
+                                    <p className="font-semibold text-blue-800">{product.name}</p>
+                                    <p className="text-sm text-blue-600">{product.category}</p>
+                                    <p className="text-xs text-blue-500">{product.description}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Status Update Dropdown */}
+                    <div className="flex items-center space-x-3">
+                        <label htmlFor="status-select" className="text-sm font-medium text-gray-700">Update Status:</label>
+                        <select
+                            id="status-select"
+                            value={order.status}
+                            onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                            className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                        >
+                            {Object.keys(statusColors).map(status => (
+                                <option key={status} value={status}>{status}</option>
+                            ))}
+                        </select>
                     </div>
 
-                    <!-- Orders List -->
-                    <div id="ordersList" class="space-y-4">
-                        <div class="text-gray-500 italic text-center py-8">No orders found</div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Order Modal -->
-    <div id="orderModal" class="modal">
-        <div class="modal-content w-full max-w-4xl">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-plus mr-3"></i> <span id="orderModalTitle">New Order</span>
-                </h2>
-                <button onclick="closeOrderModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="orderForm" class="space-y-6">
-                    <input type="hidden" id="orderId">
-                    
-                    <!-- Client Selection Section -->
-                    <div class="bg-indigo-50 p-4 rounded-lg">
-                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-user mr-2"></i> 1. Select Client
-                        </h3>
-                        
-                        <div class="section-toggle mb-4">
-                            <div class="toggle-option active" id="existingClientToggle">Select Existing Client</div>
-                            <div class="toggle-option" id="newClientToggle">Add New Client</div>
-                        </div>
-                        
-                        <!-- Existing Client Selection -->
-                        <div id="existingClientSection">
-                            <div class="mb-4">
-                                <div class="search-container">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-search text-gray-500 mr-3"></i>
-                                        <input type="text" id="clientSearch" placeholder="Search clients by name or phone..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-                                    </div>
-                                    <div id="clientSearchResults" class="search-results hidden"></div>
-                                </div>
-                            </div>
-                            <div id="clientList" class="max-h-60 overflow-y-auto">
-                                <!-- Clients will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <!-- New Client Form -->
-                        <div id="newClientSection" class="hidden">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Full Name *</label>
-                                    <input type="text" id="newClientName" class="input-style" required>
-                                </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Phone Number *</label>
-                                    <input type="tel" id="newClientPhone" class="input-style" required>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <label class="text-sm font-medium text-gray-700">Address</label>
-                                    <input type="text" id="newClientAddress" class="input-style">
-                                </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Gender</label>
-                                    <select id="newClientGender" class="input-style">
-                                        <option value="">Select Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Design Selection Section -->
-                    <div class="bg-indigo-50 p-4 rounded-lg">
-                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-tshirt mr-2"></i> 2. Select Design
-                        </h3>
-                        
-                        <div class="section-toggle mb-4">
-                            <div class="toggle-option active" id="existingDesignToggle">Select Existing Design</div>
-                            <div class="toggle-option" id="newDesignToggle">Add New Design</div>
-                        </div>
-                        
-                        <!-- Existing Design Selection -->
-                        <div id="existingDesignSection">
-                            <div class="mb-4">
-                                <div class="search-container">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-search text-gray-500 mr-3"></i>
-                                        <input type="text" id="designSearch" placeholder="Search designs by name..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-                                    </div>
-                                    <div id="designSearchResults" class="search-results hidden"></div>
-                                </div>
-                            </div>
-                            <div id="designList" class="max-h-60 overflow-y-auto">
-                                <!-- Designs will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <!-- New Design Form -->
-                        <div id="newDesignSection" class="hidden">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Design Name *</label>
-                                    <input type="text" id="newDesignName" class="input-style" required>
-                                </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Category *</label>
-                                    <select id="newDesignCategory" class="input-style" required>
-                                        <option value="Shirt">Shirt</option>
-                                        <option value="Trousers">Trousers</option>
-                                        <option value="Jacket">Jacket</option>
-                                        <option value="Dress">Dress</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
-                                    <input type="number" id="newDesignPrice" class="input-style" step="0.01" min="0" required>
-                                </div>
-                                <div class="md:col-span-2">
-                                    <label class="text-sm font-medium text-gray-700">Description</label>
-                                    <textarea id="newDesignDescription" class="input-style" rows="2"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Order Details -->
-                    <div class="bg-indigo-50 p-4 rounded-lg">
-                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-ruler mr-2"></i> 3. Order Details
-                        </h3>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Order Type *</label>
-                                <select id="orderType" class="input-style" required>
-                                    <option value="Production Order">Production Order</option>
-                                    <option value="Alteration">Alteration</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Garment Type *</label>
-                                <select id="garmentType" class="input-style" required>
-                                    <option value="Shirt">Shirt</option>
-                                    <option value="Trousers">Trousers</option>
-                                    <option value="Jacket">Jacket</option>
-                                    <option value="Dress">Dress</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
-                                <input type="number" id="orderPrice" class="input-style" step="0.01" min="0" required>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Status</label>
-                                <select id="orderStatus" class="input-style">
-                                    <option value="pending">Pending</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="delivered">Delivered</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Due Date</label>
-                                <input type="date" id="orderDueDate" class="input-style">
-                            </div>
-                            <div>
-                                <label class="text-sm font-medium text-gray-700">Priority</label>
-                                <select id="orderPriority" class="input-style">
-                                    <option value="low">Low</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="high">High</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Measurements -->
-                    <div class="bg-indigo-50 p-4 rounded-lg">
-                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-ruler-combined mr-2"></i> 4. Measurements
-                        </h3>
+                    {/* Measurements (Only show for Production Order) */}
+                    {order.orderType === 'Production Order' && Object.keys(order.measurements).length > 0 && (
                         <div>
-                            <label class="text-sm font-medium text-gray-700">Measurement Notes</label>
-                            <textarea id="orderMeasurements" class="input-style" rows="3" placeholder="Enter measurements details..."></textarea>
+                            <h3 className="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
+                                <Ruler className="h-5 w-5 mr-2" /> Key Measurements ({MEASUREMENT_UNITS[measurementUnit]})
+                            </h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-indigo-50 p-4 rounded-xl">
+                                {Object.entries(order.measurements).map(([key, value]) => (
+                                    <div key={key} className="p-2 bg-white rounded-lg shadow-sm">
+                                        <span className="text-xs font-medium text-gray-500 block">{key}:</span>
+                                        <span className="text-lg font-bold text-gray-900">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Notes/Design Details */}
+                    <div>
+                        <h3 className="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
+                            <ClipboardList className="h-5 w-5 mr-2" /> Order Notes
+                        </h3>
+                        <div className="bg-gray-100 p-4 rounded-xl border border-gray-200">
+                            <p className="text-gray-700 whitespace-pre-wrap">{order.notes || 'No specific notes recorded for this order.'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
+  
+  // NEW: Product Modal Component - FIXED: Added safe default values
+  const ProductModal = ({ product, onClose, onSave, onDelete }) => {
+    const [isEditing, setIsEditing] = useState(product.isNew);
+    const [name, setName] = useState(product.name || '');
+    const [description, setDescription] = useState(product.description || '');
+    const [category, setCategory] = useState(product.category || '');
+    const [price, setPrice] = useState(product.price || 0);
+    const [requiredMeasurements, setRequiredMeasurements] = useState(product.requiredMeasurements || []);
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(product.imageUrl || '');
+    const [errors, setErrors] = useState({});
+
+    const handleAddMeasurement = () => {
+        setRequiredMeasurements(prev => [...prev, '']);
+    };
+
+    const handleMeasurementChange = (index, value) => {
+        const newMeasurements = [...requiredMeasurements];
+        newMeasurements[index] = value;
+        setRequiredMeasurements(newMeasurements);
+    };
+
+    const handleRemoveMeasurement = (index) => {
+        setRequiredMeasurements(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                setImagePreview(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // FIXED: Added safe default values and error handling
+    const handleSaveSubmit = (e) => {
+        e.preventDefault();
+        
+        // Ensure we have safe defaults for all fields
+        const productData = {
+            name: (name || '').trim(),
+            description: (description || '').trim(),
+            category: (category || '').trim(),
+            price: parseFloat(price) || 0,
+            requiredMeasurements: (requiredMeasurements || []).filter(m => (m || '').trim() !== ''),
+            imageUrl: imagePreview || ''
+        };
+        
+        const validationErrors = validateProduct(productData);
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        if (product.isNew) {
+            onSave(productData, imageFile);
+        } else {
+            onSave(product.id, productData, imageFile);
+        }
+        setErrors({});
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
+                        <Package className="mr-3 h-6 w-6" /> {isEditing ? (product.isNew ? 'Add New Design' : 'Edit Design') : 'Design Details'}
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                        <X className="h-6 w-6" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSaveSubmit} className="p-6 space-y-6">
+                    
+                    {/* Actions */}
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                        {!product.isNew && (
+                            <div className="space-x-2">
+                                {!isEditing ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsEditing(true)}
+                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition shadow-md"
+                                    >
+                                        <Pencil className="h-4 w-4 mr-2" /> Edit Design
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsEditing(false); setErrors({}); onClose(); }}
+                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition shadow-md"
+                                    >
+                                        <X className="h-4 w-4 mr-2" /> Cancel Edit
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700 flex items-center">
+                            <Image className="h-4 w-4 mr-1" /> Design Image
+                        </label>
+                        {isEditing ? (
+                            <div className="space-y-3">
+                                {imagePreview && (
+                                    <img 
+                                        src={imagePreview} 
+                                        alt="Preview" 
+                                        className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                                    />
+                                )}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                                />
+                            </div>
+                        ) : product.imageUrl ? (
+                            <img 
+                                src={product.imageUrl} 
+                                alt={product.name}
+                                className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                            />
+                        ) : (
+                            <div className="w-32 h-32 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
+                                <Image className="h-8 w-8 text-gray-400" />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Product Details */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Name */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Design Name *</label>
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="text" 
+                                        value={name} 
+                                        onChange={(e) => setName(e.target.value)}
+                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                            errors.name ? 'border-red-500' : ''
+                                        }`} 
+                                        placeholder="e.g., Classic Business Shirt"
+                                        required
+                                    />
+                                    {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+                                </>
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900">{product.name}</p>
+                            )}
+                        </div>
+
+                        {/* Category */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Category *</label>
+                            {isEditing ? (
+                                <>
+                                    <select
+                                        value={category}
+                                        onChange={(e) => setCategory(e.target.value)}
+                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                            errors.category ? 'border-red-500' : ''
+                                        }`}
+                                        required
+                                    >
+                                        <option value="">Select Category</option>
+                                        {Object.keys(measurementTemplates).map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                    {errors.category && <p className="text-red-500 text-sm">{errors.category}</p>}
+                                </>
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900">{product.category}</p>
+                            )}
+                        </div>
+
+                        {/* Price */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Price ({CURRENCY_SYMBOL}) *</label>
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={price}
+                                        onChange={(e) => setPrice(e.target.value)}
+                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 font-mono ${
+                                            errors.price ? 'border-red-500' : ''
+                                        }`}
+                                        placeholder="0.00"
+                                        required
+                                    />
+                                    {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
+                                </>
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900 font-mono">{CURRENCY_SYMBOL} {product.price?.toFixed(2)}</p>
+                            )}
                         </div>
                     </div>
 
-                    <!-- Notes -->
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Order Notes</label>
-                        <textarea id="orderNotes" class="input-style" rows="3" placeholder="Additional notes..."></textarea>
+                    {/* Description */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Description</label>
+                        {isEditing ? (
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                rows="3"
+                                className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Describe this design, fabric type, special features..."
+                            />
+                        ) : (
+                            <div className="bg-gray-100 p-3 rounded-xl border border-gray-200">
+                                <p className="text-gray-700 whitespace-pre-wrap text-sm">{product.description || 'No description provided.'}</p>
+                            </div>
+                        )}
                     </div>
 
-                    <div class="flex space-x-2">
-                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
-                            <i class="fas fa-save mr-2"></i> Save Order
-                        </button>
-                        <button type="button" id="deleteOrderBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
-                            <i class="fas fa-trash mr-2"></i> Delete
-                        </button>
+                    {/* Required Measurements */}
+                    <div className="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 className="text-lg font-semibold text-indigo-700 flex items-center">
+                            <Ruler className="h-5 w-5 mr-2" /> Required Measurements ({MEASUREMENT_UNITS[measurementUnit]})
+                        </h3>
+                        
+                        {isEditing ? (
+                            <div className="space-y-3">
+                                {requiredMeasurements.map((measurement, index) => (
+                                    <div key={index} className="flex space-x-2 items-center">
+                                        <input
+                                            type="text" 
+                                            value={measurement}
+                                            onChange={(e) => handleMeasurementChange(index, e.target.value)}
+                                            className="flex-1 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="e.g., Chest, Waist, Length"
+                                        />
+                                        <button
+                                            type="button" 
+                                            onClick={() => handleRemoveMeasurement(index)}
+                                            className="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-100"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button" 
+                                    onClick={handleAddMeasurement}
+                                    className="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition"
+                                >
+                                    <Plus className="h-4 w-4 mr-2" /> Add Measurement Field
+                                </button>
+                            </div>
+                        ) : (
+                            // View Mode Measurements Display
+                            product.requiredMeasurements?.length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {product.requiredMeasurements.map((measurement, index) => (
+                                        <div key={index} className="p-2 bg-white rounded-lg shadow-sm">
+                                            <span className="text-sm font-medium text-gray-900">{measurement}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 text-sm">No specific measurements required for this design.</p>
+                            )
+                        )}
                     </div>
+                    
+                    {isEditing && (
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || uploadingImage}
+                            className="w-full flex items-center justify-center py-3 px-4 text-lg font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition transform hover:scale-[1.005]"
+                        >
+                            {(isSubmitting || uploadingImage) ? (
+                                <Loader className="h-5 w-5 mr-3 animate-spin" />
+                            ) : (
+                                <Save className="h-5 w-5 mr-3" />
+                            )}
+                            {uploadingImage ? 'Uploading Image...' : product.isNew ? 'Save Design' : 'Save Changes'}
+                        </button>
+                    )}
+                    
+                    {!product.isNew && (
+                        <button 
+                            type="button"
+                            onClick={() => { onDelete(product.id, product.name); onClose(); }}
+                            disabled={deletingId === product.id}
+                            className="w-full py-2 flex items-center justify-center text-sm font-semibold text-red-600 hover:bg-red-50 disabled:text-gray-400 disabled:hover:bg-transparent rounded-xl transition mt-4"
+                        >
+                            {deletingId === product.id ? (
+                                <Loader className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            Delete Design
+                        </button>
+                    )}
                 </form>
             </div>
         </div>
+    );
+  };
+
+  // Client Profile Modal - FIXED: Added safe default values
+  const ClientProfileModal = ({ client, onClose, onSave, onDelete }) => {
+    const [isEditing, setIsEditing] = useState(client.isNew);
+    const [name, setName] = useState(client.name || '');
+    const [phone, setPhone] = useState(client.phone || '');
+    const [location, setLocation] = useState(client.location || '');
+    const [notes, setNotes] = useState(client.notes || '');
+    const [errors, setErrors] = useState({});
+    const [measurements, setMeasurements] = useState(objToArray(client.measurements));
+
+    const handleMeasurementChange = (index, field, value) => {
+        const newMeasurements = [...measurements];
+        newMeasurements[index][field] = value;
+        setMeasurements(newMeasurements);
+    };
+
+    const addMeasurementField = () => {
+        setMeasurements(prev => [...prev, { key: '', value: '' }]);
+    };
+
+    const removeMeasurementField = (index) => {
+        const newMeasurements = measurements.filter((_, i) => i !== index);
+        setMeasurements(newMeasurements);
+    };
+
+    // FIXED: Added safe default values and error handling
+    const handleSaveSubmit = (e) => {
+        e.preventDefault();
+        
+        // Ensure we have safe defaults for all fields
+        const clientData = { 
+            name: (name || '').trim(), 
+            phone: (phone || '').trim(), 
+            location: (location || '').trim(), 
+            notes: (notes || '').trim(), 
+            measurements: arrayToObj(measurements)
+        };
+        
+        const validationErrors = validateClient(clientData);
+        if (Object.keys(validationErrors).length > 0) {
+            setErrors(validationErrors);
+            return;
+        }
+
+        if (client.isNew) {
+            onSave(clientData);
+        } else {
+            onSave(client.id, clientData);
+            setIsEditing(false);
+        }
+        setErrors({});
+    };
+    
+    const associatedOrders = orders.filter(o => o.clientId === client.id).length;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-100 transition-all duration-300">
+                
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
+                        <User className="mr-3 h-6 w-6" /> {isEditing ? 'Editing Client Profile' : 'Client Profile Details'}
+                    </h2>
+                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                        <X className="h-6 w-6" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSaveSubmit} className="p-6 space-y-6">
+                    
+                    {/* Actions and Status */}
+                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                        {!client.isNew && (
+                            <div className="space-x-2">
+                                {!isEditing ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsEditing(true)}
+                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition shadow-md"
+                                    >
+                                        <Pencil className="h-4 w-4 mr-2" /> Edit Profile
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => { setIsEditing(false); setErrors({}); onClose(); }}
+                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition shadow-md"
+                                    >
+                                        <X className="h-4 w-4 mr-2" /> Cancel Edit
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                         <div className="text-sm font-semibold rounded-full bg-blue-100 text-blue-800 px-3 py-1 ml-auto">
+                            {associatedOrders} Order{associatedOrders !== 1 ? 's' : ''}
+                        </div>
+                    </div>
+
+                    {/* --- DETAILS SECTION --- */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Name */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Full Name *</label>
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="text" value={name} onChange={(e) => setName(e.target.value)}
+                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                            errors.name ? 'border-red-500' : ''
+                                        }`} 
+                                        placeholder="Client Name" 
+                                        required
+                                    />
+                                    {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
+                                </>
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900">{client.name}</p>
+                            )}
+                        </div>
+                        {/* Phone */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">Phone Number *</label>
+                            {isEditing ? (
+                                <>
+                                    <input
+                                        type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                            errors.phone ? 'border-red-500' : ''
+                                        }`} 
+                                        placeholder="555-123-4567"
+                                    />
+                                    {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
+                                </>
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900">{client.phone || 'N/A'}</p>
+                            )}
+                        </div>
+                        {/* Location */}
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-sm font-medium text-gray-700 flex items-center"><MapPin className="h-4 w-4 mr-1"/> Location/Address</label>
+                            {isEditing ? (
+                                <input
+                                    type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                                    className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Area 12, Blantyre"
+                                />
+                            ) : (
+                                <p className="text-lg font-bold text-gray-900">{client.location || 'N/A'}</p>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Notes */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">Client Notes</label>
+                        {isEditing ? (
+                            <textarea
+                                value={notes} onChange={(e) => setNotes(e.target.value)}
+                                rows="2" className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500" placeholder="Any special requests or fitting notes."
+                            ></textarea>
+                        ) : (
+                            <div className="bg-gray-100 p-3 rounded-xl border border-gray-200">
+                                <p className="text-gray-700 whitespace-pre-wrap text-sm">{client.notes || 'No notes saved.'}</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Measurements Section */}
+                    <div className="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 className="text-lg font-semibold text-indigo-700 flex items-center">
+                            <Ruler className="h-5 w-5 mr-2" /> Measurements Profile ({MEASUREMENT_UNITS[measurementUnit]})
+                        </h3>
+                        
+                        {isEditing ? (
+                            <div className="space-y-3">
+                                {measurements.map((measurement, index) => (
+                                    <div key={index} className="flex space-x-2 items-center">
+                                        <input
+                                            type="text" value={measurement.key}
+                                            onChange={(e) => handleMeasurementChange(index, 'key', e.target.value)}
+                                            className="w-1/3 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Type (e.g., Hip)"
+                                        />
+                                        <input
+                                            type="number" step="0.1" value={measurement.value}
+                                            onChange={(e) => handleMeasurementChange(index, 'value', e.target.value)}
+                                            className="w-1/3 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Value (e.g., 31)"
+                                        />
+                                        <span className="text-sm font-medium text-gray-500 w-1/6">{MEASUREMENT_UNITS[measurementUnit]}</span>
+                                        <button
+                                            type="button" onClick={() => removeMeasurementField(index)}
+                                            className="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-100"
+                                        >
+                                            <Trash2 className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    type="button" onClick={addMeasurementField}
+                                    className="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition"
+                                >
+                                    <Plus className="h-4 w-4 mr-2" /> Add Measurement Field
+                                </button>
+                            </div>
+                        ) : (
+                            Object.keys(client.measurements || {}).length > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {Object.entries(client.measurements || {}).map(([key, value]) => (
+                                        <div key={key} className="p-2 bg-white rounded-lg shadow-sm">
+                                            <span className="text-xs font-medium text-gray-500 block">{key}:</span>
+                                            <span className="text-lg font-bold text-gray-900">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 text-sm">No measurements saved for this client profile.</p>
+                            )
+                        )}
+                    </div>
+                    
+                    {isEditing && (
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full flex items-center justify-center py-3 px-4 text-lg font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition transform hover:scale-[1.005]"
+                        >
+                            {isSubmitting ? (
+                                <Loader className="h-5 w-5 mr-3 animate-spin" />
+                            ) : (
+                                <Save className="h-5 w-5 mr-3" />
+                            )}
+                            {client.isNew ? 'Save New Client' : 'Save Changes'}
+                        </button>
+                    )}
+                    
+                    {!client.isNew && (
+                        <button 
+                            type="button"
+                            onClick={() => { onDelete(client.id, client.name); onClose(); }}
+                            disabled={deletingId === client.id}
+                            className="w-full py-2 flex items-center justify-center text-sm font-semibold text-red-600 hover:bg-red-50 disabled:text-gray-400 disabled:hover:bg-transparent rounded-xl transition mt-4"
+                        >
+                            {deletingId === client.id ? (
+                                <Loader className="h-4 w-4 mr-2 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 mr-2" />
+                            )}
+                            Delete Client and all {associatedOrders} associated orders
+                        </button>
+                    )}
+                </form>
+            </div>
+        </div>
+    );
+  };
+  
+  // --- CLIENTS LIST COMPONENT ---
+  const ClientList = () => {
+    const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
+    
+    const handleOpenProfileModal = (client) => {
+        setSelectedClientForProfile(client);
+        setIsClientProfileModalOpen(true);
+    };
+    
+    const handleSaveNewClient = (clientData) => {
+        handleCreateClient({...clientData, isNew: true});
+        setIsAddClientModalOpen(false);
+    };
+
+    return (
+        <div className="p-4 bg-gray-50 min-h-screen">
+            <div className="max-w-5xl mx-auto space-y-6">
+                
+                {/* Search and Actions */}
+                <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+                    <div className="flex items-center w-full sm:w-2/3">
+                        <Search className="h-5 w-5 text-gray-500 mr-3" />
+                        <input
+                            type="text"
+                            placeholder="Search clients by name or phone..."
+                            className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex space-x-2 w-full sm:w-auto">
+                        <button
+                            onClick={exportClients}
+                            disabled={filteredClients.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
+                        >
+                            <Download className="h-4 w-4 mr-2" /> Export
+                        </button>
+                        
+                        <button
+                            onClick={() => setIsAddClientModalOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
+                        >
+                            <Plus className="h-5 w-5 mr-2" /> Add Client
+                        </button>
+                    </div>
+                </div>
+
+                {/* Clients List */}
+                <div className="grid gap-4">
+                    {filteredClients.length === 0 ? (
+                        <p className="text-center text-gray-500 mt-10">
+                            {searchTerm ? 'No clients match your search.' : 'No clients added yet. Click "Add Client" above.'}
+                        </p>
+                    ) : (
+                        filteredClients
+                        .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0)) 
+                        .map((client) => {
+                            const clientOrders = orders.filter(o => o.clientId === client.id).length;
+                            const measurementCount = Object.keys(client.measurements || {}).length;
+
+                            return (
+                                <div 
+                                    key={client.id} 
+                                    className="bg-white p-5 rounded-xl shadow-lg border border-gray-200 flex justify-between items-center transition duration-300 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 cursor-pointer"
+                                    onClick={() => handleOpenProfileModal(client)}
+                                >
+                                    
+                                    <div className="flex flex-col space-y-2">
+                                        <div className="flex items-center space-x-3">
+                                            <User className="h-8 w-8 text-indigo-600 p-1.5 bg-indigo-50 rounded-full"/>
+                                            <div>
+                                                <h3 className="text-xl font-bold text-gray-800">{client.name}</h3>
+                                                <p className="text-sm text-gray-500 flex items-center">
+                                                    <MapPin className="h-4 w-4 mr-1"/> {client.location || 'N/A Location'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="text-sm space-y-1 ml-11">
+                                            <p className="text-gray-600 font-semibold">Phone: <span className="font-normal">{client.phone}</span></p>
+                                            <p className="text-gray-600 font-semibold flex items-center">
+                                                <Ruler className="h-4 w-4 mr-1 text-blue-500" /> Measurements: 
+                                                <span className={`ml-1 px-2 py-0.5 text-xs font-semibold rounded-full ${measurementCount > 0 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                                                    {measurementCount} Saved
+                                                </span>
+                                            </p>
+                                            <p className="text-xs text-gray-400 mt-1 truncate max-w-sm">Notes: {client.notes || 'None'}</p>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col items-end space-y-3">
+                                        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                                            {clientOrders} Order{clientOrders !== 1 ? 's' : ''}
+                                        </span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id, client.name); }}
+                                            disabled={deletingId === client.id}
+                                            className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-2 rounded-full hover:bg-red-50"
+                                            aria-label={`Delete client ${client.name}`}
+                                        >
+                                            {deletingId === client.id ? (
+                                                <Loader className="h-5 w-5 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-5 w-5" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        })
+                    )}
+                </div>
+            </div>
+            
+            {/* Add New Client Modal */}
+            {isAddClientModalOpen && (
+                <ClientProfileModal 
+                    client={{ name: '', phone: '', location: '', notes: '', measurements: {}, isNew: true }}
+                    onClose={() => setIsAddClientModalOpen(false)} 
+                    onSave={handleSaveNewClient} 
+                    onDelete={handleDeleteClient}
+                />
+            )}
+            
+            {/* View/Edit Profile Modal */}
+            {isClientProfileModalOpen && selectedClientForProfile && (
+                <ClientProfileModal 
+                    client={selectedClientForProfile}
+                    onClose={() => { setSelectedClientForProfile(null); setIsClientProfileModalOpen(false); }} 
+                    onSave={handleUpdateClient} 
+                    onDelete={handleDeleteClient}
+                />
+            )}
+        </div>
+    );
+  };
+
+  // --- NEW: PRODUCTS LIST COMPONENT ---
+  const ProductsList = () => {
+    const handleOpenProductModal = (product) => {
+        setSelectedProduct(product);
+        setIsProductModalOpen(true);
+    };
+
+    const handleSaveNewProduct = (productData, imageFile) => {
+        handleCreateProduct(productData, imageFile);
+    };
+
+    return (
+        <div className="p-4 bg-gray-50 min-h-screen">
+            <div className="max-w-5xl mx-auto space-y-6">
+                
+                {/* Search and Actions */}
+                <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+                    <div className="flex items-center w-full sm:w-2/3">
+                        <Search className="h-5 w-5 text-gray-500 mr-3" />
+                        <input
+                            type="text"
+                            placeholder="Search designs by name or category..."
+                            className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    
+                    <div className="flex space-x-2 w-full sm:w-auto">
+                        <button
+                            onClick={exportProducts}
+                            disabled={filteredProducts.length === 0}
+                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
+                        >
+                            <Download className="h-4 w-4 mr-2" /> Export
+                        </button>
+                        
+                        <button
+                            onClick={() => setIsAddProductModalOpen(true)}
+                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
+                        >
+                            <Plus className="h-5 w-5 mr-2" /> Add Design
+                        </button>
+                    </div>
+                </div>
+
+                {/* Products Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredProducts.length === 0 ? (
+                        <div className="col-span-3 text-center text-gray-500 mt-10">
+                            {searchTerm ? 'No designs match your search.' : 'No designs added yet. Click "Add Design" above.'}
+                        </div>
+                    ) : (
+                        filteredProducts
+                        .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0))
+                        .map((product) => (
+                            <div 
+                                key={product.id} 
+                                className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition duration-300 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 cursor-pointer"
+                                onClick={() => handleOpenProductModal(product)}
+                            >
+                                {/* Product Image */}
+                                <div className="h-48 bg-gray-100 relative">
+                                    {product.imageUrl ? (
+                                        <img 
+                                            src={product.imageUrl} 
+                                            alt={product.name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center">
+                                            <Image className="h-12 w-12 text-gray-400" />
+                                        </div>
+                                    )}
+                                </div>
+                                
+                                {/* Product Info */}
+                                <div className="p-4">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-lg font-bold text-gray-800 truncate">{product.name}</h3>
+                                        <span className="text-lg font-bold text-green-600 font-mono">
+                                            {CURRENCY_SYMBOL} {product.price?.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    
+                                    <p className="text-sm text-gray-600 mb-2">{product.category}</p>
+                                    
+                                    {product.description && (
+                                        <p className="text-sm text-gray-500 mb-3 line-clamp-2">{product.description}</p>
+                                    )}
+                                    
+                                    {/* Required Measurements */}
+                                    <div className="mb-3">
+                                        <p className="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {product.requiredMeasurements?.slice(0, 3).map((measurement, index) => (
+                                                <span key={index} className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
+                                                    {measurement}
+                                                </span>
+                                            ))}
+                                            {product.requiredMeasurements?.length > 3 && (
+                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                                    +{product.requiredMeasurements.length - 3} more
+                                                </span>
+                                            )}
+                                            {(!product.requiredMeasurements || product.requiredMeasurements.length === 0) && (
+                                                <span className="text-xs text-gray-400">No specific measurements</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center text-xs text-gray-400">
+                                        <span>Added: {product.createdAt ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.id, product.name); }}
+                                            disabled={deletingId === product.id}
+                                            className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-1 rounded-full hover:bg-red-50"
+                                        >
+                                            {deletingId === product.id ? (
+                                                <Loader className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+            
+            {/* Add New Product Modal */}
+            {isAddProductModalOpen && (
+                <ProductModal 
+                    product={{ name: '', description: '', category: '', price: 0, requiredMeasurements: [], imageUrl: '', isNew: true }}
+                    onClose={() => setIsAddProductModalOpen(false)} 
+                    onSave={handleSaveNewProduct} 
+                    onDelete={handleDeleteProduct}
+                />
+            )}
+            
+            {/* View/Edit Product Modal */}
+            {isProductModalOpen && selectedProduct && (
+                <ProductModal 
+                    product={selectedProduct}
+                    onClose={() => { setSelectedProduct(null); setIsProductModalOpen(false); }} 
+                    onSave={handleUpdateProduct} 
+                    onDelete={handleDeleteProduct}
+                />
+            )}
+        </div>
+    );
+  };
+  
+  // --- ORDERS LIST COMPONENT (UPDATED WITH PRODUCT INFO) ---
+  const OrderList = () => (
+    <div className="p-4 bg-gray-50 min-h-screen">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Search and Actions */}
+        <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+          <div className="flex items-center w-full sm:w-2/3">
+              <Search className="h-5 w-5 text-gray-500 mr-3" />
+              <input
+                type="text"
+                placeholder="Search orders by client name or phone..."
+                className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+          </div>
+          
+          <div className="flex space-x-2 w-full sm:w-auto">
+            <button
+                onClick={exportOrders}
+                disabled={filteredOrders.length === 0}
+                className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
+            >
+                <Download className="h-4 w-4 mr-2" /> Export
+            </button>
+            
+            <button
+                onClick={() => setActiveTab('new_order')}
+                className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
+            >
+                <Plus className="h-5 w-5 mr-2" /> New Order
+            </button>
+          </div>
+        </div>
+
+        {/* Enhanced Filters */}
+        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-700 flex items-center">
+              <Filter className="h-5 w-5 mr-2" /> Filters
+            </h3>
+            <button
+              onClick={clearFilters}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+            >
+              Clear All
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Statuses</option>
+              {Object.keys(statusColors).map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+
+            <select
+              value={filters.orderType}
+              onChange={(e) => setFilters(prev => ({ ...prev, orderType: e.target.value }))}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">All Types</option>
+              {ORDER_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+
+            <select
+              value={filters.dateRange}
+              onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Any Date</option>
+              <option value="today">Today</option>
+              <option value="week">Last 7 Days</option>
+              <option value="month">Last 30 Days</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Min Price"
+              value={filters.minPrice}
+              onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <input
+              type="number"
+              placeholder="Max Price"
+              value={filters.maxPrice}
+              onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
+              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+
+        {/* Orders Grid */}
+        <div className="grid gap-4">
+          {filteredOrders.length === 0 ? (
+            <p className="text-center text-gray-500 mt-10">
+              {searchTerm || Object.values(filters).some(f => f) 
+                ? 'No orders match your search criteria.' 
+                : 'No orders added yet. Click "New Order" above.'}
+            </p>
+          ) : (
+            filteredOrders
+            .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0))
+            .map((order) => {
+              const { name: clientName } = getClientInfo(order.clientId);
+              const isAlteration = order.orderType === 'Alteration';
+              const product = order.productId ? getProductInfo(order.productId) : null;
+
+              return (
+                  <div 
+                      key={order.id} 
+                      className="bg-white p-5 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 transition duration-300 cursor-pointer"
+                      onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }} 
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex flex-col">
+                          <h2 className="text-xl font-bold text-indigo-700 flex items-center">
+                              <User className="mr-2 h-5 w-5" /> {clientName}
+                          </h2>
+                          <p className="text-sm text-gray-600 mt-1">
+                              <span className="font-semibold">{order.orderType}:</span> {order.garment || 'N/A'}
+                          </p>
+                          {product && (
+                              <p className="text-sm text-blue-600 flex items-center mt-1">
+                                  <ShoppingBag className="h-4 w-4 mr-1" /> Design: {product.name}
+                              </p>
+                          )}
+                      </div>
+                      
+                      {/* Status and Price */}
+                      <div className="flex flex-col items-end space-y-2">
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[order.status]}`}>
+                              {order.status}
+                          </span>
+                          <span className="text-lg font-bold text-green-700">{CURRENCY_SYMBOL} {order.price ? order.price.toFixed(2) : '0.00'}</span>
+                          <button 
+                              onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id, clientName); }}
+                              disabled={deletingId === order.id}
+                              className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-1 rounded-full hover:bg-red-50"
+                              aria-label={`Delete order for ${clientName}`}
+                          >
+                              {deletingId === order.id ? (
+                                <Loader className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-5 w-5" />
+                              )}
+                          </button>
+                      </div>
+                    </div>
+                    
+                    {/* Measurements/Notes Area */}
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      {isAlteration ? (
+                          <p className="text-md font-semibold text-gray-700 flex items-center">
+                              <Hand className="h-4 w-4 mr-1.5 text-red-500" /> Alteration Notes:
+                              <span className="ml-2 font-normal truncate">{order.notes || 'No notes.'}</span>
+                          </p>
+                      ) : (
+                          <>
+                              <p className="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                                  <Ruler className="h-4 w-4 mr-1.5 text-indigo-500" /> Key Measurements ({MEASUREMENT_UNITS[measurementUnit]}):
+                              </p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                  {Object.entries(order.measurements || {}).slice(0, 4).map(([key, value]) => (
+                                      <div key={key} className="bg-indigo-50 p-2 rounded-lg text-gray-800 truncate">
+                                          <span className="font-medium block">{key}</span> 
+                                          <span className="font-bold">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
+                                      </div>
+                                  ))}
+                                  {Object.keys(order.measurements || {}).length > 4 && (
+                                      <div className="bg-indigo-50 p-2 rounded-lg text-gray-800 flex items-center justify-center">
+                                          <span className="font-medium text-xs text-indigo-600">+ {Object.keys(order.measurements || {}).length - 4} More</span>
+                                      </div>
+                                  )}
+                                  {Object.keys(order.measurements || {}).length === 0 && (
+                                      <span className="text-gray-500 col-span-4">No measurements recorded.</span>
+                                  )}
+                              </div>
+                          </>
+                      )}
+                    </div>
+                    
+                    <p className="text-xs text-gray-400 mt-3 text-right">Order Placed: {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A'}</p>
+                  </div>
+            )})
+          )}
+        </div>
+      </div>
+      {isModalOpen && <OrderDetailModal 
+          order={selectedOrder} 
+          onClose={() => setIsModalOpen(false)} 
+          onUpdateStatus={handleUpdateStatus}
+      />}
     </div>
+  );
+  
+  // --- ADD ORDER FORM COMPONENT (UPDATED WITH PRODUCT SELECTION) ---
+  const AddOrderForm = () => {
+    const [errors, setErrors] = useState({});
+    
+    // Get measurement fields based on selected product or garment type
+    const currentMeasurementKeys = useMemo(() => {
+      if (newOrder.selectedProductId) {
+        const selectedProduct = getProductInfo(newOrder.selectedProductId);
+        return selectedProduct?.requiredMeasurements || [];
+      }
+      return newOrder.orderType === 'Production Order' 
+             ? measurementTemplates[newOrder.garment] || [] 
+             : [];
+    }, [newOrder.selectedProductId, newOrder.orderType, newOrder.garment, getProductInfo]);
 
-    <script>
-        // Data storage
-        let clients = [];
-        let orders = [];
-        let products = [];
-        let currentOrderStatus = 'pending';
-        let selectedClientId = null;
-        let selectedDesignId = null;
-
-        // Utility functions
-        const formatCurrency = (amount) => {
-            return `MWK ${parseFloat(amount || 0).toFixed(2)}`;
-        };
-
-        const showNotification = (message, type = 'success') => {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.remove('hidden');
-            
-            setTimeout(() => {
-                notification.classList.add('hidden');
-            }, 5000);
-        };
-
-        const getTodayDate = () => {
-            return new Date().toISOString().split('T')[0];
-        };
-
-        // Mock data for demonstration
-        function initializeMockData() {
-            // Mock clients
-            clients = [
-                {
-                    id: '1',
-                    name: 'John Doe',
-                    phone: '0881234567',
-                    address: 'Area 3, Lilongwe',
-                    gender: 'Male',
-                    totalOrders: 3,
-                    totalSpent: 45000
-                },
-                {
-                    id: '2',
-                    name: 'Jane Smith',
-                    phone: '0997654321',
-                    address: 'Namiwawa, Blantyre',
-                    gender: 'Female',
-                    totalOrders: 5,
-                    totalSpent: 75000
-                },
-                {
-                    id: '3',
-                    name: 'Mike Johnson',
-                    phone: '0885551234',
-                    address: 'Mchesi, Lilongwe',
-                    gender: 'Male',
-                    totalOrders: 2,
-                    totalSpent: 30000
-                }
-            ];
-
-            // Mock products/designs
-            products = [
-                {
-                    id: '1',
-                    name: 'Business Shirt',
-                    category: 'Shirt',
-                    price: 15000,
-                    description: 'Formal business shirt with long sleeves'
-                },
-                {
-                    id: '2',
-                    name: 'Chinos Trousers',
-                    category: 'Trousers',
-                    price: 20000,
-                    description: 'Casual chinos trousers'
-                },
-                {
-                    id: '3',
-                    name: 'Blazer Jacket',
-                    category: 'Jacket',
-                    price: 35000,
-                    description: 'Formal blazer jacket'
-                },
-                {
-                    id: '4',
-                    name: 'Evening Dress',
-                    category: 'Dress',
-                    price: 45000,
-                    description: 'Elegant evening dress'
-                }
-            ];
-
-            // Mock orders
-            orders = [
-                {
-                    id: '1',
-                    clientId: '1',
-                    clientName: 'John Doe',
-                    clientPhone: '0881234567',
-                    designId: '1',
-                    designName: 'Business Shirt',
-                    orderType: 'Production Order',
-                    garmentType: 'Shirt',
-                    price: 15000,
-                    status: 'pending',
-                    priority: 'medium',
-                    dueDate: '2023-12-15',
-                    measurements: 'Chest: 42", Waist: 38", Sleeve: 34"',
-                    notes: 'Customer prefers cotton fabric',
-                    orderDate: '2023-12-01'
-                },
-                {
-                    id: '2',
-                    clientId: '2',
-                    clientName: 'Jane Smith',
-                    clientPhone: '0997654321',
-                    designId: '4',
-                    designName: 'Evening Dress',
-                    orderType: 'Production Order',
-                    garmentType: 'Dress',
-                    price: 45000,
-                    status: 'in-progress',
-                    priority: 'high',
-                    dueDate: '2023-12-10',
-                    measurements: 'Bust: 36", Waist: 30", Hips: 38", Length: 45"',
-                    notes: 'Urgent order for wedding',
-                    orderDate: '2023-11-28'
-                }
-            ];
-
-            // Update UI
-            updateTabCounts();
-            renderOrders();
-            renderClientList();
-            renderDesignList();
+    // Auto-fill measurements when client changes and product is selected
+    useEffect(() => {
+      if (newOrder.clientId && newOrder.selectedProductId) {
+        const clientMeasurements = getClientInfo(newOrder.clientId).measurements;
+        const selectedProduct = getProductInfo(newOrder.selectedProductId);
+        
+        if (selectedProduct) {
+          const autoFilledMeasurements = {};
+          selectedProduct.requiredMeasurements.forEach(measurement => {
+            if (clientMeasurements[measurement]) {
+              autoFilledMeasurements[measurement] = clientMeasurements[measurement];
+            }
+          });
+          
+          setNewOrder(prev => ({
+            ...prev,
+            measurements: autoFilledMeasurements
+          }));
         }
+      }
+    }, [newOrder.clientId, newOrder.selectedProductId, getClientInfo, getProductInfo]);
 
-        // Tab management
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.getElementById(tabName).classList.add('active');
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('border-indigo-600', 'text-indigo-700');
-                btn.classList.add('border-transparent', 'text-gray-500');
-            });
-            
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('border-indigo-600', 'text-indigo-700');
-        }
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      const validationErrors = validateOrder(newOrder);
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        showNotification("Please fix validation errors", "error");
+        return;
+      }
+      setErrors({});
+      handleAddOrder(e);
+    };
 
-        // Initialize tab buttons
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                switchTab(btn.getAttribute('data-tab'));
-            });
-        });
+    return (
+        <div className="p-4 bg-gray-50 min-h-screen">
+            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-2xl max-w-5xl mx-auto border border-indigo-100">
+                <h2 className="text-2xl font-bold mb-6 text-indigo-800 flex items-center">
+                    <Plus className="mr-2 h-6 w-6" /> New Client Order Entry
+                </h2>
 
-        // Order status tabs
-        document.querySelectorAll('.order-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Update active tab
-                document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
+                {/* --- Section 1: Client Selection/Creation --- */}
+                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
+                    <User className="h-5 w-5 mr-2" /> 1. Select or Add Client
+                </h3>
                 
-                // Update current status and re-render
-                currentOrderStatus = tab.getAttribute('data-order-status');
-                renderOrders();
-            });
-        });
+                <div className="mb-8 p-4 bg-indigo-50 rounded-lg">
+                    <label className="flex items-center space-x-2 mb-4">
+                        <input
+                            type="checkbox"
+                            checked={newOrder.isNewClient}
+                            onChange={(e) => setNewOrder(prev => ({ 
+                                ...prev, 
+                                isNewClient: e.target.checked, 
+                                clientId: '', // Clear selection if switching to new client
+                                name: '', 
+                                phone: '' 
+                            }))}
+                            className="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                        />
+                        <span className="text-lg font-medium text-gray-700">Add a New Client for this order</span>
+                    </label>
 
-        // Render orders list
-        function renderOrders() {
-            const ordersList = document.getElementById('ordersList');
-            
-            // Filter orders by current status
-            const filteredOrders = orders.filter(order => order.status === currentOrderStatus);
-            
-            // Update tab counts
-            updateOrderTabCounts();
-
-            if (filteredOrders.length === 0) {
-                ordersList.innerHTML = `<div class="text-gray-500 italic text-center py-8">No ${currentOrderStatus.replace('-', ' ')} orders found</div>`;
-                return;
-            }
-
-            ordersList.innerHTML = filteredOrders.map(order => {
-                const statusClass = order.status || 'pending';
-                const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
-                const priorityClass = order.priority === 'high' ? 'bg-red-100 text-red-800' : 
-                                     order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
-                                     'bg-blue-100 text-blue-800';
-
-                return `
-                    <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in" onclick="editOrder('${order.id}')">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="flex-1">
-                                <h3 class="text-lg font-bold text-gray-800">${order.designName} - ${order.orderType}</h3>
-                                <p class="text-gray-600">Client: ${order.clientName} (${order.clientPhone})</p>
-                                <p class="text-sm text-gray-500">Order Date: ${order.orderDate || ''}</p>
-                                ${order.dueDate ? `<p class="text-sm ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
+                    {newOrder.isNewClient ? (
+                        /* Input fields for new client */
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label htmlFor="new_name" className="text-sm font-medium text-gray-700">Full Name <span className="text-red-500">*</span></label>
+                                <input
+                                    type="text" id="new_name"
+                                    value={newOrder.name}
+                                    onChange={(e) => handleNewOrderChange('name', e.target.value)}
+                                    className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                      errors.name ? 'border-red-500' : ''
+                                    }`}
+                                    placeholder="John Doe" 
+                                    required={newOrder.isNewClient}
+                                />
+                                {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
                             </div>
-                            <div class="text-right">
-                                <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
-                                ${order.priority ? `<span class="status-badge ${priorityClass} capitalize ml-1">${order.priority}</span>` : ''}
-                                <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
+                            <div className="space-y-2">
+                                <label htmlFor="new_phone" className="text-sm font-medium text-gray-700">Phone Number <span className="text-red-500">*</span></label>
+                                <input
+                                    type="tel" id="new_phone"
+                                    value={newOrder.phone}
+                                    onChange={(e) => handleNewOrderChange('phone', e.target.value)}
+                                    className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
+                                      errors.phone ? 'border-red-500' : ''
+                                    }`}
+                                    placeholder="555-123-4567"
+                                    required={newOrder.isNewClient}
+                                />
+                                {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
                             </div>
+                            <p className="md:col-span-2 text-sm text-gray-500 mt-2">
+                                Tip: For full client details, including location and measurements, please use the "Clients" tab.
+                            </p>
                         </div>
-                        
-                        ${order.measurements ? `<p class="text-sm text-gray-600 mb-2">${order.measurements}</p>` : ''}
-                        ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
-                        
-                        <div class="flex justify-between items-center mt-3">
-                            <div class="flex gap-2">
-                                ${order.status === 'pending' ? `
-                                    <button onclick="updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
-                                ` : ''}
-                                ${order.status === 'in-progress' ? `
-                                    <button onclick="updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
-                                    <button onclick="updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
-                                ` : ''}
-                                ${order.status === 'completed' ? `
-                                    <button onclick="updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
-                                    <button onclick="updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
-                                ` : ''}
-                                ${order.status === 'delivered' ? `
-                                    <button onclick="updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
-                                ` : ''}
-                            </div>
-                            <div>
-                                <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium mr-2">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                                <button onclick="deleteOrder('${order.id}')" class="text-sm text-red-600 hover:text-red-800 font-medium">
-                                    <i class="fas fa-trash mr-1"></i> Delete
-                                </button>
-                            </div>
+                    ) : (
+                        /* Dropdown for existing client */
+                        <div className="space-y-2">
+                            <label htmlFor="client_id_select" className="text-sm font-medium text-gray-700">Select Existing Client <span className="text-red-500">*</span></label>
+                            <select
+                                id="client_id_select"
+                                value={newOrder.clientId}
+                                onChange={(e) => handleNewOrderChange('clientId', e.target.value)}
+                                className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                                required={!newOrder.isNewClient}
+                            >
+                                <option value="" disabled>-- Choose a Client --</option>
+                                {clients.map(client => (
+                                    <option key={client.id} value={client.id}>{client.name} ({client.phone || 'N/A'})</option>
+                                ))}
+                            </select>
                         </div>
-                    </div>
-                `;
-            }).join('');
-        }
+                    )}
+                </div>
 
-        // Update order status
-        function updateOrderStatus(orderId, newStatus) {
-            const orderIndex = orders.findIndex(order => order.id === orderId);
-            if (orderIndex !== -1) {
-                orders[orderIndex].status = newStatus;
-                renderOrders();
-                showNotification(`Order status updated to ${newStatus.replace('-', ' ')}!`, 'success');
-            }
-        }
+                {/* --- NEW: Section 2: Design Selection --- */}
+                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
+                    <ShoppingBag className="h-5 w-5 mr-2" /> 2. Select Design (Optional)
+                </h3>
 
-        // Delete order
-        function deleteOrder(orderId) {
-            if (!confirm('Are you sure you want to delete this order?')) return;
-            
-            const orderIndex = orders.findIndex(order => order.id === orderId);
-            if (orderIndex !== -1) {
-                orders.splice(orderIndex, 1);
-                renderOrders();
-                updateTabCounts();
-                showNotification('Order deleted successfully!', 'success');
-            }
-        }
-
-        // Update order tab counts
-        function updateOrderTabCounts() {
-            const pendingCount = orders.filter(o => o.status === 'pending').length;
-            const inProgressCount = orders.filter(o => o.status === 'in-progress').length;
-            const completedCount = orders.filter(o => o.status === 'completed').length;
-            const deliveredCount = orders.filter(o => o.status === 'delivered').length;
-
-            document.getElementById('pendingTabCount').textContent = pendingCount;
-            document.getElementById('inProgressTabCount').textContent = inProgressCount;
-            document.getElementById('completedTabCount').textContent = completedCount;
-            document.getElementById('deliveredTabCount').textContent = deliveredCount;
-        }
-
-        // Update tab counts
-        function updateTabCounts() {
-            document.getElementById('clientsCount').textContent = clients.length;
-            document.getElementById('ordersCount').textContent = orders.length;
-            document.getElementById('productsCount').textContent = products.length;
-        }
-
-        // Render client list in order modal
-        function renderClientList() {
-            const clientList = document.getElementById('clientList');
-            
-            if (clients.length === 0) {
-                clientList.innerHTML = '<div class="text-gray-500 italic text-center py-4">No clients found</div>';
-                return;
-            }
-
-            clientList.innerHTML = clients.map(client => `
-                <div class="client-option ${selectedClientId === client.id ? 'selected' : ''}" onclick="selectClient('${client.id}')">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h4 class="font-bold text-gray-800">${client.name}</h4>
-                            <p class="text-sm text-gray-600">${client.phone}</p>
-                            <p class="text-xs text-gray-500">${client.address}</p>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-green-600">${client.totalOrders} orders</div>
-                            <div class="text-xs text-gray-500">${formatCurrency(client.totalSpent)}</div>
-                        </div>
+                <div className="mb-8 p-4 bg-blue-50 rounded-lg">
+                    <div className="space-y-2">
+                        <label htmlFor="product_select" className="text-sm font-medium text-gray-700 flex items-center">
+                            <Package className="h-4 w-4 mr-1 text-blue-600"/> Choose from Existing Designs
+                        </label>
+                        <select
+                            id="product_select"
+                            value={newOrder.selectedProductId}
+                            onChange={(e) => handleProductSelection(e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+                        >
+                            <option value="">-- Custom Order (No Design) --</option>
+                            {products.map(product => (
+                                <option key={product.id} value={product.id}>
+                                    {product.name} - {product.category} ({CURRENCY_SYMBOL} {product.price?.toFixed(2)})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-sm text-blue-600 mt-1">
+                            Selecting a design will auto-fill measurements from client profile and set the price.
+                        </p>
                     </div>
                 </div>
-            `).join('');
-        }
+    
+                {/* --- Section 3: Order Type and Garment --- */}
+                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
+                    <Ruler className="h-5 w-5 mr-2" /> 3. Order Type and Garment
+                </h3>
 
-        // Render design list in order modal
-        function renderDesignList() {
-            const designList = document.getElementById('designList');
-            
-            if (products.length === 0) {
-                designList.innerHTML = '<div class="text-gray-500 italic text-center py-4">No designs found</div>';
-                return;
-            }
-
-            designList.innerHTML = products.map(product => `
-                <div class="design-option ${selectedDesignId === product.id ? 'selected' : ''}" onclick="selectDesign('${product.id}')">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h4 class="font-bold text-gray-800">${product.name}</h4>
-                            <p class="text-sm text-gray-600">${product.category}</p>
-                            ${product.description ? `<p class="text-xs text-gray-500">${product.description}</p>` : ''}
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-semibold text-green-600">${formatCurrency(product.price)}</div>
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-4 bg-indigo-50 rounded-lg">
+                    {/* Order Type */}
+                    <div className="space-y-2">
+                        <label htmlFor="order_type" className="text-sm font-medium text-gray-700 flex items-center">
+                            <Factory className="h-4 w-4 mr-1 text-indigo-600"/> Order Type
+                        </label>
+                        <select
+                            id="order_type"
+                            value={newOrder.orderType}
+                            onChange={(e) => {
+                                handleNewOrderChange('orderType', e.target.value);
+                                // Reset measurements if switching away from Production
+                                if (e.target.value !== 'Production Order') {
+                                    setNewOrder(prev => ({ ...prev, measurements: {}, garment: 'Other' }));
+                                } else if (!newOrder.selectedProductId) {
+                                    setNewOrder(prev => ({ ...prev, garment: 'Shirt' }));
+                                }
+                            }}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                        >
+                            {ORDER_TYPES.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {/* Garment Type */}
+                    <div className="space-y-2">
+                        <label htmlFor="garment" className="text-sm font-medium text-gray-700 flex items-center">
+                            <Gauge className="h-4 w-4 mr-1 text-indigo-600"/> Garment / Item
+                        </label>
+                        <select
+                            id="garment"
+                            value={newOrder.garment}
+                            onChange={(e) => {
+                                handleNewOrderChange('garment', e.target.value);
+                                // Clear old measurements when garment type changes (only if no product selected)
+                                if (newOrder.orderType === 'Production Order' && !newOrder.selectedProductId) {
+                                    setNewOrder(prev => ({ ...prev, measurements: {} }));
+                                }
+                            }}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                            disabled={!!newOrder.selectedProductId} // Disable if product is selected
+                        >
+                            {Object.keys(measurementTemplates).map(key => (
+                                <option key={key} value={key}>{key}</option>
+                            ))}
+                        </select>
+                        {newOrder.selectedProductId && (
+                            <p className="text-xs text-blue-600">Garment set by selected design</p>
+                        )}
+                    </div>
+                    
+                    {/* Price */}
+                    <div className="space-y-2">
+                        <label htmlFor="price" className="text-sm font-medium text-gray-700 flex items-center">
+                            <DollarSign className="h-4 w-4 mr-1 text-green-600"/> Order Price ({CURRENCY_SYMBOL}) <span className="text-red-500 ml-1">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            id="price"
+                            value={newOrder.price || ''}
+                            onChange={(e) => handleNewOrderChange('price', e.target.value)}
+                            className={`w-full p-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 transition font-mono bg-white ${
+                              errors.price ? 'border-red-500' : ''
+                            }`}
+                            placeholder="0.00"
+                            required
+                        />
+                        {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
                     </div>
                 </div>
-            `).join('');
-        }
 
-        // Select client
-        function selectClient(clientId) {
-            selectedClientId = clientId;
-            renderClientList();
-            
-            // Auto-fill the price if a design is already selected
-            if (selectedDesignId) {
-                const selectedDesign = products.find(p => p.id === selectedDesignId);
-                if (selectedDesign) {
-                    document.getElementById('orderPrice').value = selectedDesign.price;
-                }
-            }
-        }
+                {/* --- Section 4: Measurements (Conditional) --- */}
+                {newOrder.orderType === 'Production Order' && currentMeasurementKeys.length > 0 && (
+                    <>
+                        <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
+                            <Ruler className="h-5 w-5 mr-2" /> 4. {newOrder.garment} Measurements ({MEASUREMENT_UNITS[measurementUnit]})
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+                            {currentMeasurementKeys.map((key) => (
+                                <div className="space-y-2" key={key}>
+                                    <label htmlFor={key} className="text-sm font-medium text-gray-700 block">
+                                        {key}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        id={key}
+                                        value={newOrder.measurements[key] || ''}
+                                        onChange={(e) => handleOrderMeasurementChange(key, parseFloat(e.target.value) || 0)}
+                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                                        placeholder="0.0"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
 
-        // Select design
-        function selectDesign(designId) {
-            selectedDesignId = designId;
-            renderDesignList();
-            
-            // Auto-fill the price
-            const selectedDesign = products.find(p => p.id === designId);
-            if (selectedDesign) {
-                document.getElementById('orderPrice').value = selectedDesign.price;
-                document.getElementById('garmentType').value = selectedDesign.category;
-            }
-        }
+                {/* --- Section 5: Notes and Status --- */}
+                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
+                    <ClipboardList className="h-5 w-5 mr-2" /> {newOrder.orderType === 'Alteration' ? 'Alteration Description' : 'Design & Production Notes'}
+                </h3>
 
-        // Modal management
-        function openOrderModal(orderId = null) {
-            document.getElementById('orderModalTitle').textContent = orderId ? 'Edit Order' : 'New Order';
-            document.getElementById('orderId').value = orderId || '';
-            document.getElementById('deleteOrderBtn').classList.toggle('hidden', !orderId);
-            
-            // Reset selections
-            selectedClientId = null;
-            selectedDesignId = null;
-            
-            // Reset form
-            document.getElementById('orderForm').reset();
-            document.getElementById('orderDueDate').value = getTodayDate();
-            
-            // Render client and design lists
-            renderClientList();
-            renderDesignList();
-            
-            // If editing, load order data
-            if (orderId) {
-                const order = orders.find(o => o.id === orderId);
-                if (order) {
-                    // Select client and design
-                    selectedClientId = order.clientId;
-                    selectedDesignId = order.designId;
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     
-                    // Populate form fields
-                    document.getElementById('orderType').value = order.orderType || '';
-                    document.getElementById('garmentType').value = order.garmentType || '';
-                    document.getElementById('orderPrice').value = order.price || '';
-                    document.getElementById('orderStatus').value = order.status || 'pending';
-                    document.getElementById('orderPriority').value = order.priority || 'medium';
-                    document.getElementById('orderDueDate').value = order.dueDate || '';
-                    document.getElementById('orderMeasurements').value = order.measurements || '';
-                    document.getElementById('orderNotes').value = order.notes || '';
+                    <div className="space-y-2 md:col-span-1">
+                        <label htmlFor="status" className="text-sm font-medium text-gray-700 flex items-center">
+                            <History className="h-4 w-4 mr-1 text-indigo-600"/> Initial Job Status
+                        </label>
+                        <select
+                            id="status"
+                            value={newOrder.status}
+                            onChange={(e) => handleNewOrderChange('status', e.target.value)}
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
+                        >
+                            {Object.keys(statusColors).map(status => (
+                                <option key={status} value={status}>{status}</option>
+                            ))}
+                        </select>
+                    </div>
                     
-                    // Re-render lists to show selections
-                    renderClientList();
-                    renderDesignList();
-                }
-            }
-            
-            document.getElementById('orderModal').classList.add('active');
-        }
+                    <div className="space-y-2 md:col-span-3">
+                        <label htmlFor="notes" className="text-sm font-medium text-gray-700 flex items-center">
+                            <ClipboardList className="h-4 w-4 mr-1 text-indigo-600"/> Notes
+                        </label>
+                        <textarea
+                            id="notes"
+                            value={newOrder.notes}
+                            onChange={(e) => handleNewOrderChange('notes', e.target.value)}
+                            rows="3"
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition"
+                            placeholder={newOrder.orderType === 'Alteration' 
+                                ? "E.g., Take in waist by 2 inches, hem length, replace zipper."
+                                : "E.g., High collar, double-stitched pockets, fabric type, Clo 3D file name: JD-001_jacket_v3.pdf"}
+                        ></textarea>
+                    </div>
+                </div>
 
-        function closeOrderModal() {
-            document.getElementById('orderModal').classList.remove('active');
-        }
+                <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full flex items-center justify-center py-3 px-4 border border-transparent text-lg font-bold rounded-xl shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-[1.005] duration-200"
+                >
+                    {isSubmitting ? (
+                        <Loader className="h-5 w-5 mr-3 animate-spin" />
+                    ) : (
+                        <Save className="h-5 w-5 mr-3" />
+                    )}
+                    {isSubmitting ? 'Saving Order...' : 'Save Order'}
+                </button>
+            </form>
+        </div>
+    );
+  };
+  
+  // --- REVENUE DASHBOARD COMPONENT ---
+  const RevenueDashboard = () => {
+    const dashboardData = useMemo(() => {
+      const totalPotentialRevenue = orders.reduce((sum, order) => sum + (order.price || 0), 0);
+      const realizedRevenue = orders.reduce((sum, order) => order.status === 'Completed' ? sum + (order.price || 0) : sum, 0);
+      const pendingRevenue = totalPotentialRevenue - realizedRevenue;
+      const completedOrders = orders.filter(o => o.status === 'Completed').length;
+      const totalOrders = orders.length;
+      const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+      const alterationOrders = orders.filter(o => o.orderType === 'Alteration').length;
+      const productionOrders = orders.filter(o => o.orderType === 'Production Order').length;
 
-        // Edit order
-        function editOrder(orderId) {
-            openOrderModal(orderId);
-        }
+      const statusBreakdown = Object.keys(statusColors).reduce((acc, status) => {
+        acc[status] = orders.filter(o => o.status === status).length;
+        return acc;
+      }, {});
 
-        // Toggle between existing and new client/design
-        function setupToggleButtons() {
-            // Client toggle
-            document.getElementById('existingClientToggle').addEventListener('click', function() {
-                document.getElementById('existingClientToggle').classList.add('active');
-                document.getElementById('newClientToggle').classList.remove('active');
-                document.getElementById('existingClientSection').classList.remove('hidden');
-                document.getElementById('newClientSection').classList.add('hidden');
-            });
-            
-            document.getElementById('newClientToggle').addEventListener('click', function() {
-                document.getElementById('newClientToggle').classList.add('active');
-                document.getElementById('existingClientToggle').classList.remove('active');
-                document.getElementById('newClientSection').classList.remove('hidden');
-                document.getElementById('existingClientSection').classList.add('hidden');
-            });
-            
-            // Design toggle
-            document.getElementById('existingDesignToggle').addEventListener('click', function() {
-                document.getElementById('existingDesignToggle').classList.add('active');
-                document.getElementById('newDesignToggle').classList.remove('active');
-                document.getElementById('existingDesignSection').classList.remove('hidden');
-                document.getElementById('newDesignSection').classList.add('hidden');
-            });
-            
-            document.getElementById('newDesignToggle').addEventListener('click', function() {
-                document.getElementById('newDesignToggle').classList.add('active');
-                document.getElementById('existingDesignToggle').classList.remove('active');
-                document.getElementById('newDesignSection').classList.remove('hidden');
-                document.getElementById('existingDesignSection').classList.add('hidden');
-            });
-        }
+      // Product-based orders
+      const productOrders = orders.filter(o => o.productId).length;
+      const customOrders = orders.filter(o => !o.productId).length;
 
-        // Search functionality
-        function setupSearch() {
-            // Client search
-            document.getElementById('clientSearch').addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const clientOptions = document.querySelectorAll('.client-option');
+      return {
+        totalPotentialRevenue,
+        realizedRevenue,
+        pendingRevenue,
+        completedOrders,
+        totalOrders,
+        completionRate,
+        alterationOrders,
+        productionOrders,
+        statusBreakdown,
+        productOrders,
+        customOrders
+      };
+    }, [orders]);
+
+    const RevenueCard = ({ title, value, icon, color }) => (
+        <div className={`bg-white p-6 rounded-xl shadow-xl border-t-4 ${color} transform transition duration-300 hover:scale-[1.02]`}>
+            <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
+                {icon}
+            </div>
+            <p className="text-3xl font-extrabold text-gray-900 mt-2 font-mono">
+                {CURRENCY_SYMBOL} {value.toFixed(2)}
+            </p>
+        </div>
+    );
+    
+    const MetricCard = ({ title, value, unit, icon, color }) => (
+        <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
+            <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-full ${color}`}>{icon}</div>
+                <div>
+                    <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
+                    <p className="text-2xl font-bold text-gray-900">{value} <span className="text-base font-normal text-gray-600">{unit}</span></p>
+                </div>
+            </div>
+        </div>
+    );
+
+    const exportFinancialReport = () => {
+      const reportData = [
+        {
+          'Metric': 'Total Potential Revenue',
+          'Value': `${CURRENCY_SYMBOL} ${dashboardData.totalPotentialRevenue.toFixed(2)}`
+        },
+        {
+          'Metric': 'Realized Revenue',
+          'Value': `${CURRENCY_SYMBOL} ${dashboardData.realizedRevenue.toFixed(2)}`
+        },
+        {
+          'Metric': 'Pending Revenue',
+          'Value': `${CURRENCY_SYMBOL} ${dashboardData.pendingRevenue.toFixed(2)}`
+        },
+        {
+          'Metric': 'Completion Rate',
+          'Value': `${dashboardData.completionRate.toFixed(1)}%`
+        },
+        {
+          'Metric': 'Total Orders',
+          'Value': dashboardData.totalOrders
+        },
+        {
+          'Metric': 'Design-based Orders',
+          'Value': dashboardData.productOrders
+        },
+        {
+          'Metric': 'Custom Orders',
+          'Value': dashboardData.customOrders
+        }
+      ];
+      exportToCSV(reportData, 'financial_report');
+      showNotification("Financial report exported successfully");
+    };
+
+    return (
+        <div className="p-4 bg-gray-50 min-h-screen">
+            <div className="max-w-5xl mx-auto space-y-8">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl font-extrabold text-indigo-800 flex items-center border-b pb-2">
+                      <BarChart3 className="mr-3 h-7 w-7" /> Financial Overview
+                  </h2>
+                  <button
+                    onClick={exportFinancialReport}
+                    className="flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md"
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Export Report
+                  </button>
+                </div>
+
+                {/* Revenue Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <RevenueCard 
+                        title="Realized Revenue" 
+                        value={dashboardData.realizedRevenue} 
+                        icon={<DollarSign className="h-6 w-6 text-green-500" />}
+                        color="border-green-500"
+                    />
+                    <RevenueCard 
+                        title="Pending Revenue" 
+                        value={dashboardData.pendingRevenue} 
+                        icon={<DollarSign className="h-6 w-6 text-yellow-500" />}
+                        color="border-yellow-500"
+                    />
+                    <RevenueCard 
+                        title="Total Potential Revenue" 
+                        value={dashboardData.totalPotentialRevenue} 
+                        icon={<TrendingUp className="h-6 w-6 text-indigo-500" />}
+                        color="border-indigo-500"
+                    />
+                </div>
                 
-                clientOptions.forEach(option => {
-                    const clientName = option.querySelector('h4').textContent.toLowerCase();
-                    const clientPhone = option.querySelector('p').textContent.toLowerCase();
+                {/* Order Metrics */}
+                <h3 className="text-2xl font-semibold text-indigo-700 pt-6">Order Metrics</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
+                     <MetricCard 
+                        title="Total Orders" 
+                        value={dashboardData.totalOrders} 
+                        unit="Orders" 
+                        icon={<ClipboardList className="h-5 w-5 text-white" />}
+                        color="bg-indigo-500"
+                    />
+                     <MetricCard 
+                        title="Completed Orders" 
+                        value={dashboardData.completedOrders} 
+                        unit="Orders" 
+                        icon={<Ruler className="h-5 w-5 text-white" />}
+                        color="bg-green-500"
+                    />
+                     <MetricCard 
+                        title="Design Orders" 
+                        value={dashboardData.productOrders} 
+                        unit="Orders" 
+                        icon={<ShoppingBag className="h-5 w-5 text-white" />}
+                        color="bg-purple-500"
+                    />
+                     <MetricCard 
+                        title="Custom Orders" 
+                        value={dashboardData.customOrders} 
+                        unit="Orders" 
+                        icon={<Factory className="h-5 w-5 text-white" />}
+                        color="bg-blue-500"
+                    />
+                </div>
+                
+                {/* Quick Status Breakdown */}
+                <h3 className="text-2xl font-semibold text-indigo-700 pt-6">Status Breakdown</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {Object.entries(dashboardData.statusBreakdown).map(([status, count]) => (
+                        <div key={status} className={`p-4 rounded-xl shadow-lg text-center ${statusColors[status]}`}>
+                            <p className="text-3xl font-bold">
+                                {count}
+                            </p>
+                            <p className="text-sm font-medium mt-1">{status} Orders</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="text-xl font-semibold text-indigo-600 flex items-center">
+          <Loader className="h-6 w-6 mr-3 animate-spin" />
+          Loading Secure Tailor App...
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 font-sans antialiased">
+      <script src="https://cdn.tailwindcss.com"></script>
+      <Header />
+      <Notification />
+      
+      {/* Tab Navigation - UPDATED WITH PRODUCTS TAB */}
+      <nav className="bg-white shadow-lg sticky top-[68px] sm:top-16 z-10">
+        <div className="max-w-5xl mx-auto flex flex-wrap sm:flex-nowrap">
+          
+          <button
+            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
+              activeTab === 'clients'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('clients'); setSearchTerm(''); }}
+          >
+            <span className="flex items-center justify-center"><User className="h-5 w-5 mr-2" /> Clients ({clients.length})</span>
+          </button>
+          
+          <button
+            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
+              activeTab === 'orders' || activeTab === 'new_order'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('orders'); setSearchTerm(''); }}
+          >
+            <span className="flex items-center justify-center"><ClipboardList className="h-5 w-5 mr-2" /> Orders ({orders.length})</span>
+          </button>
+
+          {/* NEW: Products Tab */}
+          <button
+            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
+              activeTab === 'products'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('products'); setSearchTerm(''); }}
+          >
+            <span className="flex items-center justify-center"><ShoppingBag className="h-5 w-5 mr-2" /> Designs ({products.length})</span>
+          </button>
                     
-                    if (clientName.includes(searchTerm) || clientPhone.includes(searchTerm)) {
-                        option.style.display = 'block';
-                    } else {
-                        option.style.display = 'none';
-                    }
-                });
-            });
-            
-            // Design search
-            document.getElementById('designSearch').addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const designOptions = document.querySelectorAll('.design-option');
-                
-                designOptions.forEach(option => {
-                    const designName = option.querySelector('h4').textContent.toLowerCase();
-                    const designCategory = option.querySelector('p').textContent.toLowerCase();
-                    
-                    if (designName.includes(searchTerm) || designCategory.includes(searchTerm)) {
-                        option.style.display = 'block';
-                    } else {
-                        option.style.display = 'none';
-                    }
-                });
-            });
-        }
+          <button
+            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
+              activeTab === 'revenue'
+                ? 'border-indigo-600 text-indigo-700'
+                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+            onClick={() => { setActiveTab('revenue'); setSearchTerm(''); }}
+          >
+            <span className="flex items-center justify-center"><BarChart3 className="h-5 w-5 mr-2" /> Revenue</span>
+          </button>
 
-        // Order form submission
-        document.getElementById('orderForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const orderId = document.getElementById('orderId').value;
-            const isNewOrder = !orderId;
-            
-            // Validate client selection
-            const isNewClient = document.getElementById('newClientToggle').classList.contains('active');
-            let clientData;
-            
-            if (isNewClient) {
-                // Validate new client form
-                const name = document.getElementById('newClientName').value.trim();
-                const phone = document.getElementById('newClientPhone').value.trim();
-                
-                if (!name || !phone) {
-                    showNotification('Please fill in all required client fields', 'error');
-                    return;
-                }
-                
-                // Create new client
-                const newClientId = 'client_' + Date.now();
-                clientData = {
-                    id: newClientId,
-                    name: name,
-                    phone: phone,
-                    address: document.getElementById('newClientAddress').value.trim(),
-                    gender: document.getElementById('newClientGender').value,
-                    totalOrders: 1,
-                    totalSpent: parseFloat(document.getElementById('orderPrice').value) || 0
-                };
-                
-                clients.push(clientData);
-                selectedClientId = newClientId;
-                showNotification('New client added successfully!', 'success');
-            } else {
-                // Validate existing client selection
-                if (!selectedClientId) {
-                    showNotification('Please select a client', 'error');
-                    return;
-                }
-                
-                clientData = clients.find(c => c.id === selectedClientId);
-            }
-            
-            // Validate design selection
-            const isNewDesign = document.getElementById('newDesignToggle').classList.contains('active');
-            let designData;
-            
-            if (isNewDesign) {
-                // Validate new design form
-                const name = document.getElementById('newDesignName').value.trim();
-                const category = document.getElementById('newDesignCategory').value;
-                const price = parseFloat(document.getElementById('newDesignPrice').value) || 0;
-                
-                if (!name || !category || price <= 0) {
-                    showNotification('Please fill in all required design fields with valid data', 'error');
-                    return;
-                }
-                
-                // Create new design
-                const newDesignId = 'design_' + Date.now();
-                designData = {
-                    id: newDesignId,
-                    name: name,
-                    category: category,
-                    price: price,
-                    description: document.getElementById('newDesignDescription').value.trim()
-                };
-                
-                products.push(designData);
-                selectedDesignId = newDesignId;
-                showNotification('New design added successfully!', 'success');
-            } else {
-                // Validate existing design selection
-                if (!selectedDesignId) {
-                    showNotification('Please select a design', 'error');
-                    return;
-                }
-                
-                designData = products.find(p => p.id === selectedDesignId);
-            }
-            
-            // Validate order details
-            const orderType = document.getElementById('orderType').value;
-            const garmentType = document.getElementById('garmentType').value;
-            const price = parseFloat(document.getElementById('orderPrice').value) || 0;
-            
-            if (!orderType || !garmentType || price <= 0) {
-                showNotification('Please fill in all required order fields with valid data', 'error');
-                return;
-            }
-            
-            // Prepare order data
-            const orderData = {
-                clientId: selectedClientId,
-                clientName: clientData.name,
-                clientPhone: clientData.phone,
-                designId: selectedDesignId,
-                designName: designData.name,
-                orderType: orderType,
-                garmentType: garmentType,
-                price: price,
-                status: document.getElementById('orderStatus').value,
-                priority: document.getElementById('orderPriority').value,
-                dueDate: document.getElementById('orderDueDate').value,
-                measurements: document.getElementById('orderMeasurements').value.trim(),
-                notes: document.getElementById('orderNotes').value.trim(),
-                orderDate: isNewOrder ? getTodayDate() : orders.find(o => o.id === orderId).orderDate
-            };
-            
-            if (isNewOrder) {
-                // Add new order
-                orderData.id = 'order_' + Date.now();
-                orders.push(orderData);
-                showNotification('Order created successfully!', 'success');
-            } else {
-                // Update existing order
-                const orderIndex = orders.findIndex(o => o.id === orderId);
-                if (orderIndex !== -1) {
-                    orderData.id = orderId;
-                    orders[orderIndex] = orderData;
-                    showNotification('Order updated successfully!', 'success');
-                }
-            }
-            
-            // Update client's order count and total spent
-            if (clientData) {
-                const clientIndex = clients.findIndex(c => c.id === selectedClientId);
-                if (clientIndex !== -1) {
-                    if (isNewOrder) {
-                        clients[clientIndex].totalOrders += 1;
-                        clients[clientIndex].totalSpent += price;
-                    } else {
-                        // For updates, we need to calculate the difference
-                        const oldOrder = orders.find(o => o.id === orderId);
-                        if (oldOrder) {
-                            clients[clientIndex].totalSpent -= oldOrder.price;
-                            clients[clientIndex].totalSpent += price;
-                        }
-                    }
-                }
-            }
-            
-            // Update UI
-            renderOrders();
-            updateTabCounts();
-            closeOrderModal();
-        });
+        </div>
+      </nav>
 
-        // Delete order button
-        document.getElementById('deleteOrderBtn').addEventListener('click', function() {
-            const orderId = document.getElementById('orderId').value;
-            if (orderId) {
-                deleteOrder(orderId);
-                closeOrderModal();
-            }
-        });
+      <main>
+        {activeTab === 'clients' && <ClientList />}
+        {activeTab === 'orders' && <OrderList />}
+        {activeTab === 'products' && <ProductsList />}
+        {activeTab === 'new_order' && <AddOrderForm />}
+        {activeTab === 'revenue' && <RevenueDashboard />}
+      </main>
+    </div>
+  );
+};
 
-        // Export orders
-        function exportOrders() {
-            const csvContent = [
-                ['Client', 'Design', 'Order Type', 'Status', 'Price', 'Order Date', 'Due Date', 'Priority'],
-                ...orders.map(order => [
-                    order.clientName,
-                    order.designName,
-                    order.orderType,
-                    order.status,
-                    order.price,
-                    order.orderDate,
-                    order.dueDate || '',
-                    order.priority || ''
-                ])
-            ].map(row => row.join(',')).join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `orders_${getTodayDate()}.csv`;
-            link.click();
-            window.URL.revokeObjectURL(url);
-            
-            showNotification('Orders exported successfully!', 'success');
-        }
-
-        // Close modal when clicking outside
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.classList.remove('active');
-                }
-            });
-        });
-
-        // Initialize the application
-        function initApp() {
-            // Set current date
-            document.getElementById('currentDate').textContent = getTodayDate();
-            
-            // Initialize mock data
-            initializeMockData();
-            
-            // Setup toggle buttons
-            setupToggleButtons();
-            
-            // Setup search functionality
-            setupSearch();
-            
-            showNotification('Tailoring shop ready!', 'success');
-        }
-
-        // Initialize when page loads
-        window.onload = initApp;
-    </script>
-</body>
-</html>
+export default App;
