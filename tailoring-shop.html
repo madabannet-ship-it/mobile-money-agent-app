@@ -6,7 +6,6 @@
     <title>Advanced Tailoring Shop Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary: #4f46e5;
@@ -112,6 +111,7 @@
         .order-card {
             transition: all 0.3s ease;
             border-left: 4px solid #e5e7eb;
+            cursor: pointer;
         }
         
         .order-card:hover {
@@ -138,43 +138,49 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .loading { 
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
-        
-        .kanban-column {
-            min-height: 500px;
-            background: #f8fafc;
+        .client-option, .design-option {
+            padding: 10px;
+            border: 1px solid #e5e7eb;
             border-radius: 8px;
-            padding: 15px;
-        }
-        
-        .kanban-item {
-            background: white;
-            border-radius: 6px;
-            padding: 12px;
             margin-bottom: 10px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: move;
+            cursor: pointer;
+            transition: all 0.2s;
         }
         
-        .drag-over {
-            background: #e0f2fe;
-            border: 2px dashed #0ea5e9;
+        .client-option:hover, .design-option:hover {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+        }
+        
+        .client-option.selected, .design-option.selected {
+            background-color: #e0e7ff;
+            border-color: #4f46e5;
+        }
+        
+        .section-toggle {
+            display: flex;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .toggle-option {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background-color: #f9fafb;
+            transition: all 0.2s;
+        }
+        
+        .toggle-option.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        
+        .toggle-option:not(.active):hover {
+            background-color: #e5e7eb;
         }
     </style>
 </head>
@@ -213,142 +219,16 @@
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="orders">
                     <i class="fas fa-clipboard-list mr-2"></i> Orders <span id="ordersCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
                 </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="kanban">
-                    <i class="fas fa-columns mr-2"></i> Kanban Board
-                </button>
                 <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
                     <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="inventory">
-                    <i class="fas fa-boxes mr-2"></i> Inventory
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="expenses">
-                    <i class="fas fa-money-bill-wave mr-2"></i> Expenses
-                </button>
-                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="reports">
-                    <i class="fas fa-chart-bar mr-2"></i> Reports
                 </button>
             </div>
         </nav>
 
         <!-- Main Content -->
         <main>
-            <!-- Dashboard Tab -->
-            <div id="dashboard" class="tab-content active">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Tailoring Shop Overview</h2>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="summary-card bg-blue-50 border border-blue-200">
-                            <div class="text-blue-600 text-sm font-medium">Total Revenue</div>
-                            <div id="totalRevenue" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
-                        </div>
-                        <div class="summary-card bg-green-50 border border-green-200">
-                            <div class="text-green-600 text-sm font-medium">Net Profit</div>
-                            <div id="netProfit" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
-                        </div>
-                        <div class="summary-card bg-purple-50 border border-purple-200">
-                            <div class="text-purple-600 text-sm font-medium">Outstanding Balance</div>
-                            <div id="outstandingBalance" class="text-2xl font-bold text-purple-800 mt-1">MWK 0.00</div>
-                        </div>
-                        <div class="summary-card bg-orange-50 border border-orange-200">
-                            <div class="text-orange-600 text-sm font-medium">Inventory Value</div>
-                            <div id="inventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="summary-card bg-yellow-50 border border-yellow-200">
-                            <div class="text-yellow-600 text-sm font-medium">Pending Orders</div>
-                            <div id="pendingOrders" class="text-2xl font-bold text-yellow-800 mt-1">0</div>
-                        </div>
-                        <div class="summary-card bg-blue-50 border border-blue-200">
-                            <div class="text-blue-600 text-sm font-medium">In Progress</div>
-                            <div id="inProgressOrders" class="text-2xl font-bold text-blue-800 mt-1">0</div>
-                        </div>
-                        <div class="summary-card bg-green-50 border border-green-200">
-                            <div class="text-green-600 text-sm font-medium">Completed</div>
-                            <div id="completedOrders" class="text-2xl font-bold text-green-800 mt-1">0</div>
-                        </div>
-                        <div class="summary-card bg-red-50 border border-red-200">
-                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
-                            <div id="totalExpenses" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
-                        </div>
-                    </div>
-
-                    <!-- Charts Section -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
-                            <h3 class="text-lg font-bold text-gray-700 mb-4">Revenue vs Expenses</h3>
-                            <div class="chart-container">
-                                <canvas id="revenueExpenseChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="bg-white p-4 rounded-xl border border-gray-300 shadow-sm">
-                            <h3 class="text-lg font-bold text-gray-700 mb-4">Order Status Distribution</h3>
-                            <div class="chart-container">
-                                <canvas id="orderStatusChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Actions -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <button class="bg-blue-600 text-white p-4 rounded-xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center" onclick="openOrderModal()">
-                            <i class="fas fa-plus-circle mr-2"></i> New Order
-                        </button>
-                        <button class="bg-green-600 text-white p-4 rounded-xl shadow-lg hover:bg-green-700 transition flex items-center justify-center" onclick="openClientModal()">
-                            <i class="fas fa-user-plus mr-2"></i> Add Client
-                        </button>
-                        <button class="bg-purple-600 text-white p-4 rounded-xl shadow-lg hover:bg-purple-700 transition flex items-center justify-center" onclick="openProductModal()">
-                            <i class="fas fa-tshirt mr-2"></i> Add Design
-                        </button>
-                    </div>
-
-                    <!-- Recent Activity -->
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Activity</h3>
-                        <div id="recentActivity" class="space-y-3">
-                            <div class="text-gray-500 italic text-center py-4">No recent activity</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Clients Tab -->
-            <div id="clients" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Client Management</h2>
-                        <div class="flex space-x-2 w-full sm:w-auto">
-                            <button onclick="exportClients()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
-                                <i class="fas fa-download mr-2"></i> Export
-                            </button>
-                            <button onclick="openClientModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                                <i class="fas fa-plus mr-2"></i> Add Client
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Search -->
-                    <div class="mb-6">
-                        <div class="search-container">
-                            <div class="flex items-center">
-                                <i class="fas fa-search text-gray-500 mr-3"></i>
-                                <input type="text" id="clientSearch" placeholder="Search clients by name, phone, or location..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Clients List -->
-                    <div id="clientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Orders Tab -->
-            <div id="orders" class="tab-content">
+            <div id="orders" class="tab-content active">
                 <div class="bg-white p-6 rounded-2xl shadow-2xl">
                     <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
                         <h2 class="text-2xl font-bold text-gray-800">Order Management</h2>
@@ -384,264 +264,7 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Kanban Board Tab -->
-            <div id="kanban" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Order Kanban Board</h2>
-                        <div class="flex space-x-2">
-                            <button onclick="openOrderModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                                <i class="fas fa-plus mr-2"></i> New Order
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="kanban-column" data-status="pending">
-                            <h3 class="text-lg font-bold text-yellow-700 mb-4 text-center">Pending</h3>
-                            <div id="kanban-pending" class="kanban-list">
-                                <!-- Orders will be populated here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="in-progress">
-                            <h3 class="text-lg font-bold text-blue-700 mb-4 text-center">In Progress</h3>
-                            <div id="kanban-in-progress" class="kanban-list">
-                                <!-- Orders will be populated here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="completed">
-                            <h3 class="text-lg font-bold text-green-700 mb-4 text-center">Completed</h3>
-                            <div id="kanban-completed" class="kanban-list">
-                                <!-- Orders will be populated here -->
-                            </div>
-                        </div>
-                        <div class="kanban-column" data-status="delivered">
-                            <h3 class="text-lg font-bold text-purple-700 mb-4 text-center">Delivered</h3>
-                            <div id="kanban-delivered" class="kanban-list">
-                                <!-- Orders will be populated here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Products Tab -->
-            <div id="products" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Design Catalog</h2>
-                        <div class="flex space-x-2 w-full sm:w-auto">
-                            <button onclick="exportProducts()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
-                                <i class="fas fa-download mr-2"></i> Export
-                            </button>
-                            <button onclick="openProductModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                                <i class="fas fa-plus mr-2"></i> Add Design
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Products Grid -->
-                    <div id="productsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        <div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Inventory Tab -->
-            <div id="inventory" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Inventory Management</h2>
-                        <div class="flex space-x-2">
-                            <button onclick="openInventoryModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
-                                <i class="fas fa-plus mr-2"></i> Add Inventory Item
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Inventory Summary -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        <div class="summary-card bg-blue-50 border border-blue-200">
-                            <div class="text-blue-600 text-sm font-medium">Total Items</div>
-                            <div id="totalInventoryItems" class="text-2xl font-bold text-blue-800 mt-1">0</div>
-                        </div>
-                        <div class="summary-card bg-green-50 border border-green-200">
-                            <div class="text-green-600 text-sm font-medium">Low Stock Items</div>
-                            <div id="lowStockItems" class="text-2xl font-bold text-green-800 mt-1">0</div>
-                        </div>
-                        <div class="summary-card bg-orange-50 border border-orange-200">
-                            <div class="text-orange-600 text-sm font-medium">Total Value</div>
-                            <div id="totalInventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
-                        </div>
-                    </div>
-
-                    <!-- Inventory Items -->
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-lg font-bold text-gray-700 mb-4">Current Inventory</h3>
-                        <div id="inventoryList" class="space-y-3">
-                            <div class="text-gray-500 italic text-center py-8">No inventory items</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Expenses Tab -->
-            <div id="expenses" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Expense Management</h2>
-                        <div class="flex space-x-2">
-                            <button onclick="openExpenseModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-red-600 hover:bg-red-700 transition">
-                                <i class="fas fa-plus mr-2"></i> Add Expense
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Expense Analysis -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="summary-card bg-red-50 border border-red-200">
-                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
-                            <div id="totalExpensesAmount" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
-                        </div>
-                        <div class="summary-card bg-blue-50 border border-blue-200">
-                            <div class="text-blue-600 text-sm font-medium">This Month</div>
-                            <div id="monthlyExpenses" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
-                        </div>
-                        <div class="summary-card bg-purple-50 border border-purple-200">
-                            <div class="text-purple-600 text-sm font-medium">Top Category</div>
-                            <div id="topCategory" class="text-2xl font-bold text-purple-800 mt-1">-</div>
-                        </div>
-                        <div class="summary-card bg-orange-50 border border-orange-200">
-                            <div class="text-orange-600 text-sm font-medium">Avg Monthly</div>
-                            <div id="avgMonthlyExpenses" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
-                        </div>
-                    </div>
-
-                    <!-- Category Breakdown -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                            <h3 class="text-lg font-bold text-gray-700 mb-4">Expense Categories</h3>
-                            <div id="expenseCategories" class="space-y-3">
-                                <div class="text-gray-500 italic text-center py-8">No expense data</div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Expenses -->
-                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                            <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Expenses</h3>
-                            <div id="expensesList" class="space-y-3 max-h-96 overflow-y-auto">
-                                <div class="text-gray-500 italic text-center py-8">No expenses recorded</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Reports Tab -->
-            <div id="reports" class="tab-content">
-                <div class="bg-white p-6 rounded-2xl shadow-2xl">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Advanced Reports & Analytics</h2>
-
-                    <!-- Report Controls -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Report Type</label>
-                            <select id="reportType" class="input-style">
-                                <option value="financial">Financial Summary</option>
-                                <option value="orders">Order Analysis</option>
-                                <option value="clients">Client Analysis</option>
-                                <option value="inventory">Inventory Analysis</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Date Range</label>
-                            <select id="dateRange" class="input-style">
-                                <option value="week">Last 7 Days</option>
-                                <option value="month">Last 30 Days</option>
-                                <option value="quarter">Last 3 Months</option>
-                                <option value="year">Last 12 Months</option>
-                                <option value="custom">Custom Range</option>
-                            </select>
-                        </div>
-                        <div id="customDateRange" class="hidden md:col-span-2">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">From</label>
-                                    <input type="date" id="dateFrom" class="input-style">
-                                </div>
-                                <div>
-                                    <label class="text-sm font-medium text-gray-700">To</label>
-                                    <input type="date" id="dateTo" class="input-style">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Report Actions -->
-                    <div class="flex space-x-2 mb-6">
-                        <button onclick="generateReport()" class="bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center">
-                            <i class="fas fa-chart-bar mr-2"></i> Generate Report
-                        </button>
-                        <button onclick="exportReport()" class="bg-green-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition flex items-center">
-                            <i class="fas fa-download mr-2"></i> Export Report
-                        </button>
-                    </div>
-
-                    <!-- Report Results -->
-                    <div id="reportResults" class="space-y-6">
-                        <div class="text-gray-500 italic text-center py-8">Select report parameters and generate a report</div>
-                    </div>
-                </div>
-            </div>
         </main>
-    </div>
-
-    <!-- Modals (same as before but with improved functionality) -->
-    <!-- Client Modal -->
-    <div id="clientModal" class="modal">
-        <div class="modal-content w-full max-w-2xl">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-user mr-3"></i> <span id="clientModalTitle">Add New Client</span>
-                </h2>
-                <button onclick="closeClientModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="clientForm" class="space-y-4">
-                    <input type="hidden" id="clientId">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Full Name *</label>
-                            <input type="text" id="clientName" class="input-style" required>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Phone Number *</label>
-                            <input type="tel" id="clientPhone" class="input-style" required>
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-sm font-medium text-gray-700">Location/Address</label>
-                            <input type="text" id="clientLocation" class="input-style">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-sm font-medium text-gray-700">Notes</label>
-                            <textarea id="clientNotes" class="input-style" rows="2"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                            <i class="fas fa-save mr-2"></i> Save Client
-                        </button>
-                        <button type="button" id="deleteClientBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
-                            <i class="fas fa-trash mr-2"></i> Delete
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
     <!-- Order Modal -->
@@ -658,23 +281,122 @@
             <div class="p-6">
                 <form id="orderForm" class="space-y-6">
                     <input type="hidden" id="orderId">
-                    <!-- Client Selection -->
+                    
+                    <!-- Client Selection Section -->
                     <div class="bg-indigo-50 p-4 rounded-lg">
                         <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
                             <i class="fas fa-user mr-2"></i> 1. Select Client
                         </h3>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Select Client *</label>
-                            <select id="orderClientId" class="input-style" required>
-                                <option value="">-- Choose a Client --</option>
-                            </select>
+                        
+                        <div class="section-toggle mb-4">
+                            <div class="toggle-option active" id="existingClientToggle">Select Existing Client</div>
+                            <div class="toggle-option" id="newClientToggle">Add New Client</div>
+                        </div>
+                        
+                        <!-- Existing Client Selection -->
+                        <div id="existingClientSection">
+                            <div class="mb-4">
+                                <div class="search-container">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-search text-gray-500 mr-3"></i>
+                                        <input type="text" id="clientSearch" placeholder="Search clients by name or phone..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                                    </div>
+                                    <div id="clientSearchResults" class="search-results hidden"></div>
+                                </div>
+                            </div>
+                            <div id="clientList" class="max-h-60 overflow-y-auto">
+                                <!-- Clients will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- New Client Form -->
+                        <div id="newClientSection" class="hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Full Name *</label>
+                                    <input type="text" id="newClientName" class="input-style" required>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Phone Number *</label>
+                                    <input type="tel" id="newClientPhone" class="input-style" required>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-sm font-medium text-gray-700">Address</label>
+                                    <input type="text" id="newClientAddress" class="input-style">
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Gender</label>
+                                    <select id="newClientGender" class="input-style">
+                                        <option value="">Select Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Design Selection Section -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-tshirt mr-2"></i> 2. Select Design
+                        </h3>
+                        
+                        <div class="section-toggle mb-4">
+                            <div class="toggle-option active" id="existingDesignToggle">Select Existing Design</div>
+                            <div class="toggle-option" id="newDesignToggle">Add New Design</div>
+                        </div>
+                        
+                        <!-- Existing Design Selection -->
+                        <div id="existingDesignSection">
+                            <div class="mb-4">
+                                <div class="search-container">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-search text-gray-500 mr-3"></i>
+                                        <input type="text" id="designSearch" placeholder="Search designs by name..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                                    </div>
+                                    <div id="designSearchResults" class="search-results hidden"></div>
+                                </div>
+                            </div>
+                            <div id="designList" class="max-h-60 overflow-y-auto">
+                                <!-- Designs will be populated here -->
+                            </div>
+                        </div>
+                        
+                        <!-- New Design Form -->
+                        <div id="newDesignSection" class="hidden">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Design Name *</label>
+                                    <input type="text" id="newDesignName" class="input-style" required>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Category *</label>
+                                    <select id="newDesignCategory" class="input-style" required>
+                                        <option value="Shirt">Shirt</option>
+                                        <option value="Trousers">Trousers</option>
+                                        <option value="Jacket">Jacket</option>
+                                        <option value="Dress">Dress</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
+                                    <input type="number" id="newDesignPrice" class="input-style" step="0.01" min="0" required>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="text-sm font-medium text-gray-700">Description</label>
+                                    <textarea id="newDesignDescription" class="input-style" rows="2"></textarea>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Order Details -->
                     <div class="bg-indigo-50 p-4 rounded-lg">
                         <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-ruler mr-2"></i> 2. Order Details
+                            <i class="fas fa-ruler mr-2"></i> 3. Order Details
                         </h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -725,7 +447,7 @@
                     <!-- Measurements -->
                     <div class="bg-indigo-50 p-4 rounded-lg">
                         <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
-                            <i class="fas fa-ruler-combined mr-2"></i> 3. Measurements
+                            <i class="fas fa-ruler-combined mr-2"></i> 4. Measurements
                         </h3>
                         <div>
                             <label class="text-sm font-medium text-gray-700">Measurement Notes</label>
@@ -752,225 +474,14 @@
         </div>
     </div>
 
-    <!-- Product Modal -->
-    <div id="productModal" class="modal">
-        <div class="modal-content w-full max-w-2xl">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
-                    <i class="fas fa-tshirt mr-3"></i> <span id="productModalTitle">Add New Design</span>
-                </h2>
-                <button onclick="closeProductModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="productForm" class="space-y-4">
-                    <input type="hidden" id="productId">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Design Name *</label>
-                            <input type="text" id="productName" class="input-style" required>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Category *</label>
-                            <select id="productCategory" class="input-style" required>
-                                <option value="Shirt">Shirt</option>
-                                <option value="Trousers">Trousers</option>
-                                <option value="Jacket">Jacket</option>
-                                <option value="Dress">Dress</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
-                            <input type="number" id="productPrice" class="input-style" step="0.01" min="0" required>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Description</label>
-                        <textarea id="productDescription" class="input-style" rows="3"></textarea>
-                    </div>
-
-                    <!-- Required Measurements -->
-                    <div class="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
-                        <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
-                            <i class="fas fa-ruler mr-2"></i> Required Measurements
-                        </h3>
-                        <div id="productMeasurementsContainer" class="space-y-3">
-                            <!-- Measurements will be added here -->
-                        </div>
-                        <button type="button" onclick="addProductMeasurementField()" class="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition">
-                            <i class="fas fa-plus mr-2"></i> Add Measurement Field
-                        </button>
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                            <i class="fas fa-save mr-2"></i> Save Design
-                        </button>
-                        <button type="button" id="deleteProductBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
-                            <i class="fas fa-trash mr-2"></i> Delete
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Expense Modal -->
-    <div id="expenseModal" class="modal">
-        <div class="modal-content w-full max-w-md">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-red-50 rounded-t-xl">
-                <h2 class="text-2xl font-bold text-red-800 flex items-center">
-                    <i class="fas fa-money-bill-wave mr-3"></i> <span id="expenseModalTitle">Add Expense</span>
-                </h2>
-                <button onclick="closeExpenseModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="expenseForm" class="space-y-4">
-                    <input type="hidden" id="expenseId">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Category *</label>
-                        <select id="expenseCategory" class="input-style" required>
-                            <option value="Materials">Materials</option>
-                            <option value="Labor">Labor</option>
-                            <option value="Rent">Rent</option>
-                            <option value="Utilities">Utilities</option>
-                            <option value="Transport">Transport</option>
-                            <option value="Equipment">Equipment</option>
-                            <option value="Marketing">Marketing</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Amount (MWK) *</label>
-                        <input type="number" id="expenseAmount" class="input-style" step="0.01" min="0" required>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Description *</label>
-                        <textarea id="expenseDescription" class="input-style" rows="3" required></textarea>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Date</label>
-                        <input type="date" id="expenseDate" class="input-style">
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <button type="submit" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
-                            <i class="fas fa-save mr-2"></i> Save Expense
-                        </button>
-                        <button type="button" id="deleteExpenseBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
-                            <i class="fas fa-trash mr-2"></i> Delete
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Inventory Modal -->
-    <div id="inventoryModal" class="modal">
-        <div class="modal-content w-full max-w-md">
-            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-green-50 rounded-t-xl">
-                <h2 class="text-2xl font-bold text-green-800 flex items-center">
-                    <i class="fas fa-box mr-3"></i> <span id="inventoryModalTitle">Add Inventory Item</span>
-                </h2>
-                <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="p-6">
-                <form id="inventoryForm" class="space-y-4">
-                    <input type="hidden" id="inventoryId">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Item Name *</label>
-                        <input type="text" id="inventoryName" class="input-style" required>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Category *</label>
-                        <select id="inventoryCategory" class="input-style" required>
-                            <option value="Fabric">Fabric</option>
-                            <option value="Thread">Thread</option>
-                            <option value="Buttons">Buttons</option>
-                            <option value="Zippers">Zippers</option>
-                            <option value="Accessories">Accessories</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Quantity *</label>
-                            <input type="number" id="inventoryQuantity" class="input-style" min="0" required>
-                        </div>
-                        <div>
-                            <label class="text-sm font-medium text-gray-700">Unit</label>
-                            <select id="inventoryUnit" class="input-style">
-                                <option value="meters">Meters</option>
-                                <option value="pieces">Pieces</option>
-                                <option value="rolls">Rolls</option>
-                                <option value="packs">Packs</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Cost per Unit (MWK) *</label>
-                        <input type="number" id="inventoryCost" class="input-style" step="0.01" min="0" required>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Supplier</label>
-                        <input type="text" id="inventorySupplier" class="input-style">
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Notes</label>
-                        <textarea id="inventoryNotes" class="input-style" rows="2"></textarea>
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
-                            <i class="fas fa-save mr-2"></i> Save Item
-                        </button>
-                        <button type="button" id="deleteInventoryBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
-                            <i class="fas fa-trash mr-2"></i> Delete
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Firebase SDKs -->
-    <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, query, orderBy, updateDoc, deleteDoc, doc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Configuration
-        const SHARED_AGENT_ID = "Accolado"; 
-        const CUSTOM_APP_ID = "mobile-money-agent"; 
-        const USER_PROVIDED_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
-            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
-            projectId: "mobile-money-app-4cf66",
-            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
-            messagingSenderId: "822891731705",
-            appId: "1:822891731705:web:e666599c76ce413f0a6028"
-        };
-
-        let db = null;
-        let auth = null;
-        let isDatabaseReady = false;
-
+    <script>
         // Data storage
         let clients = [];
         let orders = [];
         let products = [];
-        let expenses = [];
-        let inventory = [];
-        let currentOrderStatus = 'pending'; // Default order status filter
+        let currentOrderStatus = 'pending';
+        let selectedClientId = null;
+        let selectedDesignId = null;
 
         // Utility functions
         const formatCurrency = (amount) => {
@@ -992,1558 +503,116 @@
             return new Date().toISOString().split('T')[0];
         };
 
-        const getCurrentMonth = () => {
-            const now = new Date();
-            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        };
-
-        // Firebase References
-        const getCollectionRef = (collectionName) => {
-            if (!db) return null;
-            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/${collectionName}`;
-            return collection(db, collectionPath);
-        };
-
-        // Data Management Class
-        class AdvancedTailoringManager {
-            // Clients
-            static async loadClients() {
-                const clientsRef = getCollectionRef('tailoring_clients');
-                if (!clientsRef) return;
-
-                try {
-                    const q = query(clientsRef, orderBy('createdAt', 'desc'));
-                    const querySnapshot = await getDocs(q);
-                    
-                    clients = [];
-                    querySnapshot.forEach((doc) => {
-                        clients.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    this.renderClients();
-                    this.populateClientDropdown();
-                    this.updateTabCounts();
-                } catch (error) {
-                    console.error("Error loading clients:", error);
-                    showNotification('Error loading clients', 'error');
+        // Mock data for demonstration
+        function initializeMockData() {
+            // Mock clients
+            clients = [
+                {
+                    id: '1',
+                    name: 'John Doe',
+                    phone: '0881234567',
+                    address: 'Area 3, Lilongwe',
+                    gender: 'Male',
+                    totalOrders: 3,
+                    totalSpent: 45000
+                },
+                {
+                    id: '2',
+                    name: 'Jane Smith',
+                    phone: '0997654321',
+                    address: 'Namiwawa, Blantyre',
+                    gender: 'Female',
+                    totalOrders: 5,
+                    totalSpent: 75000
+                },
+                {
+                    id: '3',
+                    name: 'Mike Johnson',
+                    phone: '0885551234',
+                    address: 'Mchesi, Lilongwe',
+                    gender: 'Male',
+                    totalOrders: 2,
+                    totalSpent: 30000
                 }
-            }
+            ];
 
-            static async saveClient(clientData, clientId = null) {
-                const clientsRef = getCollectionRef('tailoring_clients');
-                if (!clientsRef) return;
-
-                try {
-                    if (clientId) {
-                        // Update existing client
-                        const clientDoc = doc(db, clientsRef.path, clientId);
-                        await updateDoc(clientDoc, {
-                            ...clientData,
-                            updatedAt: new Date()
-                        });
-                        showNotification('Client updated successfully!', 'success');
-                    } else {
-                        // Add new client
-                        await addDoc(clientsRef, {
-                            ...clientData,
-                            createdAt: new Date(),
-                            totalOrders: 0,
-                            totalSpent: 0
-                        });
-                        showNotification('Client added successfully!', 'success');
-                    }
-                    
-                    this.loadClients();
-                    closeClientModal();
-                } catch (error) {
-                    console.error("Error saving client:", error);
-                    showNotification('Failed to save client', 'error');
+            // Mock products/designs
+            products = [
+                {
+                    id: '1',
+                    name: 'Business Shirt',
+                    category: 'Shirt',
+                    price: 15000,
+                    description: 'Formal business shirt with long sleeves'
+                },
+                {
+                    id: '2',
+                    name: 'Chinos Trousers',
+                    category: 'Trousers',
+                    price: 20000,
+                    description: 'Casual chinos trousers'
+                },
+                {
+                    id: '3',
+                    name: 'Blazer Jacket',
+                    category: 'Jacket',
+                    price: 35000,
+                    description: 'Formal blazer jacket'
+                },
+                {
+                    id: '4',
+                    name: 'Evening Dress',
+                    category: 'Dress',
+                    price: 45000,
+                    description: 'Elegant evening dress'
                 }
-            }
+            ];
 
-            static async deleteClient(clientId) {
-                if (!confirm('Are you sure you want to delete this client?')) return;
-
-                const clientsRef = getCollectionRef('tailoring_clients');
-                if (!clientsRef) return;
-
-                try {
-                    const clientDoc = doc(db, clientsRef.path, clientId);
-                    await deleteDoc(clientDoc);
-                    
-                    showNotification('Client deleted successfully!', 'success');
-                    this.loadClients();
-                    closeClientModal();
-                } catch (error) {
-                    console.error("Error deleting client:", error);
-                    showNotification('Failed to delete client', 'error');
+            // Mock orders
+            orders = [
+                {
+                    id: '1',
+                    clientId: '1',
+                    clientName: 'John Doe',
+                    clientPhone: '0881234567',
+                    designId: '1',
+                    designName: 'Business Shirt',
+                    orderType: 'Production Order',
+                    garmentType: 'Shirt',
+                    price: 15000,
+                    status: 'pending',
+                    priority: 'medium',
+                    dueDate: '2023-12-15',
+                    measurements: 'Chest: 42", Waist: 38", Sleeve: 34"',
+                    notes: 'Customer prefers cotton fabric',
+                    orderDate: '2023-12-01'
+                },
+                {
+                    id: '2',
+                    clientId: '2',
+                    clientName: 'Jane Smith',
+                    clientPhone: '0997654321',
+                    designId: '4',
+                    designName: 'Evening Dress',
+                    orderType: 'Production Order',
+                    garmentType: 'Dress',
+                    price: 45000,
+                    status: 'in-progress',
+                    priority: 'high',
+                    dueDate: '2023-12-10',
+                    measurements: 'Bust: 36", Waist: 30", Hips: 38", Length: 45"',
+                    notes: 'Urgent order for wedding',
+                    orderDate: '2023-11-28'
                 }
-            }
-
-            static renderClients() {
-                const clientsList = document.getElementById('clientsList');
-                const searchTerm = document.getElementById('clientSearch').value.toLowerCase();
-                
-                const filteredClients = clients.filter(client => 
-                    client.name.toLowerCase().includes(searchTerm) ||
-                    (client.phone && client.phone.includes(searchTerm)) ||
-                    (client.location && client.location.toLowerCase().includes(searchTerm))
-                );
-
-                if (filteredClients.length === 0) {
-                    clientsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>';
-                    return;
-                }
-
-                clientsList.innerHTML = filteredClients.map(client => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in">
-                        <div class="flex justify-between items-start mb-3">
-                            <div class="flex-1">
-                                <h3 class="text-lg font-bold text-gray-800">${client.name}</h3>
-                                <p class="text-gray-600">${client.phone || 'No phone'}</p>
-                                <p class="text-sm text-gray-500">${client.location || 'No location'}</p>
-                                ${client.notes ? `<p class="text-sm text-gray-400 mt-1">${client.notes}</p>` : ''}
-                            </div>
-                            <div class="text-right">
-                                <div class="text-sm font-semibold text-green-600">${formatCurrency(client.totalSpent || 0)}</div>
-                                <div class="text-xs text-gray-500">${client.totalOrders || 0} orders</div>
-                            </div>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <button onclick="editClient('${client.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                                <i class="fas fa-edit mr-1"></i> Edit
-                            </button>
-                            <button onclick="useClientForOrder('${client.id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-                                <i class="fas fa-cart-plus mr-1"></i> Use Client
-                            </button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            static populateClientDropdown() {
-                const dropdown = document.getElementById('orderClientId');
-                dropdown.innerHTML = '<option value="">-- Choose a Client --</option>';
-                
-                clients.forEach(client => {
-                    const option = document.createElement('option');
-                    option.value = client.id;
-                    option.textContent = `${client.name} (${client.phone || 'No phone'})`;
-                    dropdown.appendChild(option);
-                });
-            }
-
-            // Orders
-            static async loadOrders() {
-                const ordersRef = getCollectionRef('tailoring_orders');
-                if (!ordersRef) return;
-
-                try {
-                    const q = query(ordersRef, orderBy('createdAt', 'desc'));
-                    const querySnapshot = await getDocs(q);
-                    
-                    orders = [];
-                    querySnapshot.forEach((doc) => {
-                        orders.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    this.renderOrders();
-                    this.renderKanbanBoard();
-                    this.updateDashboard();
-                    this.updateTabCounts();
-                } catch (error) {
-                    console.error("Error loading orders:", error);
-                    showNotification('Error loading orders', 'error');
-                }
-            }
-
-            static async saveOrder(orderData, orderId = null) {
-                const ordersRef = getCollectionRef('tailoring_orders');
-                if (!ordersRef) return;
-
-                try {
-                    const client = clients.find(c => c.id === orderData.clientId);
-                    
-                    if (orderId) {
-                        // Update existing order
-                        const orderDoc = doc(db, ordersRef.path, orderId);
-                        await updateDoc(orderDoc, {
-                            ...orderData,
-                            clientName: client?.name || 'Unknown Client',
-                            updatedAt: new Date()
-                        });
-                        showNotification('Order updated successfully!', 'success');
-                    } else {
-                        // Add new order
-                        await addDoc(ordersRef, {
-                            ...orderData,
-                            clientName: client?.name || 'Unknown Client',
-                            createdAt: new Date(),
-                            orderDate: getTodayDate()
-                        });
-                        showNotification('Order created successfully!', 'success');
-                    }
-                    
-                    this.loadOrders();
-                    closeOrderModal();
-                } catch (error) {
-                    console.error("Error saving order:", error);
-                    showNotification('Failed to save order', 'error');
-                }
-            }
-
-            static async deleteOrder(orderId) {
-                if (!confirm('Are you sure you want to delete this order?')) return;
-
-                const ordersRef = getCollectionRef('tailoring_orders');
-                if (!ordersRef) return;
-
-                try {
-                    const orderDoc = doc(db, ordersRef.path, orderId);
-                    await deleteDoc(orderDoc);
-                    
-                    showNotification('Order deleted successfully!', 'success');
-                    this.loadOrders();
-                    closeOrderModal();
-                } catch (error) {
-                    console.error("Error deleting order:", error);
-                    showNotification('Failed to delete order', 'error');
-                }
-            }
-
-            static async updateOrderStatus(orderId, newStatus) {
-                const ordersRef = getCollectionRef('tailoring_orders');
-                if (!ordersRef) return;
-
-                try {
-                    const orderDoc = doc(db, ordersRef.path, orderId);
-                    await updateDoc(orderDoc, {
-                        status: newStatus,
-                        updatedAt: new Date()
-                    });
-                    
-                    showNotification('Order status updated!', 'success');
-                    this.loadOrders();
-                } catch (error) {
-                    console.error("Error updating order:", error);
-                    showNotification('Failed to update order', 'error');
-                }
-            }
-
-            static renderOrders() {
-                const ordersList = document.getElementById('ordersList');
-                
-                // Filter orders by current status
-                const filteredOrders = orders.filter(order => order.status === currentOrderStatus);
-                
-                // Update tab counts
-                this.updateOrderTabCounts();
-
-                if (filteredOrders.length === 0) {
-                    ordersList.innerHTML = `<div class="text-gray-500 italic text-center py-8">No ${currentOrderStatus.replace('-', ' ')} orders found</div>`;
-                    return;
-                }
-
-                ordersList.innerHTML = filteredOrders.map(order => {
-                    const statusClass = order.status || 'pending';
-                    const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
-                    const priorityClass = order.priority === 'high' ? 'bg-red-100 text-red-800' : 
-                                         order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
-                                         'bg-blue-100 text-blue-800';
-
-                    return `
-                        <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in">
-                            <div class="flex justify-between items-start mb-3">
-                                <div class="flex-1">
-                                    <h3 class="text-lg font-bold text-gray-800">${order.garmentType} - ${order.orderType}</h3>
-                                    <p class="text-gray-600">Client: ${order.clientName}</p>
-                                    <p class="text-sm text-gray-500">${order.orderDate || ''}</p>
-                                    ${order.dueDate ? `<p class="text-sm ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
-                                </div>
-                                <div class="text-right">
-                                    <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
-                                    ${order.priority ? `<span class="status-badge ${priorityClass} capitalize ml-1">${order.priority}</span>` : ''}
-                                    <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
-                                </div>
-                            </div>
-                            
-                            ${order.measurements ? `<p class="text-sm text-gray-600 mb-2">${order.measurements}</p>` : ''}
-                            ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
-                            
-                            <div class="flex justify-between items-center mt-3">
-                                <div class="flex gap-2">
-                                    ${order.status === 'pending' ? `
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
-                                    ` : ''}
-                                    ${order.status === 'in-progress' ? `
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
-                                    ` : ''}
-                                    ${order.status === 'completed' ? `
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
-                                    ` : ''}
-                                    ${order.status === 'delivered' ? `
-                                        <button onclick="AdvancedTailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
-                                    ` : ''}
-                                </div>
-                                <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                                    <i class="fas fa-edit mr-1"></i> Edit
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            static renderKanbanBoard() {
-                const statuses = ['pending', 'in-progress', 'completed', 'delivered'];
-                
-                statuses.forEach(status => {
-                    const container = document.getElementById(`kanban-${status}`);
-                    const statusOrders = orders.filter(order => order.status === status);
-                    
-                    if (statusOrders.length === 0) {
-                        container.innerHTML = `<div class="text-gray-500 italic text-center py-4">No ${status.replace('-', ' ')} orders</div>`;
-                        return;
-                    }
-                    
-                    container.innerHTML = statusOrders.map(order => {
-                        const priorityClass = order.priority === 'high' ? 'border-l-red-500' : 
-                                             order.priority === 'medium' ? 'border-l-yellow-500' : 
-                                             'border-l-blue-500';
-                        
-                        return `
-                            <div class="kanban-item ${priorityClass} border-l-4" draggable="true" data-order-id="${order.id}">
-                                <div class="flex justify-between items-start mb-2">
-                                    <h4 class="font-bold text-gray-800 text-sm">${order.garmentType}</h4>
-                                    <span class="text-xs font-semibold text-green-600">${formatCurrency(order.price)}</span>
-                                </div>
-                                <p class="text-xs text-gray-600 mb-1">${order.clientName}</p>
-                                ${order.dueDate ? `<p class="text-xs ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
-                                <div class="flex justify-between items-center mt-2">
-                                    <button onclick="editOrder('${order.id}')" class="text-xs text-blue-600 hover:text-blue-800">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <span class="text-xs px-2 py-1 rounded-full ${priorityClass.replace('border-l-', 'bg-').replace('-500', '-100')} ${priorityClass.replace('border-l-', 'text-').replace('-500', '-800')}">
-                                        ${order.priority || 'low'}
-                                    </span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                });
-                
-                // Initialize drag and drop
-                this.initializeKanbanDragAndDrop();
-            }
-
-            static initializeKanbanDragAndDrop() {
-                const kanbanItems = document.querySelectorAll('.kanban-item');
-                const kanbanColumns = document.querySelectorAll('.kanban-column');
-                
-                kanbanItems.forEach(item => {
-                    item.addEventListener('dragstart', (e) => {
-                        e.dataTransfer.setData('text/plain', item.getAttribute('data-order-id'));
-                        setTimeout(() => item.classList.add('opacity-50'), 0);
-                    });
-                    
-                    item.addEventListener('dragend', () => {
-                        item.classList.remove('opacity-50');
-                    });
-                });
-                
-                kanbanColumns.forEach(column => {
-                    column.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        column.classList.add('drag-over');
-                    });
-                    
-                    column.addEventListener('dragleave', () => {
-                        column.classList.remove('drag-over');
-                    });
-                    
-                    column.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        column.classList.remove('drag-over');
-                        
-                        const orderId = e.dataTransfer.getData('text/plain');
-                        const newStatus = column.getAttribute('data-status');
-                        
-                        if (orderId && newStatus) {
-                            this.updateOrderStatus(orderId, newStatus);
-                        }
-                    });
-                });
-            }
-
-            static updateOrderTabCounts() {
-                const pendingCount = orders.filter(o => o.status === 'pending').length;
-                const inProgressCount = orders.filter(o => o.status === 'in-progress').length;
-                const completedCount = orders.filter(o => o.status === 'completed').length;
-                const deliveredCount = orders.filter(o => o.status === 'delivered').length;
-
-                document.getElementById('pendingTabCount').textContent = pendingCount;
-                document.getElementById('inProgressTabCount').textContent = inProgressCount;
-                document.getElementById('completedTabCount').textContent = completedCount;
-                document.getElementById('deliveredTabCount').textContent = deliveredCount;
-            }
-
-            // Products
-            static async loadProducts() {
-                const productsRef = getCollectionRef('tailoring_products');
-                if (!productsRef) return;
-
-                try {
-                    const q = query(productsRef, orderBy('createdAt', 'desc'));
-                    const querySnapshot = await getDocs(q);
-                    
-                    products = [];
-                    querySnapshot.forEach((doc) => {
-                        products.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    this.renderProducts();
-                    this.updateTabCounts();
-                } catch (error) {
-                    console.error("Error loading products:", error);
-                    showNotification('Error loading designs', 'error');
-                }
-            }
-
-            static async saveProduct(productData, productId = null) {
-                const productsRef = getCollectionRef('tailoring_products');
-                if (!productsRef) return;
-
-                try {
-                    if (productId) {
-                        // Update existing product
-                        const productDoc = doc(db, productsRef.path, productId);
-                        await updateDoc(productDoc, {
-                            ...productData,
-                            updatedAt: new Date()
-                        });
-                        showNotification('Design updated successfully!', 'success');
-                    } else {
-                        // Add new product
-                        await addDoc(productsRef, {
-                            ...productData,
-                            createdAt: new Date()
-                        });
-                        showNotification('Design added successfully!', 'success');
-                    }
-                    
-                    this.loadProducts();
-                    closeProductModal();
-                } catch (error) {
-                    console.error("Error saving product:", error);
-                    showNotification('Failed to save design', 'error');
-                }
-            }
-
-            static async deleteProduct(productId) {
-                if (!confirm('Are you sure you want to delete this design?')) return;
-
-                const productsRef = getCollectionRef('tailoring_products');
-                if (!productsRef) return;
-
-                try {
-                    const productDoc = doc(db, productsRef.path, productId);
-                    await deleteDoc(productDoc);
-                    
-                    showNotification('Design deleted successfully!', 'success');
-                    this.loadProducts();
-                    closeProductModal();
-                } catch (error) {
-                    console.error("Error deleting product:", error);
-                    showNotification('Failed to delete design', 'error');
-                }
-            }
-
-            static renderProducts() {
-                const productsList = document.getElementById('productsList');
-                
-                if (products.length === 0) {
-                    productsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>';
-                    return;
-                }
-
-                productsList.innerHTML = products.map(product => `
-                    <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition fade-in" onclick="editProduct('${product.id}')">
-                        <div class="flex justify-between items-start mb-2">
-                            <h3 class="text-lg font-bold text-gray-800">${product.name}</h3>
-                            <div class="text-right">
-                                <div class="text-sm font-semibold text-green-600">${formatCurrency(product.price)}</div>
-                                <span class="text-xs text-gray-500">${product.category}</span>
-                            </div>
-                        </div>
-                        ${product.description ? `<p class="text-sm text-gray-600 mb-3">${product.description}</p>` : ''}
-                        ${product.requiredMeasurements && product.requiredMeasurements.length > 0 ? `
-                            <div class="mb-3">
-                                <p class="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
-                                <div class="flex flex-wrap gap-1">
-                                    ${product.requiredMeasurements.slice(0, 3).map(measurement => `
-                                        <span class="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">${measurement}</span>
-                                    `).join('')}
-                                    ${product.requiredMeasurements.length > 3 ? `
-                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">+${product.requiredMeasurements.length - 3} more</span>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        ` : ''}
-                        <div class="text-xs text-gray-400">
-                            Added: ${product.createdAt?.toDate ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            // Expenses
-            static async loadExpenses() {
-                const expensesRef = getCollectionRef('tailoring_expenses');
-                if (!expensesRef) return;
-
-                try {
-                    const q = query(expensesRef, orderBy('date', 'desc'));
-                    const querySnapshot = await getDocs(q);
-                    
-                    expenses = [];
-                    querySnapshot.forEach((doc) => {
-                        expenses.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    this.renderExpenses();
-                    this.updateExpenseAnalysis();
-                    this.updateDashboard();
-                } catch (error) {
-                    console.error("Error loading expenses:", error);
-                    showNotification('Error loading expenses', 'error');
-                }
-            }
-
-            static async saveExpense(expenseData, expenseId = null) {
-                const expensesRef = getCollectionRef('tailoring_expenses');
-                if (!expensesRef) return;
-
-                try {
-                    if (expenseId) {
-                        // Update existing expense
-                        const expenseDoc = doc(db, expensesRef.path, expenseId);
-                        await updateDoc(expenseDoc, {
-                            ...expenseData,
-                            updatedAt: new Date()
-                        });
-                        showNotification('Expense updated successfully!', 'success');
-                    } else {
-                        // Add new expense
-                        await addDoc(expensesRef, {
-                            ...expenseData,
-                            createdAt: new Date(),
-                            date: expenseData.date || getTodayDate()
-                        });
-                        showNotification('Expense recorded successfully!', 'success');
-                    }
-                    
-                    this.loadExpenses();
-                    closeExpenseModal();
-                } catch (error) {
-                    console.error("Error saving expense:", error);
-                    showNotification('Failed to save expense', 'error');
-                }
-            }
-
-            static async deleteExpense(expenseId) {
-                if (!confirm('Are you sure you want to delete this expense?')) return;
-
-                const expensesRef = getCollectionRef('tailoring_expenses');
-                if (!expensesRef) return;
-
-                try {
-                    const expenseDoc = doc(db, expensesRef.path, expenseId);
-                    await deleteDoc(expenseDoc);
-                    
-                    showNotification('Expense deleted successfully!', 'success');
-                    this.loadExpenses();
-                    closeExpenseModal();
-                } catch (error) {
-                    console.error("Error deleting expense:", error);
-                    showNotification('Failed to delete expense', 'error');
-                }
-            }
-
-            static renderExpenses() {
-                const expensesList = document.getElementById('expensesList');
-                
-                if (expenses.length === 0) {
-                    expensesList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expenses recorded</div>';
-                    return;
-                }
-
-                expensesList.innerHTML = expenses.slice(0, 10).map(expense => `
-                    <div class="bg-white p-3 rounded-lg border border-red-100 cursor-pointer hover:shadow-md transition fade-in" onclick="editExpense('${expense.id}')">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <span class="font-medium text-gray-800">${expense.category}</span>
-                                <p class="text-sm text-gray-600">${expense.description}</p>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-red-600 font-bold">${formatCurrency(expense.amount)}</div>
-                                <div class="text-xs text-gray-500">${expense.date || ''}</div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            static updateExpenseAnalysis() {
-                const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-                const currentMonth = getCurrentMonth();
-                const monthlyExpenses = expenses
-                    .filter(expense => expense.date && expense.date.startsWith(currentMonth))
-                    .reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-
-                // Category breakdown
-                const categoryTotals = {};
-                expenses.forEach(expense => {
-                    const category = expense.category || 'Other';
-                    categoryTotals[category] = (categoryTotals[category] || 0) + (parseFloat(expense.amount) || 0);
-                });
-
-                // Find top category
-                let topCategory = '-';
-                let topAmount = 0;
-                Object.entries(categoryTotals).forEach(([category, amount]) => {
-                    if (amount > topAmount) {
-                        topCategory = category;
-                        topAmount = amount;
-                    }
-                });
-
-                // Average monthly expenses (last 3 months)
-                const last3Months = [];
-                const now = new Date();
-                for (let i = 0; i < 3; i++) {
-                    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const monthStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-                    last3Months.push(monthStr);
-                }
-
-                const recentExpenses = expenses.filter(expense => 
-                    expense.date && last3Months.some(month => expense.date.startsWith(month))
-                );
-                const avgMonthlyExpenses = recentExpenses.length > 0 ? 
-                    recentExpenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0) / 3 : 0;
-
-                // Update displays
-                document.getElementById('totalExpensesAmount').textContent = formatCurrency(totalExpenses);
-                document.getElementById('monthlyExpenses').textContent = formatCurrency(monthlyExpenses);
-                document.getElementById('topCategory').textContent = topCategory;
-                document.getElementById('avgMonthlyExpenses').textContent = formatCurrency(avgMonthlyExpenses);
-
-                // Update category breakdown
-                const categoriesContainer = document.getElementById('expenseCategories');
-                if (Object.keys(categoryTotals).length === 0) {
-                    categoriesContainer.innerHTML = '<div class="text-gray-500 italic text-center py-8">No expense data</div>';
-                } else {
-                    categoriesContainer.innerHTML = Object.entries(categoryTotals)
-                        .sort(([,a], [,b]) => b - a)
-                        .map(([category, amount]) => `
-                            <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg fade-in">
-                                <span class="font-medium text-gray-700">${category}</span>
-                                <div class="text-right">
-                                    <div class="text-red-600 font-bold">${formatCurrency(amount)}</div>
-                                    <div class="text-xs text-gray-500">
-                                        ${((amount / totalExpenses) * 100).toFixed(1)}% of total
-                                    </div>
-                                </div>
-                            </div>
-                        `).join('');
-                }
-            }
-
-            // Inventory
-            static async loadInventory() {
-                const inventoryRef = getCollectionRef('tailoring_inventory');
-                if (!inventoryRef) return;
-
-                try {
-                    const q = query(inventoryRef, orderBy('createdAt', 'desc'));
-                    const querySnapshot = await getDocs(q);
-                    
-                    inventory = [];
-                    querySnapshot.forEach((doc) => {
-                        inventory.push({ id: doc.id, ...doc.data() });
-                    });
-                    
-                    this.renderInventory();
-                    this.updateDashboard();
-                } catch (error) {
-                    console.error("Error loading inventory:", error);
-                    showNotification('Error loading inventory', 'error');
-                }
-            }
-
-            static async saveInventory(inventoryData, inventoryId = null) {
-                const inventoryRef = getCollectionRef('tailoring_inventory');
-                if (!inventoryRef) return;
-
-                try {
-                    const totalValue = (parseFloat(inventoryData.quantity) || 0) * (parseFloat(inventoryData.cost) || 0);
-                    
-                    if (inventoryId) {
-                        // Update existing inventory
-                        const inventoryDoc = doc(db, inventoryRef.path, inventoryId);
-                        await updateDoc(inventoryDoc, {
-                            ...inventoryData,
-                            totalValue: totalValue,
-                            updatedAt: new Date()
-                        });
-                        showNotification('Inventory item updated successfully!', 'success');
-                    } else {
-                        // Add new inventory
-                        await addDoc(inventoryRef, {
-                            ...inventoryData,
-                            totalValue: totalValue,
-                            createdAt: new Date()
-                        });
-                        showNotification('Inventory item added successfully!', 'success');
-                    }
-                    
-                    this.loadInventory();
-                    closeInventoryModal();
-                } catch (error) {
-                    console.error("Error saving inventory:", error);
-                    showNotification('Failed to save inventory item', 'error');
-                }
-            }
-
-            static async deleteInventory(inventoryId) {
-                if (!confirm('Are you sure you want to delete this inventory item?')) return;
-
-                const inventoryRef = getCollectionRef('tailoring_inventory');
-                if (!inventoryRef) return;
-
-                try {
-                    const inventoryDoc = doc(db, inventoryRef.path, inventoryId);
-                    await deleteDoc(inventoryDoc);
-                    
-                    showNotification('Inventory item deleted successfully!', 'success');
-                    this.loadInventory();
-                    closeInventoryModal();
-                } catch (error) {
-                    console.error("Error deleting inventory:", error);
-                    showNotification('Failed to delete inventory item', 'error');
-                }
-            }
-
-            static renderInventory() {
-                const inventoryList = document.getElementById('inventoryList');
-                
-                if (inventory.length === 0) {
-                    inventoryList.innerHTML = '<div class="text-gray-500 italic text-center py-8">No inventory items</div>';
-                    return;
-                }
-
-                // Calculate inventory summary
-                const totalItems = inventory.length;
-                const lowStockItems = inventory.filter(item => (parseFloat(item.quantity) || 0) <= 5).length;
-                const totalValue = inventory.reduce((sum, item) => sum + (parseFloat(item.totalValue) || 0), 0);
-
-                document.getElementById('totalInventoryItems').textContent = totalItems;
-                document.getElementById('lowStockItems').textContent = lowStockItems;
-                document.getElementById('totalInventoryValue').textContent = formatCurrency(totalValue);
-
-                inventoryList.innerHTML = inventory.map(item => {
-                    const isLowStock = (parseFloat(item.quantity) || 0) <= 5;
-                    const stockClass = isLowStock ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200';
-                    
-                    return `
-                        <div class="${stockClass} p-4 rounded-lg border shadow-sm cursor-pointer hover:shadow-md transition fade-in" onclick="editInventory('${item.id}')">
-                            <div class="flex justify-between items-start mb-2">
-                                <div class="flex-1">
-                                    <h4 class="font-bold text-gray-800">${item.name}</h4>
-                                    <p class="text-sm text-gray-600">${item.category} • ${item.quantity} ${item.unit}</p>
-                                    ${item.supplier ? `<p class="text-xs text-gray-500">Supplier: ${item.supplier}</p>` : ''}
-                                </div>
-                                <div class="text-right">
-                                    <div class="text-green-600 font-bold">${formatCurrency(item.totalValue)}</div>
-                                    <div class="text-sm text-gray-500">${formatCurrency(item.cost)}/${item.unit}</div>
-                                </div>
-                            </div>
-                            ${isLowStock ? `
-                                <div class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded inline-block">
-                                    <i class="fas fa-exclamation-triangle mr-1"></i> Low Stock
-                                </div>
-                            ` : ''}
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            // Dashboard
-            static updateDashboard() {
-                // Revenue calculations
-                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
-                const totalExpensesAmount = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-                const netProfit = totalRevenue - totalExpensesAmount;
-
-                // Order counts
-                const pendingOrders = orders.filter(o => o.status === 'pending').length;
-                const inProgressOrders = orders.filter(o => o.status === 'in-progress').length;
-                const completedOrders = orders.filter(o => o.status === 'completed').length;
-
-                // Inventory value
-                const inventoryValue = inventory.reduce((sum, item) => sum + (parseFloat(item.totalValue) || 0), 0);
-
-                // Update dashboard displays
-                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
-                document.getElementById('netProfit').textContent = formatCurrency(netProfit);
-                document.getElementById('totalExpenses').textContent = formatCurrency(totalExpensesAmount);
-                document.getElementById('pendingOrders').textContent = pendingOrders;
-                document.getElementById('inProgressOrders').textContent = inProgressOrders;
-                document.getElementById('completedOrders').textContent = completedOrders;
-                document.getElementById('inventoryValue').textContent = formatCurrency(inventoryValue);
-
-                // Update charts
-                this.updateCharts();
-            }
-
-            static updateCharts() {
-                // Revenue vs Expenses Chart
-                const revenueExpenseCtx = document.getElementById('revenueExpenseChart').getContext('2d');
-                
-                // Get last 6 months data
-                const months = [];
-                const revenueData = [];
-                const expenseData = [];
-                
-                const now = new Date();
-                for (let i = 5; i >= 0; i--) {
-                    const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                    const monthStr = month.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                    months.push(monthStr);
-                    
-                    const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`;
-                    
-                    // Calculate revenue for this month
-                    const monthRevenue = orders
-                        .filter(order => order.orderDate && order.orderDate.startsWith(monthKey))
-                        .reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
-                    revenueData.push(monthRevenue);
-                    
-                    // Calculate expenses for this month
-                    const monthExpenses = expenses
-                        .filter(expense => expense.date && expense.date.startsWith(monthKey))
-                        .reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-                    expenseData.push(monthExpenses);
-                }
-                
-                // Destroy existing chart if it exists
-                if (window.revenueExpenseChart) {
-                    window.revenueExpenseChart.destroy();
-                }
-                
-                window.revenueExpenseChart = new Chart(revenueExpenseCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: months,
-                        datasets: [
-                            {
-                                label: 'Revenue',
-                                data: revenueData,
-                                backgroundColor: 'rgba(34, 197, 94, 0.7)',
-                                borderColor: 'rgb(34, 197, 94)',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Expenses',
-                                data: expenseData,
-                                backgroundColor: 'rgba(239, 68, 68, 0.7)',
-                                borderColor: 'rgb(239, 68, 68)',
-                                borderWidth: 1
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: function(value) {
-                                        return 'MWK ' + value;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-                
-                // Order Status Chart
-                const orderStatusCtx = document.getElementById('orderStatusChart').getContext('2d');
-                const statusCounts = {
-                    'pending': orders.filter(o => o.status === 'pending').length,
-                    'in-progress': orders.filter(o => o.status === 'in-progress').length,
-                    'completed': orders.filter(o => o.status === 'completed').length,
-                    'delivered': orders.filter(o => o.status === 'delivered').length
-                };
-                
-                // Destroy existing chart if it exists
-                if (window.orderStatusChart) {
-                    window.orderStatusChart.destroy();
-                }
-                
-                window.orderStatusChart = new Chart(orderStatusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Pending', 'In Progress', 'Completed', 'Delivered'],
-                        datasets: [{
-                            data: [
-                                statusCounts['pending'],
-                                statusCounts['in-progress'],
-                                statusCounts['completed'],
-                                statusCounts['delivered']
-                            ],
-                            backgroundColor: [
-                                'rgba(245, 158, 11, 0.7)',
-                                'rgba(59, 130, 246, 0.7)',
-                                'rgba(34, 197, 94, 0.7)',
-                                'rgba(139, 92, 246, 0.7)'
-                            ],
-                            borderColor: [
-                                'rgb(245, 158, 11)',
-                                'rgb(59, 130, 246)',
-                                'rgb(34, 197, 94)',
-                                'rgb(139, 92, 246)'
-                            ],
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                            }
-                        }
-                    }
-                });
-            }
-
-            static updateTabCounts() {
-                document.getElementById('clientsCount').textContent = clients.length;
-                document.getElementById('ordersCount').textContent = orders.length;
-                document.getElementById('productsCount').textContent = products.length;
-            }
-
-            // Export functions
-            static exportClients() {
-                const csvContent = [
-                    ['Name', 'Phone', 'Location', 'Total Orders', 'Total Spent', 'Notes'],
-                    ...clients.map(client => [
-                        client.name,
-                        client.phone || '',
-                        client.location || '',
-                        client.totalOrders || 0,
-                        client.totalSpent || 0,
-                        client.notes || ''
-                    ])
-                ].map(row => row.join(',')).join('\n');
-
-                this.downloadCSV(csvContent, 'clients');
-                showNotification('Clients exported successfully!', 'success');
-            }
-
-            static exportOrders() {
-                const csvContent = [
-                    ['Client', 'Garment Type', 'Order Type', 'Status', 'Price', 'Date', 'Notes'],
-                    ...orders.map(order => [
-                        order.clientName,
-                        order.garmentType,
-                        order.orderType,
-                        order.status,
-                        order.price,
-                        order.orderDate,
-                        order.notes || ''
-                    ])
-                ].map(row => row.join(',')).join('\n');
-
-                this.downloadCSV(csvContent, 'orders');
-                showNotification('Orders exported successfully!', 'success');
-            }
-
-            static exportProducts() {
-                const csvContent = [
-                    ['Name', 'Category', 'Price', 'Description', 'Required Measurements'],
-                    ...products.map(product => [
-                        product.name,
-                        product.category,
-                        product.price,
-                        product.description || '',
-                        (product.requiredMeasurements || []).join('; ')
-                    ])
-                ].map(row => row.join(',')).join('\n');
-
-                this.downloadCSV(csvContent, 'designs');
-                showNotification('Designs exported successfully!', 'success');
-            }
-
-            static downloadCSV(csvContent, filename) {
-                const blob = new Blob([csvContent], { type: 'text/csv' });
-                const url = window.URL.createObjectURL(blob);
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${filename}_${getTodayDate()}.csv`;
-                link.click();
-                window.URL.revokeObjectURL(url);
-            }
-
-            // Report Generation
-            static generateReport() {
-                const reportType = document.getElementById('reportType').value;
-                const dateRange = document.getElementById('dateRange').value;
-                
-                let startDate, endDate;
-                
-                // Calculate date range
-                const today = new Date();
-                switch(dateRange) {
-                    case 'week':
-                        startDate = new Date(today);
-                        startDate.setDate(today.getDate() - 7);
-                        break;
-                    case 'month':
-                        startDate = new Date(today);
-                        startDate.setMonth(today.getMonth() - 1);
-                        break;
-                    case 'quarter':
-                        startDate = new Date(today);
-                        startDate.setMonth(today.getMonth() - 3);
-                        break;
-                    case 'year':
-                        startDate = new Date(today);
-                        startDate.setFullYear(today.getFullYear() - 1);
-                        break;
-                    case 'custom':
-                        startDate = new Date(document.getElementById('dateFrom').value);
-                        endDate = new Date(document.getElementById('dateTo').value);
-                        break;
-                    default:
-                        startDate = new Date(today);
-                        startDate.setDate(today.getDate() - 7);
-                }
-                
-                if (!endDate) endDate = today;
-                
-                // Filter data based on date range
-                const filteredOrders = orders.filter(order => {
-                    const orderDate = new Date(order.orderDate || order.createdAt?.toDate?.() || today);
-                    return orderDate >= startDate && orderDate <= endDate;
-                });
-                
-                const filteredExpenses = expenses.filter(expense => {
-                    const expenseDate = new Date(expense.date || expense.createdAt?.toDate?.() || today);
-                    return expenseDate >= startDate && expenseDate <= endDate;
-                });
-                
-                // Generate report based on type
-                let reportHTML = '';
-                
-                switch(reportType) {
-                    case 'financial':
-                        reportHTML = this.generateFinancialReport(filteredOrders, filteredExpenses, startDate, endDate);
-                        break;
-                    case 'orders':
-                        reportHTML = this.generateOrderReport(filteredOrders, startDate, endDate);
-                        break;
-                    case 'clients':
-                        reportHTML = this.generateClientReport(filteredOrders, startDate, endDate);
-                        break;
-                    case 'inventory':
-                        reportHTML = this.generateInventoryReport(startDate, endDate);
-                        break;
-                }
-                
-                document.getElementById('reportResults').innerHTML = reportHTML;
-            }
-            
-            static generateFinancialReport(orders, expenses, startDate, endDate) {
-                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
-                const totalExpenses = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
-                const netProfit = totalRevenue - totalExpenses;
-                
-                // Calculate by category
-                const revenueByCategory = {};
-                orders.forEach(order => {
-                    const category = order.garmentType || 'Other';
-                    revenueByCategory[category] = (revenueByCategory[category] || 0) + (parseFloat(order.price) || 0);
-                });
-                
-                const expensesByCategory = {};
-                expenses.forEach(expense => {
-                    const category = expense.category || 'Other';
-                    expensesByCategory[category] = (expensesByCategory[category] || 0) + (parseFloat(expense.amount) || 0);
-                });
-                
-                return `
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">Financial Report</h3>
-                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                            <div class="summary-card bg-green-50 border border-green-200">
-                                <div class="text-green-600 text-sm font-medium">Total Revenue</div>
-                                <div class="text-2xl font-bold text-green-800 mt-1">${formatCurrency(totalRevenue)}</div>
-                            </div>
-                            <div class="summary-card bg-red-50 border border-red-200">
-                                <div class="text-red-600 text-sm font-medium">Total Expenses</div>
-                                <div class="text-2xl font-bold text-red-800 mt-1">${formatCurrency(totalExpenses)}</div>
-                            </div>
-                            <div class="summary-card bg-blue-50 border border-blue-200">
-                                <div class="text-blue-600 text-sm font-medium">Net Profit</div>
-                                <div class="text-2xl font-bold text-blue-800 mt-1">${formatCurrency(netProfit)}</div>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Revenue by Garment Type</h4>
-                                <div class="space-y-2">
-                                    ${Object.entries(revenueByCategory)
-                                        .sort(([,a], [,b]) => b - a)
-                                        .map(([category, amount]) => `
-                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                <span class="font-medium">${category}</span>
-                                                <span class="text-green-600 font-bold">${formatCurrency(amount)}</span>
-                                            </div>
-                                        `).join('')}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Expenses by Category</h4>
-                                <div class="space-y-2">
-                                    ${Object.entries(expensesByCategory)
-                                        .sort(([,a], [,b]) => b - a)
-                                        .map(([category, amount]) => `
-                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                <span class="font-medium">${category}</span>
-                                                <span class="text-red-600 font-bold">${formatCurrency(amount)}</span>
-                                            </div>
-                                        `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            static generateOrderReport(orders, startDate, endDate) {
-                const statusCounts = {
-                    'pending': orders.filter(o => o.status === 'pending').length,
-                    'in-progress': orders.filter(o => o.status === 'in-progress').length,
-                    'completed': orders.filter(o => o.status === 'completed').length,
-                    'delivered': orders.filter(o => o.status === 'delivered').length
-                };
-                
-                const typeCounts = {};
-                orders.forEach(order => {
-                    const type = order.orderType || 'Unknown';
-                    typeCounts[type] = (typeCounts[type] || 0) + 1;
-                });
-                
-                const garmentCounts = {};
-                orders.forEach(order => {
-                    const garment = order.garmentType || 'Unknown';
-                    garmentCounts[garment] = (garmentCounts[garment] || 0) + 1;
-                });
-                
-                return `
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">Order Analysis Report</h3>
-                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                            <div class="text-center p-4 bg-yellow-50 rounded-lg">
-                                <div class="text-2xl font-bold text-yellow-800">${statusCounts.pending}</div>
-                                <div class="text-sm text-yellow-600">Pending</div>
-                            </div>
-                            <div class="text-center p-4 bg-blue-50 rounded-lg">
-                                <div class="text-2xl font-bold text-blue-800">${statusCounts['in-progress']}</div>
-                                <div class="text-sm text-blue-600">In Progress</div>
-                            </div>
-                            <div class="text-center p-4 bg-green-50 rounded-lg">
-                                <div class="text-2xl font-bold text-green-800">${statusCounts.completed}</div>
-                                <div class="text-sm text-green-600">Completed</div>
-                            </div>
-                            <div class="text-center p-4 bg-purple-50 rounded-lg">
-                                <div class="text-2xl font-bold text-purple-800">${statusCounts.delivered}</div>
-                                <div class="text-sm text-purple-600">Delivered</div>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Orders by Type</h4>
-                                <div class="space-y-2">
-                                    ${Object.entries(typeCounts)
-                                        .sort(([,a], [,b]) => b - a)
-                                        .map(([type, count]) => `
-                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                <span class="font-medium">${type}</span>
-                                                <span class="text-indigo-600 font-bold">${count}</span>
-                                            </div>
-                                        `).join('')}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 class="text-lg font-semibold text-gray-700 mb-3">Orders by Garment Type</h4>
-                                <div class="space-y-2">
-                                    ${Object.entries(garmentCounts)
-                                        .sort(([,a], [,b]) => b - a)
-                                        .map(([garment, count]) => `
-                                            <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                                <span class="font-medium">${garment}</span>
-                                                <span class="text-indigo-600 font-bold">${count}</span>
-                                            </div>
-                                        `).join('')}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            static generateClientReport(orders, startDate, endDate) {
-                // Group orders by client
-                const clientOrders = {};
-                orders.forEach(order => {
-                    if (!clientOrders[order.clientId]) {
-                        clientOrders[order.clientId] = {
-                            name: order.clientName,
-                            orders: [],
-                            totalSpent: 0
-                        };
-                    }
-                    clientOrders[order.clientId].orders.push(order);
-                    clientOrders[order.clientId].totalSpent += parseFloat(order.price) || 0;
-                });
-                
-                // Convert to array and sort by total spent
-                const clientArray = Object.values(clientOrders).sort((a, b) => b.totalSpent - a.totalSpent);
-                
-                return `
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">Client Analysis Report</h3>
-                        <p class="text-gray-600 mb-6">Period: ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}</p>
-                        
-                        <div class="space-y-4">
-                            ${clientArray.map(client => `
-                                <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                                    <div>
-                                        <h4 class="font-bold text-gray-800">${client.name}</h4>
-                                        <p class="text-sm text-gray-600">${client.orders.length} orders</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <div class="text-green-600 font-bold">${formatCurrency(client.totalSpent)}</div>
-                                        <div class="text-xs text-gray-500">Avg: ${formatCurrency(client.totalSpent / client.orders.length)}</div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            static generateInventoryReport(startDate, endDate) {
-                const lowStockItems = inventory.filter(item => (parseFloat(item.quantity) || 0) <= 5);
-                const categoryValue = {};
-                
-                inventory.forEach(item => {
-                    const category = item.category || 'Other';
-                    categoryValue[category] = (categoryValue[category] || 0) + (parseFloat(item.totalValue) || 0);
-                });
-                
-                return `
-                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
-                        <h3 class="text-xl font-bold text-gray-800 mb-4">Inventory Analysis Report</h3>
-                        <p class="text-gray-600 mb-6">As of ${endDate.toLocaleDateString()}</p>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <div class="summary-card bg-blue-50 border border-blue-200">
-                                <div class="text-blue-600 text-sm font-medium">Total Items</div>
-                                <div class="text-2xl font-bold text-blue-800 mt-1">${inventory.length}</div>
-                            </div>
-                            <div class="summary-card bg-red-50 border border-red-200">
-                                <div class="text-red-600 text-sm font-medium">Low Stock Items</div>
-                                <div class="text-2xl font-bold text-red-800 mt-1">${lowStockItems.length}</div>
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <h4 class="text-lg font-semibold text-gray-700 mb-3">Inventory Value by Category</h4>
-                            <div class="space-y-2">
-                                ${Object.entries(categoryValue)
-                                    .sort(([,a], [,b]) => b - a)
-                                    .map(([category, value]) => `
-                                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                            <span class="font-medium">${category}</span>
-                                            <span class="text-green-600 font-bold">${formatCurrency(value)}</span>
-                                        </div>
-                                    `).join('')}
-                            </div>
-                        </div>
-                        
-                        ${lowStockItems.length > 0 ? `
-                            <div class="mt-6">
-                                <h4 class="text-lg font-semibold text-red-700 mb-3">Low Stock Items</h4>
-                                <div class="space-y-2">
-                                    ${lowStockItems.map(item => `
-                                        <div class="flex justify-between items-center p-2 bg-red-50 rounded">
-                                            <span class="font-medium">${item.name}</span>
-                                            <span class="text-red-600 font-bold">${item.quantity} ${item.unit}</span>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                        ` : ''}
-                    </div>
-                `;
-            }
-
-            // Initialize all data
-            static async loadAllData() {
-                await this.loadClients();
-                await this.loadOrders();
-                await this.loadProducts();
-                await this.loadExpenses();
-                await this.loadInventory();
-                this.updateDashboard();
-            }
+            ];
+
+            // Update UI
+            updateTabCounts();
+            renderOrders();
+            renderClientList();
+            renderDesignList();
         }
 
-        // Initialize the application
-        const initAdvancedTailoringApp = async () => {
-            try {
-                const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                // Set current date
-                document.getElementById('currentDate').textContent = getTodayDate();
-                document.getElementById('expenseDate').value = getTodayDate();
-                document.getElementById('orderDueDate').value = getTodayDate();
-
-                // Sign in anonymously
-                await signInAnonymously(auth);
-                console.log("Signed in anonymously successfully.");
-                isDatabaseReady = true;
-                
-                // Initialize event listeners
-                initializeEventListeners();
-                
-                // Load all data
-                await AdvancedTailoringManager.loadAllData();
-                
-                showNotification('Advanced tailoring shop ready!', 'success');
-                
-            } catch (error) {
-                console.error("Failed to initialize tailoring app:", error);
-                showNotification('Error initializing tailoring shop', 'error');
-            }
-        };
-
-        // Event Listeners
-        function initializeEventListeners() {
-            // Client form
-            document.getElementById('clientForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const clientId = document.getElementById('clientId').value;
-                const formData = {
-                    name: document.getElementById('clientName').value.trim(),
-                    phone: document.getElementById('clientPhone').value.trim(),
-                    location: document.getElementById('clientLocation').value.trim(),
-                    notes: document.getElementById('clientNotes').value.trim()
-                };
-
-                if (!formData.name || !formData.phone) {
-                    showNotification('Please fill in all required fields', 'error');
-                    return;
-                }
-
-                await AdvancedTailoringManager.saveClient(formData, clientId || null);
-            });
-
-            // Order form
-            document.getElementById('orderForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const orderId = document.getElementById('orderId').value;
-                const formData = {
-                    clientId: document.getElementById('orderClientId').value,
-                    orderType: document.getElementById('orderType').value,
-                    garmentType: document.getElementById('garmentType').value,
-                    price: parseFloat(document.getElementById('orderPrice').value) || 0,
-                    status: document.getElementById('orderStatus').value,
-                    priority: document.getElementById('orderPriority').value,
-                    dueDate: document.getElementById('orderDueDate').value,
-                    measurements: document.getElementById('orderMeasurements').value.trim(),
-                    notes: document.getElementById('orderNotes').value.trim()
-                };
-
-                if (!formData.clientId || !formData.garmentType || formData.price <= 0) {
-                    showNotification('Please fill in all required fields with valid data', 'error');
-                    return;
-                }
-
-                await AdvancedTailoringManager.saveOrder(formData, orderId || null);
-            });
-
-            // Product form
-            document.getElementById('productForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const productId = document.getElementById('productId').value;
-                const measurements = Array.from(document.querySelectorAll('#productMeasurementsContainer input'))
-                    .map(input => input.value.trim())
-                    .filter(value => value !== '');
-                
-                const formData = {
-                    name: document.getElementById('productName').value.trim(),
-                    category: document.getElementById('productCategory').value,
-                    price: parseFloat(document.getElementById('productPrice').value) || 0,
-                    description: document.getElementById('productDescription').value.trim(),
-                    requiredMeasurements: measurements
-                };
-
-                if (!formData.name || !formData.category || formData.price <= 0) {
-                    showNotification('Please fill in all required fields with valid data', 'error');
-                    return;
-                }
-
-                await AdvancedTailoringManager.saveProduct(formData, productId || null);
-            });
-
-            // Expense form
-            document.getElementById('expenseForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const expenseId = document.getElementById('expenseId').value;
-                const formData = {
-                    category: document.getElementById('expenseCategory').value,
-                    amount: parseFloat(document.getElementById('expenseAmount').value) || 0,
-                    description: document.getElementById('expenseDescription').value.trim(),
-                    date: document.getElementById('expenseDate').value
-                };
-
-                if (formData.amount <= 0 || !formData.description) {
-                    showNotification('Please enter valid amount and description', 'error');
-                    return;
-                }
-
-                await AdvancedTailoringManager.saveExpense(formData, expenseId || null);
-            });
-
-            // Inventory form
-            document.getElementById('inventoryForm').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const inventoryId = document.getElementById('inventoryId').value;
-                const formData = {
-                    name: document.getElementById('inventoryName').value.trim(),
-                    category: document.getElementById('inventoryCategory').value,
-                    quantity: parseFloat(document.getElementById('inventoryQuantity').value) || 0,
-                    unit: document.getElementById('inventoryUnit').value,
-                    cost: parseFloat(document.getElementById('inventoryCost').value) || 0,
-                    supplier: document.getElementById('inventorySupplier').value.trim(),
-                    notes: document.getElementById('inventoryNotes').value.trim()
-                };
-
-                if (!formData.name || !formData.category || formData.quantity <= 0 || formData.cost <= 0) {
-                    showNotification('Please fill in all required fields with valid data', 'error');
-                    return;
-                }
-
-                await AdvancedTailoringManager.saveInventory(formData, inventoryId || null);
-            });
-
-            // Search functionality
-            document.getElementById('clientSearch').addEventListener('input', () => {
-                AdvancedTailoringManager.renderClients();
-            });
-
-            // Order status tabs
-            document.querySelectorAll('.order-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // Update active tab
-                    document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    
-                    // Update current status and re-render
-                    currentOrderStatus = tab.getAttribute('data-order-status');
-                    AdvancedTailoringManager.renderOrders();
-                });
-            });
-
-            // Report controls
-            document.getElementById('dateRange').addEventListener('change', function() {
-                const customRange = document.getElementById('customDateRange');
-                if (this.value === 'custom') {
-                    customRange.classList.remove('hidden');
-                } else {
-                    customRange.classList.add('hidden');
-                }
-            });
-
-            // Delete buttons
-            document.getElementById('deleteClientBtn').addEventListener('click', () => {
-                const clientId = document.getElementById('clientId').value;
-                if (clientId) AdvancedTailoringManager.deleteClient(clientId);
-            });
-
-            document.getElementById('deleteOrderBtn').addEventListener('click', () => {
-                const orderId = document.getElementById('orderId').value;
-                if (orderId) AdvancedTailoringManager.deleteOrder(orderId);
-            });
-
-            document.getElementById('deleteProductBtn').addEventListener('click', () => {
-                const productId = document.getElementById('productId').value;
-                if (productId) AdvancedTailoringManager.deleteProduct(productId);
-            });
-
-            document.getElementById('deleteExpenseBtn').addEventListener('click', () => {
-                const expenseId = document.getElementById('expenseId').value;
-                if (expenseId) AdvancedTailoringManager.deleteExpense(expenseId);
-            });
-
-            document.getElementById('deleteInventoryBtn').addEventListener('click', () => {
-                const inventoryId = document.getElementById('inventoryId').value;
-                if (inventoryId) AdvancedTailoringManager.deleteInventory(inventoryId);
-            });
-        }
-
-        // Make AdvancedTailoringManager available globally
-        window.AdvancedTailoringManager = AdvancedTailoringManager;
-        window.exportClients = () => AdvancedTailoringManager.exportClients();
-        window.exportOrders = () => AdvancedTailoringManager.exportOrders();
-        window.exportProducts = () => AdvancedTailoringManager.exportProducts();
-        window.generateReport = () => AdvancedTailoringManager.generateReport();
-        window.exportReport = () => {
-            const reportResults = document.getElementById('reportResults').innerText;
-            const blob = new Blob([reportResults], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `report_${getTodayDate()}.txt`;
-            link.click();
-            window.URL.revokeObjectURL(url);
-            showNotification('Report exported successfully!', 'success');
-        };
-
-        // Initialize when page loads
-        window.onload = initAdvancedTailoringApp;
-    </script>
-
-    <script>
         // Tab management
         function switchTab(tabName) {
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -2566,43 +635,254 @@
             });
         });
 
-        // Modal management
-        function openClientModal(clientId = null) {
-            document.getElementById('clientModalTitle').textContent = clientId ? 'Edit Client' : 'Add New Client';
-            document.getElementById('clientId').value = clientId || '';
-            document.getElementById('deleteClientBtn').classList.toggle('hidden', !clientId);
+        // Order status tabs
+        document.querySelectorAll('.order-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update current status and re-render
+                currentOrderStatus = tab.getAttribute('data-order-status');
+                renderOrders();
+            });
+        });
+
+        // Render orders list
+        function renderOrders() {
+            const ordersList = document.getElementById('ordersList');
             
-            if (clientId) {
-                const client = window.AdvancedTailoringManager?.clients?.find(c => c.id === clientId);
-                if (client) {
-                    document.getElementById('clientName').value = client.name || '';
-                    document.getElementById('clientPhone').value = client.phone || '';
-                    document.getElementById('clientLocation').value = client.location || '';
-                    document.getElementById('clientNotes').value = client.notes || '';
+            // Filter orders by current status
+            const filteredOrders = orders.filter(order => order.status === currentOrderStatus);
+            
+            // Update tab counts
+            updateOrderTabCounts();
+
+            if (filteredOrders.length === 0) {
+                ordersList.innerHTML = `<div class="text-gray-500 italic text-center py-8">No ${currentOrderStatus.replace('-', ' ')} orders found</div>`;
+                return;
+            }
+
+            ordersList.innerHTML = filteredOrders.map(order => {
+                const statusClass = order.status || 'pending';
+                const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
+                const priorityClass = order.priority === 'high' ? 'bg-red-100 text-red-800' : 
+                                     order.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                                     'bg-blue-100 text-blue-800';
+
+                return `
+                    <div class="order-card ${statusClass} bg-white p-4 rounded-lg border border-gray-200 shadow-sm fade-in" onclick="editOrder('${order.id}')">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-bold text-gray-800">${order.designName} - ${order.orderType}</h3>
+                                <p class="text-gray-600">Client: ${order.clientName} (${order.clientPhone})</p>
+                                <p class="text-sm text-gray-500">Order Date: ${order.orderDate || ''}</p>
+                                ${order.dueDate ? `<p class="text-sm ${new Date(order.dueDate) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-500'}">Due: ${order.dueDate}</p>` : ''}
+                            </div>
+                            <div class="text-right">
+                                <span class="status-badge status-${statusClass} capitalize">${statusText}</span>
+                                ${order.priority ? `<span class="status-badge ${priorityClass} capitalize ml-1">${order.priority}</span>` : ''}
+                                <div class="text-lg font-bold text-green-600 mt-1">${formatCurrency(order.price)}</div>
+                            </div>
+                        </div>
+                        
+                        ${order.measurements ? `<p class="text-sm text-gray-600 mb-2">${order.measurements}</p>` : ''}
+                        ${order.notes ? `<p class="text-sm text-gray-500">${order.notes}</p>` : ''}
+                        
+                        <div class="flex justify-between items-center mt-3">
+                            <div class="flex gap-2">
+                                ${order.status === 'pending' ? `
+                                    <button onclick="updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
+                                ` : ''}
+                                ${order.status === 'in-progress' ? `
+                                    <button onclick="updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                    <button onclick="updateOrderStatus('${order.id}', 'pending')" class="text-xs bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700">Back to Pending</button>
+                                ` : ''}
+                                ${order.status === 'completed' ? `
+                                    <button onclick="updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
+                                    <button onclick="updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Back to Work</button>
+                                ` : ''}
+                                ${order.status === 'delivered' ? `
+                                    <button onclick="updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Back to Completed</button>
+                                ` : ''}
+                            </div>
+                            <div>
+                                <button onclick="editOrder('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium mr-2">
+                                    <i class="fas fa-edit mr-1"></i> Edit
+                                </button>
+                                <button onclick="deleteOrder('${order.id}')" class="text-sm text-red-600 hover:text-red-800 font-medium">
+                                    <i class="fas fa-trash mr-1"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update order status
+        function updateOrderStatus(orderId, newStatus) {
+            const orderIndex = orders.findIndex(order => order.id === orderId);
+            if (orderIndex !== -1) {
+                orders[orderIndex].status = newStatus;
+                renderOrders();
+                showNotification(`Order status updated to ${newStatus.replace('-', ' ')}!`, 'success');
+            }
+        }
+
+        // Delete order
+        function deleteOrder(orderId) {
+            if (!confirm('Are you sure you want to delete this order?')) return;
+            
+            const orderIndex = orders.findIndex(order => order.id === orderId);
+            if (orderIndex !== -1) {
+                orders.splice(orderIndex, 1);
+                renderOrders();
+                updateTabCounts();
+                showNotification('Order deleted successfully!', 'success');
+            }
+        }
+
+        // Update order tab counts
+        function updateOrderTabCounts() {
+            const pendingCount = orders.filter(o => o.status === 'pending').length;
+            const inProgressCount = orders.filter(o => o.status === 'in-progress').length;
+            const completedCount = orders.filter(o => o.status === 'completed').length;
+            const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+
+            document.getElementById('pendingTabCount').textContent = pendingCount;
+            document.getElementById('inProgressTabCount').textContent = inProgressCount;
+            document.getElementById('completedTabCount').textContent = completedCount;
+            document.getElementById('deliveredTabCount').textContent = deliveredCount;
+        }
+
+        // Update tab counts
+        function updateTabCounts() {
+            document.getElementById('clientsCount').textContent = clients.length;
+            document.getElementById('ordersCount').textContent = orders.length;
+            document.getElementById('productsCount').textContent = products.length;
+        }
+
+        // Render client list in order modal
+        function renderClientList() {
+            const clientList = document.getElementById('clientList');
+            
+            if (clients.length === 0) {
+                clientList.innerHTML = '<div class="text-gray-500 italic text-center py-4">No clients found</div>';
+                return;
+            }
+
+            clientList.innerHTML = clients.map(client => `
+                <div class="client-option ${selectedClientId === client.id ? 'selected' : ''}" onclick="selectClient('${client.id}')">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${client.name}</h4>
+                            <p class="text-sm text-gray-600">${client.phone}</p>
+                            <p class="text-xs text-gray-500">${client.address}</p>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-green-600">${client.totalOrders} orders</div>
+                            <div class="text-xs text-gray-500">${formatCurrency(client.totalSpent)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render design list in order modal
+        function renderDesignList() {
+            const designList = document.getElementById('designList');
+            
+            if (products.length === 0) {
+                designList.innerHTML = '<div class="text-gray-500 italic text-center py-4">No designs found</div>';
+                return;
+            }
+
+            designList.innerHTML = products.map(product => `
+                <div class="design-option ${selectedDesignId === product.id ? 'selected' : ''}" onclick="selectDesign('${product.id}')">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-gray-800">${product.name}</h4>
+                            <p class="text-sm text-gray-600">${product.category}</p>
+                            ${product.description ? `<p class="text-xs text-gray-500">${product.description}</p>` : ''}
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-green-600">${formatCurrency(product.price)}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Select client
+        function selectClient(clientId) {
+            selectedClientId = clientId;
+            renderClientList();
+            
+            // Auto-fill the price if a design is already selected
+            if (selectedDesignId) {
+                const selectedDesign = products.find(p => p.id === selectedDesignId);
+                if (selectedDesign) {
+                    document.getElementById('orderPrice').value = selectedDesign.price;
                 }
-            } else {
-                document.getElementById('clientForm').reset();
             }
-            
-            document.getElementById('clientModal').classList.add('active');
         }
 
-        function closeClientModal() {
-            document.getElementById('clientModal').classList.remove('active');
+        // Select design
+        function selectDesign(designId) {
+            selectedDesignId = designId;
+            renderDesignList();
+            
+            // Auto-fill the price
+            const selectedDesign = products.find(p => p.id === designId);
+            if (selectedDesign) {
+                document.getElementById('orderPrice').value = selectedDesign.price;
+                document.getElementById('garmentType').value = selectedDesign.category;
+            }
         }
 
-        function openOrderModal(clientId = null) {
-            document.getElementById('orderModalTitle').textContent = 'New Order';
-            document.getElementById('orderId').value = '';
-            document.getElementById('deleteOrderBtn').classList.add('hidden');
+        // Modal management
+        function openOrderModal(orderId = null) {
+            document.getElementById('orderModalTitle').textContent = orderId ? 'Edit Order' : 'New Order';
+            document.getElementById('orderId').value = orderId || '';
+            document.getElementById('deleteOrderBtn').classList.toggle('hidden', !orderId);
             
-            // If clientId is provided, pre-fill the client
-            if (clientId) {
-                document.getElementById('orderClientId').value = clientId;
-            }
+            // Reset selections
+            selectedClientId = null;
+            selectedDesignId = null;
             
+            // Reset form
             document.getElementById('orderForm').reset();
             document.getElementById('orderDueDate').value = getTodayDate();
+            
+            // Render client and design lists
+            renderClientList();
+            renderDesignList();
+            
+            // If editing, load order data
+            if (orderId) {
+                const order = orders.find(o => o.id === orderId);
+                if (order) {
+                    // Select client and design
+                    selectedClientId = order.clientId;
+                    selectedDesignId = order.designId;
+                    
+                    // Populate form fields
+                    document.getElementById('orderType').value = order.orderType || '';
+                    document.getElementById('garmentType').value = order.garmentType || '';
+                    document.getElementById('orderPrice').value = order.price || '';
+                    document.getElementById('orderStatus').value = order.status || 'pending';
+                    document.getElementById('orderPriority').value = order.priority || 'medium';
+                    document.getElementById('orderDueDate').value = order.dueDate || '';
+                    document.getElementById('orderMeasurements').value = order.measurements || '';
+                    document.getElementById('orderNotes').value = order.notes || '';
+                    
+                    // Re-render lists to show selections
+                    renderClientList();
+                    renderDesignList();
+                }
+            }
+            
             document.getElementById('orderModal').classList.add('active');
         }
 
@@ -2610,227 +890,269 @@
             document.getElementById('orderModal').classList.remove('active');
         }
 
-        function openProductModal(productId = null) {
-            document.getElementById('productModalTitle').textContent = productId ? 'Edit Design' : 'Add New Design';
-            document.getElementById('productId').value = productId || '';
-            document.getElementById('deleteProductBtn').classList.toggle('hidden', !productId);
+        // Edit order
+        function editOrder(orderId) {
+            openOrderModal(orderId);
+        }
+
+        // Toggle between existing and new client/design
+        function setupToggleButtons() {
+            // Client toggle
+            document.getElementById('existingClientToggle').addEventListener('click', function() {
+                document.getElementById('existingClientToggle').classList.add('active');
+                document.getElementById('newClientToggle').classList.remove('active');
+                document.getElementById('existingClientSection').classList.remove('hidden');
+                document.getElementById('newClientSection').classList.add('hidden');
+            });
             
-            const container = document.getElementById('productMeasurementsContainer');
-            container.innerHTML = '';
+            document.getElementById('newClientToggle').addEventListener('click', function() {
+                document.getElementById('newClientToggle').classList.add('active');
+                document.getElementById('existingClientToggle').classList.remove('active');
+                document.getElementById('newClientSection').classList.remove('hidden');
+                document.getElementById('existingClientSection').classList.add('hidden');
+            });
             
-            if (productId) {
-                const product = window.AdvancedTailoringManager?.products?.find(p => p.id === productId);
-                if (product) {
-                    document.getElementById('productName').value = product.name || '';
-                    document.getElementById('productCategory').value = product.category || '';
-                    document.getElementById('productPrice').value = product.price || '';
-                    document.getElementById('productDescription').value = product.description || '';
+            // Design toggle
+            document.getElementById('existingDesignToggle').addEventListener('click', function() {
+                document.getElementById('existingDesignToggle').classList.add('active');
+                document.getElementById('newDesignToggle').classList.remove('active');
+                document.getElementById('existingDesignSection').classList.remove('hidden');
+                document.getElementById('newDesignSection').classList.add('hidden');
+            });
+            
+            document.getElementById('newDesignToggle').addEventListener('click', function() {
+                document.getElementById('newDesignToggle').classList.add('active');
+                document.getElementById('existingDesignToggle').classList.remove('active');
+                document.getElementById('newDesignSection').classList.remove('hidden');
+                document.getElementById('existingDesignSection').classList.add('hidden');
+            });
+        }
+
+        // Search functionality
+        function setupSearch() {
+            // Client search
+            document.getElementById('clientSearch').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const clientOptions = document.querySelectorAll('.client-option');
+                
+                clientOptions.forEach(option => {
+                    const clientName = option.querySelector('h4').textContent.toLowerCase();
+                    const clientPhone = option.querySelector('p').textContent.toLowerCase();
                     
-                    // Add measurement fields
-                    if (product.requiredMeasurements) {
-                        product.requiredMeasurements.forEach(measurement => {
-                            addProductMeasurementField(measurement);
-                        });
+                    if (clientName.includes(searchTerm) || clientPhone.includes(searchTerm)) {
+                        option.style.display = 'block';
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+            });
+            
+            // Design search
+            document.getElementById('designSearch').addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const designOptions = document.querySelectorAll('.design-option');
+                
+                designOptions.forEach(option => {
+                    const designName = option.querySelector('h4').textContent.toLowerCase();
+                    const designCategory = option.querySelector('p').textContent.toLowerCase();
+                    
+                    if (designName.includes(searchTerm) || designCategory.includes(searchTerm)) {
+                        option.style.display = 'block';
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+            });
+        }
+
+        // Order form submission
+        document.getElementById('orderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const orderId = document.getElementById('orderId').value;
+            const isNewOrder = !orderId;
+            
+            // Validate client selection
+            const isNewClient = document.getElementById('newClientToggle').classList.contains('active');
+            let clientData;
+            
+            if (isNewClient) {
+                // Validate new client form
+                const name = document.getElementById('newClientName').value.trim();
+                const phone = document.getElementById('newClientPhone').value.trim();
+                
+                if (!name || !phone) {
+                    showNotification('Please fill in all required client fields', 'error');
+                    return;
+                }
+                
+                // Create new client
+                const newClientId = 'client_' + Date.now();
+                clientData = {
+                    id: newClientId,
+                    name: name,
+                    phone: phone,
+                    address: document.getElementById('newClientAddress').value.trim(),
+                    gender: document.getElementById('newClientGender').value,
+                    totalOrders: 1,
+                    totalSpent: parseFloat(document.getElementById('orderPrice').value) || 0
+                };
+                
+                clients.push(clientData);
+                selectedClientId = newClientId;
+                showNotification('New client added successfully!', 'success');
+            } else {
+                // Validate existing client selection
+                if (!selectedClientId) {
+                    showNotification('Please select a client', 'error');
+                    return;
+                }
+                
+                clientData = clients.find(c => c.id === selectedClientId);
+            }
+            
+            // Validate design selection
+            const isNewDesign = document.getElementById('newDesignToggle').classList.contains('active');
+            let designData;
+            
+            if (isNewDesign) {
+                // Validate new design form
+                const name = document.getElementById('newDesignName').value.trim();
+                const category = document.getElementById('newDesignCategory').value;
+                const price = parseFloat(document.getElementById('newDesignPrice').value) || 0;
+                
+                if (!name || !category || price <= 0) {
+                    showNotification('Please fill in all required design fields with valid data', 'error');
+                    return;
+                }
+                
+                // Create new design
+                const newDesignId = 'design_' + Date.now();
+                designData = {
+                    id: newDesignId,
+                    name: name,
+                    category: category,
+                    price: price,
+                    description: document.getElementById('newDesignDescription').value.trim()
+                };
+                
+                products.push(designData);
+                selectedDesignId = newDesignId;
+                showNotification('New design added successfully!', 'success');
+            } else {
+                // Validate existing design selection
+                if (!selectedDesignId) {
+                    showNotification('Please select a design', 'error');
+                    return;
+                }
+                
+                designData = products.find(p => p.id === selectedDesignId);
+            }
+            
+            // Validate order details
+            const orderType = document.getElementById('orderType').value;
+            const garmentType = document.getElementById('garmentType').value;
+            const price = parseFloat(document.getElementById('orderPrice').value) || 0;
+            
+            if (!orderType || !garmentType || price <= 0) {
+                showNotification('Please fill in all required order fields with valid data', 'error');
+                return;
+            }
+            
+            // Prepare order data
+            const orderData = {
+                clientId: selectedClientId,
+                clientName: clientData.name,
+                clientPhone: clientData.phone,
+                designId: selectedDesignId,
+                designName: designData.name,
+                orderType: orderType,
+                garmentType: garmentType,
+                price: price,
+                status: document.getElementById('orderStatus').value,
+                priority: document.getElementById('orderPriority').value,
+                dueDate: document.getElementById('orderDueDate').value,
+                measurements: document.getElementById('orderMeasurements').value.trim(),
+                notes: document.getElementById('orderNotes').value.trim(),
+                orderDate: isNewOrder ? getTodayDate() : orders.find(o => o.id === orderId).orderDate
+            };
+            
+            if (isNewOrder) {
+                // Add new order
+                orderData.id = 'order_' + Date.now();
+                orders.push(orderData);
+                showNotification('Order created successfully!', 'success');
+            } else {
+                // Update existing order
+                const orderIndex = orders.findIndex(o => o.id === orderId);
+                if (orderIndex !== -1) {
+                    orderData.id = orderId;
+                    orders[orderIndex] = orderData;
+                    showNotification('Order updated successfully!', 'success');
+                }
+            }
+            
+            // Update client's order count and total spent
+            if (clientData) {
+                const clientIndex = clients.findIndex(c => c.id === selectedClientId);
+                if (clientIndex !== -1) {
+                    if (isNewOrder) {
+                        clients[clientIndex].totalOrders += 1;
+                        clients[clientIndex].totalSpent += price;
+                    } else {
+                        // For updates, we need to calculate the difference
+                        const oldOrder = orders.find(o => o.id === orderId);
+                        if (oldOrder) {
+                            clients[clientIndex].totalSpent -= oldOrder.price;
+                            clients[clientIndex].totalSpent += price;
+                        }
                     }
                 }
-            } else {
-                document.getElementById('productForm').reset();
-                // Add one empty measurement field by default
-                addProductMeasurementField();
             }
             
-            document.getElementById('productModal').classList.add('active');
-        }
+            // Update UI
+            renderOrders();
+            updateTabCounts();
+            closeOrderModal();
+        });
 
-        function closeProductModal() {
-            document.getElementById('productModal').classList.remove('active');
-        }
+        // Delete order button
+        document.getElementById('deleteOrderBtn').addEventListener('click', function() {
+            const orderId = document.getElementById('orderId').value;
+            if (orderId) {
+                deleteOrder(orderId);
+                closeOrderModal();
+            }
+        });
 
-        function openExpenseModal(expenseId = null) {
-            document.getElementById('expenseModalTitle').textContent = expenseId ? 'Edit Expense' : 'Add Expense';
-            document.getElementById('expenseId').value = expenseId || '';
-            document.getElementById('deleteExpenseBtn').classList.toggle('hidden', !expenseId);
+        // Export orders
+        function exportOrders() {
+            const csvContent = [
+                ['Client', 'Design', 'Order Type', 'Status', 'Price', 'Order Date', 'Due Date', 'Priority'],
+                ...orders.map(order => [
+                    order.clientName,
+                    order.designName,
+                    order.orderType,
+                    order.status,
+                    order.price,
+                    order.orderDate,
+                    order.dueDate || '',
+                    order.priority || ''
+                ])
+            ].map(row => row.join(',')).join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `orders_${getTodayDate()}.csv`;
+            link.click();
+            window.URL.revokeObjectURL(url);
             
-            if (expenseId) {
-                const expense = window.AdvancedTailoringManager?.expenses?.find(e => e.id === expenseId);
-                if (expense) {
-                    document.getElementById('expenseCategory').value = expense.category || '';
-                    document.getElementById('expenseAmount').value = expense.amount || '';
-                    document.getElementById('expenseDescription').value = expense.description || '';
-                    document.getElementById('expenseDate').value = expense.date || '';
-                }
-            } else {
-                document.getElementById('expenseForm').reset();
-                document.getElementById('expenseDate').value = getTodayDate();
-            }
-            
-            document.getElementById('expenseModal').classList.add('active');
+            showNotification('Orders exported successfully!', 'success');
         }
 
-        function closeExpenseModal() {
-            document.getElementById('expenseModal').classList.remove('active');
-        }
-
-        function openInventoryModal(inventoryId = null) {
-            document.getElementById('inventoryModalTitle').textContent = inventoryId ? 'Edit Inventory Item' : 'Add Inventory Item';
-            document.getElementById('inventoryId').value = inventoryId || '';
-            document.getElementById('deleteInventoryBtn').classList.toggle('hidden', !inventoryId);
-            
-            if (inventoryId) {
-                const item = window.AdvancedTailoringManager?.inventory?.find(i => i.id === inventoryId);
-                if (item) {
-                    document.getElementById('inventoryName').value = item.name || '';
-                    document.getElementById('inventoryCategory').value = item.category || '';
-                    document.getElementById('inventoryQuantity').value = item.quantity || '';
-                    document.getElementById('inventoryUnit').value = item.unit || '';
-                    document.getElementById('inventoryCost').value = item.cost || '';
-                    document.getElementById('inventorySupplier').value = item.supplier || '';
-                    document.getElementById('inventoryNotes').value = item.notes || '';
-                }
-            } else {
-                document.getElementById('inventoryForm').reset();
-            }
-            
-            document.getElementById('inventoryModal').classList.add('active');
-        }
-
-        function closeInventoryModal() {
-            document.getElementById('inventoryModal').classList.remove('active');
-        }
-
-        // Edit functions - FIXED: Now properly loads all data for editing
-        function editClient(clientId) {
-            const client = window.AdvancedTailoringManager?.clients?.find(c => c.id === clientId);
-            if (client) {
-                document.getElementById('clientModalTitle').textContent = 'Edit Client';
-                document.getElementById('clientId').value = clientId;
-                document.getElementById('deleteClientBtn').classList.remove('hidden');
-                
-                // Load all client data into form fields
-                document.getElementById('clientName').value = client.name || '';
-                document.getElementById('clientPhone').value = client.phone || '';
-                document.getElementById('clientLocation').value = client.location || '';
-                document.getElementById('clientNotes').value = client.notes || '';
-                
-                document.getElementById('clientModal').classList.add('active');
-            }
-        }
-
-        function editOrder(orderId) {
-            const order = window.AdvancedTailoringManager?.orders?.find(o => o.id === orderId);
-            if (order) {
-                document.getElementById('orderModalTitle').textContent = 'Edit Order';
-                document.getElementById('orderId').value = orderId;
-                document.getElementById('deleteOrderBtn').classList.remove('hidden');
-                
-                // Load all order data into form fields
-                document.getElementById('orderClientId').value = order.clientId || '';
-                document.getElementById('orderType').value = order.orderType || '';
-                document.getElementById('garmentType').value = order.garmentType || '';
-                document.getElementById('orderPrice').value = order.price || '';
-                document.getElementById('orderStatus').value = order.status || 'pending';
-                document.getElementById('orderPriority').value = order.priority || 'medium';
-                document.getElementById('orderDueDate').value = order.dueDate || '';
-                document.getElementById('orderMeasurements').value = order.measurements || '';
-                document.getElementById('orderNotes').value = order.notes || '';
-                
-                document.getElementById('orderModal').classList.add('active');
-            }
-        }
-
-        function editProduct(productId) {
-            const product = window.AdvancedTailoringManager?.products?.find(p => p.id === productId);
-            if (product) {
-                document.getElementById('productModalTitle').textContent = 'Edit Design';
-                document.getElementById('productId').value = productId;
-                document.getElementById('deleteProductBtn').classList.remove('hidden');
-                
-                // Load all product data into form fields
-                document.getElementById('productName').value = product.name || '';
-                document.getElementById('productCategory').value = product.category || '';
-                document.getElementById('productPrice').value = product.price || '';
-                document.getElementById('productDescription').value = product.description || '';
-                
-                // Clear and reload measurement fields
-                const container = document.getElementById('productMeasurementsContainer');
-                container.innerHTML = '';
-                
-                if (product.requiredMeasurements) {
-                    product.requiredMeasurements.forEach(measurement => {
-                        addProductMeasurementField(measurement);
-                    });
-                } else {
-                    addProductMeasurementField();
-                }
-                
-                document.getElementById('productModal').classList.add('active');
-            }
-        }
-
-        function editExpense(expenseId) {
-            const expense = window.AdvancedTailoringManager?.expenses?.find(e => e.id === expenseId);
-            if (expense) {
-                document.getElementById('expenseModalTitle').textContent = 'Edit Expense';
-                document.getElementById('expenseId').value = expenseId;
-                document.getElementById('deleteExpenseBtn').classList.remove('hidden');
-                
-                // Load all expense data into form fields
-                document.getElementById('expenseCategory').value = expense.category || '';
-                document.getElementById('expenseAmount').value = expense.amount || '';
-                document.getElementById('expenseDescription').value = expense.description || '';
-                document.getElementById('expenseDate').value = expense.date || '';
-                
-                document.getElementById('expenseModal').classList.add('active');
-            }
-        }
-
-        function editInventory(inventoryId) {
-            const item = window.AdvancedTailoringManager?.inventory?.find(i => i.id === inventoryId);
-            if (item) {
-                document.getElementById('inventoryModalTitle').textContent = 'Edit Inventory Item';
-                document.getElementById('inventoryId').value = inventoryId;
-                document.getElementById('deleteInventoryBtn').classList.remove('hidden');
-                
-                // Load all inventory data into form fields
-                document.getElementById('inventoryName').value = item.name || '';
-                document.getElementById('inventoryCategory').value = item.category || '';
-                document.getElementById('inventoryQuantity').value = item.quantity || '';
-                document.getElementById('inventoryUnit').value = item.unit || '';
-                document.getElementById('inventoryCost').value = item.cost || '';
-                document.getElementById('inventorySupplier').value = item.supplier || '';
-                document.getElementById('inventoryNotes').value = item.notes || '';
-                
-                document.getElementById('inventoryModal').classList.add('active');
-            }
-        }
-
-        // Use client for new order
-        function useClientForOrder(clientId) {
-            switchTab('orders');
-            openOrderModal(clientId);
-        }
-
-        // Product measurements
-        function addProductMeasurementField(value = '') {
-            const container = document.getElementById('productMeasurementsContainer');
-            const index = container.children.length;
-            const field = document.createElement('div');
-            field.className = 'flex space-x-2 items-center';
-            field.innerHTML = `
-                <input type="text" 
-                       value="${value}"
-                       placeholder="Measurement name (e.g., Chest, Waist)" 
-                       class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                <button type="button" 
-                        onclick="this.parentElement.remove()" 
-                        class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            container.appendChild(field);
-        }
-
-        // Close modals when clicking outside
+        // Close modal when clicking outside
         document.querySelectorAll('.modal').forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) {
@@ -2839,34 +1161,25 @@
             });
         });
 
-        // Utility functions
-        function getTodayDate() {
-            return new Date().toISOString().split('T')[0];
-        }
-
-        function showNotification(message, type = 'success') {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = `notification ${type}`;
-            notification.classList.remove('hidden');
+        // Initialize the application
+        function initApp() {
+            // Set current date
+            document.getElementById('currentDate').textContent = getTodayDate();
             
-            setTimeout(() => {
-                notification.classList.add('hidden');
-            }, 5000);
+            // Initialize mock data
+            initializeMockData();
+            
+            // Setup toggle buttons
+            setupToggleButtons();
+            
+            // Setup search functionality
+            setupSearch();
+            
+            showNotification('Tailoring shop ready!', 'success');
         }
 
-        window.addProductMeasurementField = addProductMeasurementField;
-        window.useClientForOrder = useClientForOrder;
-        window.openOrderModal = openOrderModal;
-        window.openClientModal = openClientModal;
-        window.openProductModal = openProductModal;
-        window.openExpenseModal = openExpenseModal;
-        window.openInventoryModal = openInventoryModal;
-        window.editClient = editClient;
-        window.editOrder = editOrder;
-        window.editProduct = editProduct;
-        window.editExpense = editExpense;
-        window.editInventory = editInventory;
+        // Initialize when page loads
+        window.onload = initApp;
     </script>
 </body>
 </html>
