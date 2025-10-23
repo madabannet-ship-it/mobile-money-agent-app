@@ -1,458 +1,2298 @@
-import React, { useState, useEffect } from 'react';
-
-// Helper for unique IDs
-const generateId = () => `_${Math.random().toString(36).substr(2, 9)}`;
-
-// --- Mock Data ---
-const initialCustomers = [
-    { id: 'c1', name: 'John Doe', phone: '555-1234', email: 'john.doe@example.com', location: 'Blantyre' },
-    { id: 'c2', name: 'Jane Smith', phone: '555-5678', email: 'jane.smith@example.com', location: 'Limbe' },
-];
-
-const initialGarments = [
-    { id: 'g1', name: 'Men\'s Shirt', price: 45000, measurements: ['Neck', 'Chest', 'Sleeve', 'Waist', 'Length'] },
-    { id: 'g2', name: 'Women\'s Dress', price: 75000, measurements: ['Bust', 'Waist', 'Hips', 'Length'] },
-];
-
-const initialOrders = [
-    { id: 'o1', customerId: 'c1', garmentId: 'g1', status: 'In Progress', creationDate: '2023-10-26', deliveryDate: '2023-11-10', trialDate: '2023-11-05T14:00', measurements: { Neck: '16', Chest: '42', Sleeve: '25' }, price: 45000, paid: 20000, fabricPicture: 'https://placehold.co/100x100/EFEFEF/333?text=Fabric', styleImage: 'https://placehold.co/100x100/EFEFEF/333?text=Style' },
-    { id: 'o2', customerId: 'c2', garmentId: 'g2', status: 'Completed', creationDate: '2023-10-20', deliveryDate: '2023-11-01', trialDate: '2023-10-28T11:00', measurements: { Bust: '36', Waist: '28' }, price: 75000, paid: 75000, fabricPicture: 'https://placehold.co/100x100/EFEFEF/333?text=Fabric', styleImage: 'https://placehold.co/100x100/EFEFEF/333?text=Style' },
-];
-
-const initialFabrics = [
-    { id: 'f1', name: 'Cotton', price: 8000 },
-    { id: 'f2', name: 'Silk', price: 15000 },
-];
-
-const initialEquipment = [
-    { id: 'e1', name: 'Sewing Machine', quantity: 3 },
-    { id: 'e2', name: 'Scissors', quantity: 10 },
-];
-
-const initialWorkers = [
-    { id: 'w1', name: 'Alice', role: 'Lead Tailor' },
-    { id: 'w2', name: 'Bob', role: 'Apprentice' },
-];
-
-const initialLoans = [
-    { id: 'l1', lender: 'Bank', amount: 5000000, paid: 1000000, date: '2023-01-15' },
-];
-
-const initialExpenses = [
-    { id: 'ex1', category: 'Rent', amount: 250000, date: '2023-10-01' },
-    { id: 'ex2', category: 'Utilities', amount: 75000, date: '2023-10-05' },
-];
-
-// --- Main App Component ---
-export default function App() {
-    const [activeView, setActiveView] = useState('dashboard');
-    const [unit, setUnit] = useState('inches');
-
-    // --- State Management for all features ---
-    const [customers, setCustomers] = useState(initialCustomers);
-    const [orders, setOrders] = useState(initialOrders);
-    const [garments, setGarments] = useState(initialGarments);
-    const [fabrics, setFabrics] = useState(initialFabrics);
-    const [equipment, setEquipment] = useState(initialEquipment);
-    const [workers, setWorkers] = useState(initialWorkers);
-    const [loans, setLoans] = useState(initialLoans);
-    const [expenses, setExpenses] = useState(initialExpenses);
-
-    const renderView = () => {
-        switch (activeView) {
-            case 'dashboard': return <DashboardView orders={orders} expenses={expenses} />;
-            case 'customers': return <CustomersView customers={customers} setCustomers={setCustomers} />;
-            case 'orders': return <OrdersView orders={orders} setOrders={setOrders} customers={customers} garments={garments} unit={unit} />;
-            case 'catalogue': return <GarmentCatalogueView garments={garments} setGarments={setGarments} />;
-            // FIX: Expense CRUD logic is now within FinancesView
-            case 'finances': return <FinancesView orders={orders} expenses={expenses} setExpenses={setExpenses} />;
-            
-            // FIX: Changed prop names to generic 'items' and 'setItems' to match createCrudView destructuring
-            case 'fabrics': return <FabricsView items={fabrics} setItems={setFabrics} />;
-            case 'equipment': return <EquipmentView items={equipment} setItems={setEquipment} />;
-            case 'workers': return <WorkersView items={workers} setItems={setWorkers} />;
-            case 'loans': return <LoansView items={loans} setItems={setLoans} />;
-            default: return <DashboardView orders={orders} expenses={expenses} />;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tailoring Shop Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; }
+        .input-style {
+            @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-150;
         }
-    };
-
-    return (
-        <div className="bg-gray-100 min-h-screen font-sans text-gray-800 pb-24">
-            <div className="container mx-auto p-4 max-w-lg">
-                <Header unit={unit} setUnit={setUnit} />
-                <main className="mt-4">{renderView()}</main>
-                <NavBar activeView={activeView} setActiveView={setActiveView} />
-            </div>
-        </div>
-    );
-}
-
-// --- Generic Components ---
-const Header = ({ unit, setUnit }) => (
-    <header className="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-purple-700">TailorFlow</h1>
-        <div className="flex items-center space-x-2">
-            <span className="text-sm font-medium">Units:</span>
-            <select value={unit} onChange={(e) => setUnit(e.target.value)} className="p-1 border rounded-md">
-                <option value="inches">Inches</option>
-                <option value="cm">cm</option>
-            </select>
-        </div>
-    </header>
-);
-
-const NavBar = ({ activeView, setActiveView }) => {
-    const navItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-        { id: 'customers', label: 'Customers', icon: '👥' },
-        { id: 'orders', label: 'Orders', icon: '✂️' },
-        { id: 'catalogue', label: 'Catalogue', icon: '👚' },
-        { id: 'finances', label: 'Finances', icon: '💰' },
-        { id: 'fabrics', label: 'Fabrics', icon: '🧵' },
-        { id: 'equipment', label: 'Equipment', icon: '🛠️' },
-        { id: 'workers', label: 'Workers', icon: '👷' },
-        { id: 'loans', label: 'Loans', icon: '🏦' },
-    ];
-    return (
-        <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg overflow-x-auto"><div className="flex justify-around max-w-lg mx-auto">{navItems.map(item => (<button key={item.id} onClick={() => setActiveView(item.id)} className={`flex flex-col items-center justify-center p-2 w-full ${activeView === item.id ? 'text-purple-700' : 'text-gray-500'}`}><span className="text-2xl">{item.icon}</span><span className="text-xs">{item.label}</span></button>))}</div></nav>
-    );
-};
-const Card = ({ children, className }) => (<div className={`bg-white p-4 rounded-lg shadow-md mb-4 ${className}`}>{children}</div>);
-const Button = ({ onClick, children, className = 'bg-purple-600 hover:bg-purple-700 text-white', type = 'button' }) => (<button type={type} onClick={onClick} className={`w-full py-2 px-4 rounded-lg font-semibold transition ${className}`}>{children}</button>);
-const ViewHeader = ({ title, onAdd }) => (<div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">{title}</h2><Button onClick={onAdd} className="w-auto px-4 py-1 text-sm bg-purple-500 hover:bg-purple-600">+</Button></div>);
-const CrudListItem = ({ onEdit, onDelete, children }) => (<div className="flex justify-between items-center"><div>{children}</div><div><button onClick={onEdit} className="text-blue-500 mr-2">Edit</button><button onClick={onDelete} className="text-red-500">Delete</button></div></div>);
-const FormButtons = ({ onCancel }) => (<div className="flex space-x-2 mt-4"><Button onClick={onCancel} className="bg-gray-300 hover:bg-gray-400 text-gray-800">Cancel</Button><Button type="submit">Save</Button></div>);
-
-// --- Dashboard View ---
-const DashboardView = ({ orders, expenses }) => {
-    const totalIncome = orders.reduce((sum, order) => sum + order.paid, 0);
-    const totalExpected = orders.reduce((sum, order) => sum + order.price, 0);
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-    return (
-        <div>
-            <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
-            <div className="grid grid-cols-2 gap-4">
-                <Card><h3 className="font-bold text-lg text-green-600">MWK {totalIncome.toLocaleString()}</h3><p className="text-sm text-gray-500">Total Income</p></Card>
-                <Card><h3 className="font-bold text-lg text-blue-600">MWK {totalExpected.toLocaleString()}</h3><p className="text-sm text-gray-500">Expected Income</p></Card>
-                <Card><h3 className="font-bold text-lg text-red-600">MWK {totalExpenses.toLocaleString()}</h3><p className="text-sm text-gray-500">Total Expenses</p></Card>
-                <Card><h3 className="font-bold text-lg text-purple-600">MWK {(totalIncome - totalExpenses).toLocaleString()}</h3><p className="text-sm text-gray-500">Net Profit</p></Card>
-            </div>
-             <Card className="mt-4">
-                <h3 className="font-semibold mb-2">Upcoming Deadlines</h3>
-                <ul>{orders.filter(o => o.status !== 'Delivered' && o.status !== 'Completed').slice(0, 3).map(order => (<li key={order.id} className="text-sm border-b py-1">Order #{order.id.slice(-4)} due on {order.deliveryDate}</li>))}</ul>
-            </Card>
-        </div>
-    );
-};
-
-// --- Customer Management ---
-const CustomersView = ({ customers, setCustomers }) => {
-    const [editingCustomer, setEditingCustomer] = useState(null);
-    const handleSave = (customer) => {
-        if (customer.id) { setCustomers(customers.map(c => c.id === customer.id ? customer : c)); } 
-        else { setCustomers([...customers, { ...customer, id: generateId() }]); }
-        setEditingCustomer(null);
-    };
-    const handleDelete = (id) => setCustomers(customers.filter(c => c.id !== id));
-
-    if (editingCustomer) return <CustomerForm customer={editingCustomer} onSave={handleSave} onCancel={() => setEditingCustomer(null)} />;
-    return (
-        <div>
-            <ViewHeader title="Customers" onAdd={() => setEditingCustomer({ name: '', phone: '', email: '', location: '' })} />
-            {customers.map(customer => (
-                <Card key={customer.id}>
-                    <CrudListItem onEdit={() => setEditingCustomer(customer)} onDelete={() => handleDelete(customer.id)}>
-                        <p className="font-semibold">{customer.name}</p>
-                        <p className="text-sm text-gray-500">{customer.phone} | {customer.location}</p>
-                    </CrudListItem>
-                </Card>
-            ))}
-        </div>
-    );
-};
-const CustomerForm = ({ customer, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(customer);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card>
-            <h3 className="text-lg font-semibold mb-4">{customer.id ? 'Edit Customer' : 'New Customer'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Name" className="w-full p-2 border rounded" required />
-                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone" className="w-full p-2 border rounded" required />
-                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="w-full p-2 border rounded" />
-                <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Location" className="w-full p-2 border rounded" />
-                <FormButtons onCancel={onCancel} />
-            </form>
-        </Card>
-    );
-};
-
-// --- Order Management ---
-const OrdersView = ({ orders, setOrders, customers, garments, unit }) => {
-    const [editingOrder, setEditingOrder] = useState(null);
-    const getCustomerName = (id) => customers.find(c => c.id === id)?.name || 'Unknown';
-    const handleSave = (order) => {
-        if (order.id) { setOrders(orders.map(o => o.id === order.id ? order : o)); } 
-        else { setOrders([...orders, { ...order, id: generateId(), creationDate: new Date().toISOString().split('T')[0] }]); }
-        setEditingOrder(null);
-    };
-    const handleDelete = (id) => setOrders(orders.filter(o => o.id !== id));
-
-    if (editingOrder) return <OrderForm order={editingOrder} onSave={handleSave} onCancel={() => setEditingOrder(null)} customers={customers} garments={garments} unit={unit} />;
-    return (
-        <div>
-            <ViewHeader title="Orders" onAdd={() => setEditingOrder({ customerId: '', garmentId: '', status: 'Pending', measurements: {}, price: 0, paid: 0 })} />
-            {orders.map(order => (
-                 <Card key={order.id}>
-                    <div className="flex justify-between items-start">
-                        <div><p className="font-bold">Order #{order.id.slice(-4)}</p><p className="text-sm">{getCustomerName(order.customerId)}</p></div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'Completed' || order.status === 'Delivered' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{order.status}</span>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .summary-card {
+            @apply p-4 rounded-xl shadow-lg transition-all duration-300 hover:shadow-xl;
+        }
+        .status-badge {
+            @apply px-2 py-1 rounded-full text-xs font-medium;
+        }
+        .status-pending { @apply bg-yellow-100 text-yellow-800; }
+        .status-in-progress { @apply bg-blue-100 text-blue-800; }
+        .status-completed { @apply bg-green-100 text-green-800; }
+        .status-delivered { @apply bg-purple-100 text-purple-800; }
+        .status-review { @apply bg-red-100 text-red-800; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1001;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .notification.success {
+            background-color: #10b981;
+        }
+        .notification.error {
+            background-color: #ef4444;
+        }
+        .notification.warning {
+            background-color: #f59e0b;
+        }
+        .search-container {
+            position: relative;
+        }
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 10;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .search-item:hover {
+            background-color: #f9fafb;
+        }
+        .order-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid #e5e7eb;
+        }
+        .order-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .order-card.pending { border-left-color: #f59e0b; }
+        .order-card.in-progress { border-left-color: #3b82f6; }
+        .order-card.completed { border-left-color: #10b981; }
+        .order-card.delivered { border-left-color: #8b5cf6; }
+        .order-tab { 
+            @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200;
+        }
+        .order-tab.active {
+            @apply bg-indigo-600 text-white;
+        }
+        .order-tab:not(.active) {
+            @apply bg-gray-200 text-gray-700 hover:bg-gray-300;
+        }
+        .client-profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .measurement-pill {
+            @apply px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full font-medium;
+        }
+        .image-upload-container {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .image-upload-container:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin: 0 auto;
+        }
+        .filter-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        .client-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .client-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .product-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .product-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="max-w-7xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <header class="bg-indigo-700 text-white p-4 rounded-xl mb-6 shadow-xl">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-extrabold flex items-center">
+                    <i class="fas fa-ruler-combined mr-3 text-yellow-300"></i> Tailor Shop Manager
+                </h1>
+                <div class="flex items-center space-x-4">
+                    <select id="measurementUnit" class="bg-indigo-600 border border-indigo-500 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-300">
+                        <option value="imperial">Inches</option>
+                        <option value="metric">Centimeters</option>
+                    </select>
+                    <div class="text-xs opacity-75 hidden sm:block">
+                        <p>Date: <span id="currentDate" class="font-mono text-yellow-300"></span></p>
                     </div>
-                    <div className="text-sm mt-2"><p>Due: {order.deliveryDate}</p><p className="font-semibold">MWK {order.paid.toLocaleString()} / MWK {order.price.toLocaleString()}</p></div>
-                    <div className="mt-2 text-right"><button onClick={() => setEditingOrder(order)} className="text-blue-500">View/Edit</button><button onClick={() => handleDelete(order.id)} className="text-red-500 ml-2">Delete</button></div>
-                </Card>
-            ))}
-        </div>
-    );
-};
-const OrderForm = ({ order, onSave, onCancel, customers, garments, unit }) => {
-    const [formData, setFormData] = useState(order);
-    const selectedGarment = garments.find(g => g.id === formData.garmentId);
-    const handleChange = (e) => {
-        const { name, value, type } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) : value }));
-        if (name === 'garmentId') {
-            const garment = garments.find(g => g.id === value);
-            if(garment) setFormData(prev => ({ ...prev, price: garment.price, measurements: {} }));
-        }
-    };
-    const handleMeasurementChange = (name, value) => setFormData(prev => ({...prev, measurements: { ...prev.measurements, [name]: value }}));
-    const handleSubmit = e => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card>
-            <h3 className="font-semibold text-lg mb-4">{order.id ? 'Edit Order' : 'New Order'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4 text-sm">
-                <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2 border rounded" required><option value="">Select Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                <select name="garmentId" value={formData.garmentId} onChange={handleChange} className="w-full p-2 border rounded" required><option value="">Select Garment</option>{garments.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
-                {selectedGarment && (<div className="p-2 border rounded"><h4 className="font-semibold mb-2">Measurements ({unit})</h4>{selectedGarment.measurements.map(m => (<div key={m} className="flex items-center justify-between mb-1"><label>{m}:</label><input type="number" step="0.1" value={formData.measurements[m] || ''} onChange={(e) => handleMeasurementChange(m, e.target.value)} className="w-1/2 p-1 border rounded" /></div>))}</div>)}
-                <div className="grid grid-cols-2 gap-4"><div><label>Fabric Picture</label><input type="file" className="w-full text-xs" /></div><div><label>Style Image</label><input type="file" className="w-full text-xs" /></div></div>
-                <div className="grid grid-cols-2 gap-4"><div><label>Trial Date</label><input type="datetime-local" name="trialDate" value={formData.trialDate || ''} onChange={handleChange} className="w-full p-2 border rounded" /></div><div><label>Delivery Date</label><input type="date" name="deliveryDate" value={formData.deliveryDate || ''} onChange={handleChange} className="w-full p-2 border rounded" /></div></div>
-                <select name="status" value={formData.status} onChange={handleChange} className="w-full p-2 border rounded"><option>Pending</option><option>In Progress</option><option>Ready for Trial</option><option>Completed</option><option>Delivered</option></select>
-                <div className="grid grid-cols-2 gap-4"><div><label>Total Price (MWK)</label><input type="number" step="1" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" /></div><div><label>Amount Paid (MWK)</label><input type="number" step="1" name="paid" value={formData.paid} onChange={handleChange} className="w-full p-2 border rounded" /></div></div>
-                <FormButtons onCancel={onCancel} />
-            </form>
-        </Card>
-    );
-};
-
-// --- Garment Catalogue Management ---
-const GarmentCatalogueView = ({ garments, setGarments }) => {
-    const [editingGarment, setEditingGarment] = useState(null);
-    const handleSave = (garment) => {
-        if (garment.id) { setGarments(garments.map(g => g.id === garment.id ? garment : g)); } 
-        else { setGarments([...garments, { ...garment, id: generateId() }]); }
-        setEditingGarment(null);
-    };
-    const handleDelete = (id) => setGarments(garments.filter(g => g.id !== id));
-
-    if (editingGarment) return <GarmentForm garment={editingGarment} onSave={handleSave} onCancel={() => setEditingGarment(null)} />;
-    return (
-        <div>
-            <ViewHeader title="Garment Catalogue" onAdd={() => setEditingGarment({ name: '', price: 0, measurements: [] })} />
-            {garments.map(garment => (
-                <Card key={garment.id}>
-                    <CrudListItem onEdit={() => setEditingGarment(garment)} onDelete={() => handleDelete(garment.id)}>
-                        <p className="font-semibold">{garment.name}</p>
-                        <p className="text-sm text-purple-600 font-bold">MWK {garment.price.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500 mt-1">{garment.measurements.join(', ')}</p>
-                    </CrudListItem>
-                </Card>
-            ))}
-        </div>
-    );
-};
-const GarmentForm = ({ garment, onSave, onCancel }) => {
-    const [formData, setFormData] = useState({...garment, measurements: Array.isArray(garment.measurements) ? garment.measurements.join(', ') : ''});
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        onSave({ ...formData, measurements: formData.measurements.split(',').map(m => m.trim()).filter(Boolean) });
-    };
-    return (
-        <Card>
-            <h3 className="text-lg font-semibold mb-4">{garment.id ? 'Edit Garment' : 'New Garment'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Garment Name" className="w-full p-2 border rounded" required />
-                <div><label className="text-sm">Price (MWK)</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-                <div><label className="text-sm">Measurements (comma separated)</label><textarea name="measurements" value={formData.measurements} onChange={handleChange} placeholder="e.g. Bust, Waist, Hips" className="w-full p-2 border rounded" /></div>
-                <FormButtons onCancel={onCancel} />
-            </form>
-        </Card>
-    );
-};
-
-// --- Expenses CRUD Components ---
-const ExpenseForm = ({ item, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(item);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Expense' : 'New Expense'}</h3><form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="category" value={formData.category} onChange={handleChange} placeholder="Category (e.g., Rent, Utilities)" className="w-full p-2 border rounded" required />
-            <div><label className="text-sm">Amount (MWK)</label><input type="number" step="1" name="amount" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-            <div><label className="text-sm">Date</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-            <FormButtons onCancel={onCancel} /></form>
-        </Card>
-    );
-};
-
-const ExpensesView = ({ expenses, setExpenses }) => {
-    const [editingExpense, setEditingExpense] = useState(null);
-    const handleSave = (expense) => {
-        if (expense.id) { setExpenses(expenses.map(e => e.id === expense.id ? expense : e)); } 
-        else { setExpenses([...expenses, { ...expense, id: generateId() }]); }
-        setEditingExpense(null);
-    };
-    const handleDelete = (id) => setExpenses(expenses.filter(e => e.id !== id));
-
-    if (editingExpense) return <ExpenseForm item={editingExpense} onSave={handleSave} onCancel={() => setEditingExpense(null)} />;
-    return (
-        <div className="mt-4">
-            <ViewHeader title="Expense Log" onAdd={() => setEditingExpense({ category: '', amount: 0, date: new Date().toISOString().split('T')[0] })} />
-            {expenses.map(expense => (
-                <Card key={expense.id}>
-                    <CrudListItem onEdit={() => setEditingExpense(expense)} onDelete={() => handleDelete(expense.id)}>
-                        <p className="font-semibold">{expense.category}</p>
-                        <p className="text-sm text-red-600 font-bold">MWK {expense.amount.toLocaleString()}</p>
-                        <p className="text-xs text-gray-500 mt-1">Date: {expense.date}</p>
-                    </CrudListItem>
-                </Card>
-            ))}
-        </div>
-    );
-};
-
-// --- Finances View (Container) ---
-const FinancesView = ({ orders, expenses, setExpenses }) => {
-    const totalIncome = orders.reduce((sum, order) => sum + order.paid, 0);
-    const totalBalance = orders.reduce((sum, order) => sum + (order.price - order.paid), 0);
-    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    return (
-        <div>
-            <h2 className="text-xl font-semibold mb-4">Finances</h2>
-            <Card>
-                <h3 className="font-bold text-lg">Income Overview</h3>
-                <p>Total Paid: <span className="text-green-600">MWK {totalIncome.toLocaleString()}</span></p>
-                <p>Outstanding Balance: <span className="text-yellow-600">MWK {totalBalance.toLocaleString()}</span></p>
-            </Card>
-            <Card>
-                <h3 className="font-bold text-lg">Expenses Summary</h3>
-                <p>Total This Month: <span className="text-red-600">MWK {totalExpenses.toLocaleString()}</span></p>
-            </Card>
-            
-            {/* Expense CRUD list is now embedded here */}
-            <ExpensesView expenses={expenses} setExpenses={setExpenses} />
-
-            <Card><h3 className="font-bold text-lg mb-2">Export Data</h3><p className="text-sm text-gray-600 mb-2">You can export your data as a CSV file, which opens perfectly in Excel.</p><Button onClick={() => alert("CSV export functionality would be implemented here.")}>Export All Data (CSV)</Button></Card>
-        </div>
-    );
-};
-
-// --- Generic CRUD Views ---
-const createCrudView = (title, initialEntity, FormComponent) => ({ items, setItems }) => {
-    const [editingItem, setEditingItem] = useState(null);
-    const handleSave = (item) => {
-        if (item.id) { setItems(items.map(i => i.id === item.id ? item : i)); } 
-        else { setItems([...items, { ...item, id: generateId() }]); }
-        setEditingItem(null);
-    };
-    const handleDelete = (id) => setItems(items.filter(i => i.id !== id));
-
-    if (editingItem) return <FormComponent item={editingItem} onSave={handleSave} onCancel={() => setEditingItem(null)} />;
-    return (
-        <div>
-            <ViewHeader title={title} onAdd={() => setEditingItem(initialEntity)} />
-            {/* The generic view items must now be passed as 'items' prop */}
-            {items.map(item => (
-                <Card key={item.id}>
-                    <CrudListItem onEdit={() => setEditingItem(item)} onDelete={() => handleDelete(item.id)}>
-                        {/* Generic title logic */}
-                        <p className="font-semibold">{item.name || item.lender}</p>
-                        {/* Generic details logic (updated for clarity) */}
-                        <p className="text-sm text-gray-500">
-                            {item.price && `Price: MWK ${item.price.toLocaleString()}`}
-                            {item.quantity && `Quantity: ${item.quantity}`}
-                            {item.role && `Role: ${item.role}`}
-                            {item.lender && `Paid: MWK ${item.paid.toLocaleString()} / Total: MWK ${item.amount.toLocaleString()}`}
-                        </p>
-                    </CrudListItem>
-                </Card>
-            ))}
-        </div>
-    );
-};
-
-// --- Fabric Management ---
-const FabricForm = ({ item, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(item);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Fabric' : 'New Fabric'}</h3><form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Fabric Name" className="w-full p-2 border rounded" required />
-            <div><label className="text-sm">Price per unit (MWK)</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-            <FormButtons onCancel={onCancel} /></form>
-        </Card>
-    );
-};
-const FabricsView = createCrudView('Fabrics', { name: '', price: 0 }, FabricForm);
-
-// --- Equipment Management ---
-const EquipmentForm = ({ item, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(item);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value) : e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Equipment' : 'New Equipment'}</h3><form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
-            <div><label className="text-sm">Quantity</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-            <FormButtons onCancel={onCancel} /></form>
-        </Card>
-    );
-};
-const EquipmentView = createCrudView('Equipment', { name: '', quantity: 1 }, EquipmentForm);
-
-// --- Worker Management ---
-const WorkerForm = ({ item, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(item);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Worker' : 'New Worker'}</h3><form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Worker Name" className="w-full p-2 border rounded" required />
-            <input type="text" name="role" value={formData.role} onChange={handleChange} placeholder="Role" className="w-full p-2 border rounded" required />
-            <FormButtons onCancel={onCancel} /></form>
-        </Card>
-    );
-};
-const WorkersView = createCrudView('Workers', { name: '', role: '' }, WorkerForm);
-
-// --- Loan Management ---
-const LoanForm = ({ item, onSave, onCancel }) => {
-    const [formData, setFormData] = useState(item);
-    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
-    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
-    return (
-        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Loan' : 'New Loan'}</h3><form onSubmit={handleSubmit} className="space-y-4">
-            <input type="text" name="lender" value={formData.lender} onChange={handleChange} placeholder="Lender Name" className="w-full p-2 border rounded" required />
-            <div className="grid grid-cols-2 gap-4">
-                <div><label className="text-sm">Amount (MWK)</label><input type="number" step="1" name="amount" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-                <div><label className="text-sm">Paid (MWK)</label><input type="number" step="1" name="paid" value={formData.paid} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+                </div>
             </div>
-            <div><label className="text-sm">Date</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
-            <FormButtons onCancel={onCancel} /></form>
-        </Card>
-    );
-};
-const LoansView = createCrudView('Loans', { lender: '', amount: 0, paid: 0, date: new Date().toISOString().split('T')[0] }, LoanForm);
+        </header>
+
+        <!-- Notification -->
+        <div id="notification" class="notification hidden"></div>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-white shadow-lg rounded-lg mb-6">
+            <div class="flex flex-wrap">
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-indigo-600 text-indigo-700" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt mr-2"></i> Dashboard
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="clients">
+                    <i class="fas fa-users mr-2"></i> Clients <span id="clientsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="orders">
+                    <i class="fas fa-clipboard-list mr-2"></i> Orders <span id="ordersCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="products">
+                    <i class="fas fa-tshirt mr-2"></i> Designs <span id="productsCount" class="ml-1 bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded-full">0</span>
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="inventory">
+                    <i class="fas fa-boxes mr-2"></i> Inventory
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="expenses">
+                    <i class="fas fa-money-bill-wave mr-2"></i> Expenses
+                </button>
+                <button class="tab-btn flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700" data-tab="revenue">
+                    <i class="fas fa-chart-bar mr-2"></i> Revenue
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main>
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Tailoring Shop Overview</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">Total Revenue</div>
+                            <div id="totalRevenue" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Net Profit</div>
+                            <div id="netProfit" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-purple-50 border border-purple-200">
+                            <div class="text-purple-600 text-sm font-medium">Outstanding Balance</div>
+                            <div id="outstandingBalance" class="text-2xl font-bold text-purple-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-orange-50 border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Inventory Value</div>
+                            <div id="inventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="summary-card bg-yellow-50 border border-yellow-200">
+                            <div class="text-yellow-600 text-sm font-medium">Pending Orders</div>
+                            <div id="pendingOrders" class="text-2xl font-bold text-yellow-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">In Progress</div>
+                            <div id="inProgressOrders" class="text-2xl font-bold text-blue-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Completed</div>
+                            <div id="completedOrders" class="text-2xl font-bold text-green-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-red-50 border border-red-200">
+                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                            <div id="totalExpenses" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <button class="bg-blue-600 text-white p-4 rounded-xl shadow-lg hover:bg-blue-700 transition flex items-center justify-center" onclick="openOrderModal()">
+                            <i class="fas fa-plus-circle mr-2"></i> New Order
+                        </button>
+                        <button class="bg-green-600 text-white p-4 rounded-xl shadow-lg hover:bg-green-700 transition flex items-center justify-center" onclick="openClientModal()">
+                            <i class="fas fa-user-plus mr-2"></i> Add Client
+                        </button>
+                        <button class="bg-purple-600 text-white p-4 rounded-xl shadow-lg hover:bg-purple-700 transition flex items-center justify-center" onclick="openProductModal()">
+                            <i class="fas fa-tshirt mr-2"></i> Add Design
+                        </button>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Activity</h3>
+                        <div id="recentActivity" class="space-y-3">
+                            <div class="text-gray-500 italic text-center py-4">No recent activity</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clients Tab -->
+            <div id="clients" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Client Management</h2>
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportClients()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openClientModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Client
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-6">
+                        <div class="search-container">
+                            <div class="flex items-center">
+                                <i class="fas fa-search text-gray-500 mr-3"></i>
+                                <input type="text" id="clientSearch" placeholder="Search clients by name or phone..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Clients List -->
+                    <div id="clientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="orders" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Order Management</h2>
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportOrders()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openOrderModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> New Order
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Enhanced Filters -->
+                    <div class="filter-section mb-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">
+                                <i class="fas fa-filter mr-2"></i> Filters
+                            </h3>
+                            <button onclick="clearFilters()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+                                Clear All
+                            </button>
+                        </div>
+                        <div class="filter-grid">
+                            <select id="filterStatus" class="input-style">
+                                <option value="">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="delivered">Delivered</option>
+                            </select>
+                            <select id="filterOrderType" class="input-style">
+                                <option value="">All Types</option>
+                                <option value="Production Order">Production Order</option>
+                                <option value="Alteration">Alteration</option>
+                            </select>
+                            <select id="filterDateRange" class="input-style">
+                                <option value="">Any Date</option>
+                                <option value="today">Today</option>
+                                <option value="week">Last 7 Days</option>
+                                <option value="month">Last 30 Days</option>
+                            </select>
+                            <input type="number" id="filterMinPrice" placeholder="Min Price" class="input-style">
+                            <input type="number" id="filterMaxPrice" placeholder="Max Price" class="input-style">
+                        </div>
+                    </div>
+
+                    <!-- Order Status Tabs -->
+                    <div class="flex space-x-2 mb-6">
+                        <button class="order-tab active" data-order-status="pending">
+                            Pending <span id="pendingTabCount" class="ml-1 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="in-progress">
+                            In Progress <span id="inProgressTabCount" class="ml-1 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="completed">
+                            Completed <span id="completedTabCount" class="ml-1 bg-green-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                        <button class="order-tab" data-order-status="delivered">
+                            Delivered <span id="deliveredTabCount" class="ml-1 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+                        </button>
+                    </div>
+
+                    <!-- Orders List -->
+                    <div id="ordersList" class="space-y-4">
+                        <div class="text-gray-500 italic text-center py-8">No orders found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Tab -->
+            <div id="products" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Design Catalog</h2>
+                        <div class="flex space-x-2 w-full sm:w-auto">
+                            <button onclick="exportProducts()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md">
+                                <i class="fas fa-download mr-2"></i> Export
+                            </button>
+                            <button onclick="openProductModal()" class="flex-1 sm:flex-none flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Design
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-6">
+                        <div class="search-container">
+                            <div class="flex items-center">
+                                <i class="fas fa-search text-gray-500 mr-3"></i>
+                                <input type="text" id="productSearch" placeholder="Search designs by name or category..." class="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Products Grid -->
+                    <div id="productsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Tab -->
+            <div id="inventory" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Inventory Management</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openInventoryModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-green-600 hover:bg-green-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Inventory Item
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Summary -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">Total Items</div>
+                            <div id="totalInventoryItems" class="text-2xl font-bold text-blue-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Low Stock Items</div>
+                            <div id="lowStockItems" class="text-2xl font-bold text-green-800 mt-1">0</div>
+                        </div>
+                        <div class="summary-card bg-orange-50 border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Total Value</div>
+                            <div id="totalInventoryValue" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory Items -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Current Inventory</h3>
+                        <div id="inventoryList" class="space-y-3">
+                            <div class="text-gray-500 italic text-center py-8">No inventory items</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expenses Tab -->
+            <div id="expenses" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0 mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Expense Management</h2>
+                        <div class="flex space-x-2">
+                            <button onclick="openExpenseModal()" class="flex items-center justify-center py-2 px-4 border border-transparent text-sm font-bold rounded-lg shadow-lg text-white bg-red-600 hover:bg-red-700 transition">
+                                <i class="fas fa-plus mr-2"></i> Add Expense
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Expense Analysis -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="summary-card bg-red-50 border border-red-200">
+                            <div class="text-red-600 text-sm font-medium">Total Expenses</div>
+                            <div id="totalExpensesAmount" class="text-2xl font-bold text-red-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-blue-50 border border-blue-200">
+                            <div class="text-blue-600 text-sm font-medium">This Month</div>
+                            <div id="monthlyExpenses" class="text-2xl font-bold text-blue-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-purple-50 border border-purple-200">
+                            <div class="text-purple-600 text-sm font-medium">Top Category</div>
+                            <div id="topCategory" class="text-2xl font-bold text-purple-800 mt-1">-</div>
+                        </div>
+                        <div class="summary-card bg-orange-50 border border-orange-200">
+                            <div class="text-orange-600 text-sm font-medium">Avg Monthly</div>
+                            <div id="avgMonthlyExpenses" class="text-2xl font-bold text-orange-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Category Breakdown -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Expense Categories</h3>
+                            <div id="expenseCategories" class="space-y-3">
+                                <div class="text-gray-500 italic text-center py-8">No expense data</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Expenses -->
+                        <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                            <h3 class="text-lg font-bold text-gray-700 mb-4">Recent Expenses</h3>
+                            <div id="expensesList" class="space-y-3 max-h-96 overflow-y-auto">
+                                <div class="text-gray-500 italic text-center py-8">No expenses recorded</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Revenue Tab -->
+            <div id="revenue" class="tab-content">
+                <div class="bg-white p-6 rounded-2xl shadow-2xl">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6">Financial Overview</h2>
+
+                    <!-- Revenue Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="summary-card bg-green-50 border border-green-200">
+                            <div class="text-green-600 text-sm font-medium">Realized Revenue</div>
+                            <div id="realizedRevenue" class="text-2xl font-bold text-green-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-yellow-50 border border-yellow-200">
+                            <div class="text-yellow-600 text-sm font-medium">Pending Revenue</div>
+                            <div id="pendingRevenue" class="text-2xl font-bold text-yellow-800 mt-1">MWK 0.00</div>
+                        </div>
+                        <div class="summary-card bg-indigo-50 border border-indigo-200">
+                            <div class="text-indigo-600 text-sm font-medium">Total Revenue</div>
+                            <div id="totalPotentialRevenue" class="text-2xl font-bold text-indigo-800 mt-1">MWK 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Status Breakdown -->
+                    <div class="bg-white p-6 rounded-xl border border-gray-300 shadow-sm">
+                        <h3 class="text-lg font-bold text-gray-700 mb-4">Order Status Breakdown</h3>
+                        <div id="statusBreakdown" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <!-- Status breakdown will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Client Modal -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content w-full max-w-2xl">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
+                    <i class="fas fa-user mr-3"></i> <span id="clientModalTitle">Add New Client</span>
+                </h2>
+                <button onclick="closeClientModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="clientForm" class="space-y-4">
+                    <input type="hidden" id="clientId">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Full Name *</label>
+                            <input type="text" id="clientName" class="input-style" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Phone Number *</label>
+                            <input type="tel" id="clientPhone" class="input-style" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-sm font-medium text-gray-700">Location/Address</label>
+                            <input type="text" id="clientLocation" class="input-style">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-sm font-medium text-gray-700">Notes</label>
+                            <textarea id="clientNotes" class="input-style" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Client Measurements Section -->
+                    <div class="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> Measurements Profile
+                        </h3>
+                        <div id="clientMeasurementsContainer" class="space-y-3">
+                            <!-- Measurements will be added here -->
+                        </div>
+                        <button type="button" onclick="addClientMeasurementField()" class="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition">
+                            <i class="fas fa-plus mr-2"></i> Add Measurement Field
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Client
+                        </button>
+                        <button type="button" id="deleteClientBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="modal">
+        <div class="modal-content w-full max-w-4xl">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
+                    <i class="fas fa-plus mr-3"></i> <span id="orderModalTitle">New Order</span>
+                </h2>
+                <button onclick="closeOrderModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="orderForm" class="space-y-6">
+                    <input type="hidden" id="orderId">
+                    
+                    <!-- Client Selection -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-user mr-2"></i> 1. Select Client
+                        </h3>
+                        <div class="space-y-4">
+                            <label class="flex items-center space-x-2">
+                                <input type="checkbox" id="isNewClient" class="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                <span class="text-lg font-medium text-gray-700">Add a New Client for this order</span>
+                            </label>
+
+                            <div id="existingClientSection">
+                                <label class="text-sm font-medium text-gray-700">Select Client *</label>
+                                <select id="orderClientId" class="input-style">
+                                    <option value="">-- Choose a Client --</option>
+                                </select>
+                            </div>
+
+                            <div id="newClientSection" class="hidden">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Full Name *</label>
+                                        <input type="text" id="newClientName" class="input-style" placeholder="John Doe">
+                                    </div>
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-700">Phone Number *</label>
+                                        <input type="tel" id="newClientPhone" class="input-style" placeholder="555-123-4567">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Design Selection -->
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-blue-600 mb-4 flex items-center">
+                            <i class="fas fa-tshirt mr-2"></i> 2. Select Design (Optional)
+                        </h3>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Choose from Existing Designs</label>
+                            <select id="orderProductId" class="input-style">
+                                <option value="">-- Custom Order (No Design) --</option>
+                            </select>
+                            <p class="text-sm text-blue-600 mt-1">
+                                Selecting a design will auto-fill measurements from client profile and set the price.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Order Details -->
+                    <div class="bg-indigo-50 p-4 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> 3. Order Details
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Order Type *</label>
+                                <select id="orderType" class="input-style" required>
+                                    <option value="Production Order">Production Order</option>
+                                    <option value="Alteration">Alteration</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Garment Type *</label>
+                                <select id="garmentType" class="input-style" required>
+                                    <option value="Shirt">Shirt</option>
+                                    <option value="Trousers">Trousers</option>
+                                    <option value="Jacket">Jacket</option>
+                                    <option value="Dress">Dress</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
+                                <input type="number" id="orderPrice" class="input-style" step="0.01" min="0" required>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-700">Status</label>
+                                <select id="orderStatus" class="input-style">
+                                    <option value="pending">Pending</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="delivered">Delivered</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Measurements -->
+                    <div class="bg-indigo-50 p-4 rounded-lg" id="measurementsSection">
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-4 flex items-center">
+                            <i class="fas fa-ruler-combined mr-2"></i> 4. Measurements
+                        </h3>
+                        <div id="orderMeasurementsContainer" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- Measurements will be populated based on garment type -->
+                        </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Order Notes</label>
+                        <textarea id="orderNotes" class="input-style" rows="3" placeholder="Additional notes..."></textarea>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Order
+                        </button>
+                        <button type="button" id="deleteOrderBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="productModal" class="modal">
+        <div class="modal-content w-full max-w-2xl">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
+                    <i class="fas fa-tshirt mr-3"></i> <span id="productModalTitle">Add New Design</span>
+                </h2>
+                <button onclick="closeProductModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="productForm" class="space-y-4">
+                    <input type="hidden" id="productId">
+                    
+                    <!-- Image Upload -->
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-gray-700">Design Image</label>
+                        <div class="image-upload-container" onclick="document.getElementById('productImage').click()">
+                            <input type="file" id="productImage" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                            <div id="imageUploadContent">
+                                <i class="fas fa-image text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600">Click to upload design image</p>
+                                <p class="text-sm text-gray-400">PNG, JPG, JPEG up to 5MB</p>
+                            </div>
+                            <img id="imagePreview" class="image-preview hidden">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Design Name *</label>
+                            <input type="text" id="productName" class="input-style" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Category *</label>
+                            <select id="productCategory" class="input-style" required>
+                                <option value="Shirt">Shirt</option>
+                                <option value="Trousers">Trousers</option>
+                                <option value="Jacket">Jacket</option>
+                                <option value="Dress">Dress</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Price (MWK) *</label>
+                            <input type="number" id="productPrice" class="input-style" step="0.01" min="0" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Description</label>
+                        <textarea id="productDescription" class="input-style" rows="3"></textarea>
+                    </div>
+
+                    <!-- Required Measurements -->
+                    <div class="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
+                        <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> Required Measurements
+                        </h3>
+                        <div id="productMeasurementsContainer" class="space-y-3">
+                            <!-- Measurements will be added here -->
+                        </div>
+                        <button type="button" onclick="addProductMeasurementField()" class="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition">
+                            <i class="fas fa-plus mr-2"></i> Add Measurement Field
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Design
+                        </button>
+                        <button type="button" id="deleteProductBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expense Modal -->
+    <div id="expenseModal" class="modal">
+        <div class="modal-content w-full max-w-md">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-red-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-red-800 flex items-center">
+                    <i class="fas fa-money-bill-wave mr-3"></i> <span id="expenseModalTitle">Add Expense</span>
+                </h2>
+                <button onclick="closeExpenseModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="expenseForm" class="space-y-4">
+                    <input type="hidden" id="expenseId">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Category *</label>
+                        <select id="expenseCategory" class="input-style" required>
+                            <option value="Materials">Materials</option>
+                            <option value="Labor">Labor</option>
+                            <option value="Rent">Rent</option>
+                            <option value="Utilities">Utilities</option>
+                            <option value="Transport">Transport</option>
+                            <option value="Equipment">Equipment</option>
+                            <option value="Marketing">Marketing</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Amount (MWK) *</label>
+                        <input type="number" id="expenseAmount" class="input-style" step="0.01" min="0" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Description *</label>
+                        <textarea id="expenseDescription" class="input-style" rows="3" required></textarea>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Date</label>
+                        <input type="date" id="expenseDate" class="input-style">
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Expense
+                        </button>
+                        <button type="button" id="deleteExpenseBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inventory Modal -->
+    <div id="inventoryModal" class="modal">
+        <div class="modal-content w-full max-w-md">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-green-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-green-800 flex items-center">
+                    <i class="fas fa-box mr-3"></i> <span id="inventoryModalTitle">Add Inventory Item</span>
+                </h2>
+                <button onclick="closeInventoryModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="inventoryForm" class="space-y-4">
+                    <input type="hidden" id="inventoryId">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Item Name *</label>
+                        <input type="text" id="inventoryName" class="input-style" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Category *</label>
+                        <select id="inventoryCategory" class="input-style" required>
+                            <option value="Fabric">Fabric</option>
+                            <option value="Thread">Thread</option>
+                            <option value="Buttons">Buttons</option>
+                            <option value="Zippers">Zippers</option>
+                            <option value="Accessories">Accessories</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Quantity *</label>
+                            <input type="number" id="inventoryQuantity" class="input-style" min="0" required>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Unit</label>
+                            <select id="inventoryUnit" class="input-style">
+                                <option value="meters">Meters</option>
+                                <option value="pieces">Pieces</option>
+                                <option value="rolls">Rolls</option>
+                                <option value="packs">Packs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Cost per Unit (MWK) *</label>
+                        <input type="number" id="inventoryCost" class="input-style" step="0.01" min="0" required>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Supplier</label>
+                        <input type="text" id="inventorySupplier" class="input-style">
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Notes</label>
+                        <textarea id="inventoryNotes" class="input-style" rows="2"></textarea>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <button type="submit" class="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition">
+                            <i class="fas fa-save mr-2"></i> Save Item
+                        </button>
+                        <button type="button" id="deleteInventoryBtn" class="bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition hidden">
+                            <i class="fas fa-trash mr-2"></i> Delete
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div id="orderDetailModal" class="modal">
+        <div class="modal-content w-full max-w-2xl">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
+                <h2 class="text-2xl font-bold text-indigo-800 flex items-center">
+                    <i class="fas fa-clipboard-list mr-3"></i> Order Details
+                </h2>
+                <button onclick="closeOrderDetailModal()" class="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-6" id="orderDetailContent">
+                <!-- Order details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, updateDoc, deleteDoc, doc, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
+
+        // Configuration
+        const SHARED_AGENT_ID = "Accolado"; 
+        const CUSTOM_APP_ID = "mobile-money-agent"; 
+        const USER_PROVIDED_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+            projectId: "mobile-money-app-4cf66",
+            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+            messagingSenderId: "822891731705",
+            appId: "1:822891731705:web:e666599c76ce413f0a6028"
+        };
+
+        let db = null;
+        let auth = null;
+        let storage = null;
+        let isDatabaseReady = false;
+
+        // Data storage
+        let clients = [];
+        let orders = [];
+        let products = [];
+        let expenses = [];
+        let inventory = [];
+        let currentOrderStatus = 'pending';
+
+        // Measurement templates from React code
+        const measurementTemplates = {
+            Shirt: ['Neck', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Length'],
+            Trousers: ['Waist', 'Hip', 'Inseam', 'Thigh', 'Cuff'],
+            Jacket: ['Chest', 'Waist', 'Shoulder', 'Sleeve', 'Back Length', 'Bicep'],
+            Kurta: ['Neck', 'Chest', 'Shoulder', 'Length', 'Knee Length'],
+            Other: ['Custom 1', 'Custom 2', 'Notes'],
+        };
+
+        // Utility functions
+        const formatCurrency = (amount) => {
+            return `MWK ${parseFloat(amount || 0).toFixed(2)}`;
+        };
+
+        const showNotification = (message, type = 'success') => {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.remove('hidden');
+            
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 5000);
+        };
+
+        const getTodayDate = () => {
+            return new Date().toISOString().split('T')[0];
+        };
+
+        const getCurrentMonth = () => {
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        };
+
+        // Firebase References
+        const getCollectionRef = (collectionName) => {
+            if (!db) return null;
+            const collectionPath = `/artifacts/${CUSTOM_APP_ID}/users/${SHARED_AGENT_ID}/${collectionName}`;
+            return collection(db, collectionPath);
+        };
+
+        // Data Management Class - ENHANCED WITH REACT FEATURES
+        class TailoringManager {
+            // Clients with enhanced features
+            static async loadClients() {
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    const q = query(clientsRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    clients = [];
+                    querySnapshot.forEach((doc) => {
+                        clients.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderClients();
+                    this.populateClientDropdown();
+                    this.updateTabCounts();
+                } catch (error) {
+                    console.error("Error loading clients:", error);
+                    showNotification('Error loading clients', 'error');
+                }
+            }
+
+            static async saveClient(clientData, clientId = null) {
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    if (clientId) {
+                        const clientDoc = doc(db, clientsRef.path, clientId);
+                        await updateDoc(clientDoc, {
+                            ...clientData,
+                            updatedAt: Timestamp.now()
+                        });
+                        showNotification('Client updated successfully!', 'success');
+                    } else {
+                        await addDoc(clientsRef, {
+                            ...clientData,
+                            createdAt: Timestamp.now(),
+                            totalOrders: 0,
+                            totalSpent: 0
+                        });
+                        showNotification('Client added successfully!', 'success');
+                    }
+                    
+                    this.loadClients();
+                    closeClientModal();
+                } catch (error) {
+                    console.error("Error saving client:", error);
+                    showNotification('Failed to save client', 'error');
+                }
+            }
+
+            static async deleteClient(clientId) {
+                if (!confirm('Are you sure you want to delete this client?')) return;
+
+                const clientsRef = getCollectionRef('tailoring_clients');
+                if (!clientsRef) return;
+
+                try {
+                    const clientDoc = doc(db, clientsRef.path, clientId);
+                    await deleteDoc(clientDoc);
+                    
+                    showNotification('Client deleted successfully!', 'success');
+                    this.loadClients();
+                    closeClientModal();
+                } catch (error) {
+                    console.error("Error deleting client:", error);
+                    showNotification('Failed to delete client', 'error');
+                }
+            }
+
+            static renderClients() {
+                const clientsList = document.getElementById('clientsList');
+                const searchTerm = document.getElementById('clientSearch').value.toLowerCase();
+                
+                const filteredClients = clients.filter(client => 
+                    client.name.toLowerCase().includes(searchTerm) ||
+                    (client.phone && client.phone.includes(searchTerm))
+                );
+
+                if (filteredClients.length === 0) {
+                    clientsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No clients found</div>';
+                    return;
+                }
+
+                clientsList.innerHTML = filteredClients.map(client => {
+                    const clientOrders = orders.filter(o => o.clientId === client.id).length;
+                    const measurementCount = Object.keys(client.measurements || {}).length;
+
+                    return `
+                        <div class="client-card bg-white p-5 rounded-xl shadow-lg border border-gray-200">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-3">
+                                    <div class="bg-indigo-100 p-2 rounded-full">
+                                        <i class="fas fa-user text-indigo-600"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-xl font-bold text-gray-800">${client.name}</h3>
+                                        <p class="text-sm text-gray-500">${client.phone || 'No phone'}</p>
+                                        <p class="text-sm text-gray-500">${client.location || 'No location'}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
+                                        ${clientOrders} Order${clientOrders !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div class="space-y-2 mb-3">
+                                <p class="text-sm text-gray-600 flex items-center">
+                                    <i class="fas fa-ruler mr-2 text-blue-500"></i> 
+                                    Measurements: 
+                                    <span class="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full ${measurementCount > 0 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}">
+                                        ${measurementCount} Saved
+                                    </span>
+                                </p>
+                                ${client.notes ? `<p class="text-xs text-gray-400">Notes: ${client.notes}</p>` : ''}
+                            </div>
+                            
+                            <div class="flex justify-between items-center">
+                                <button onclick="editClient('${client.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                    <i class="fas fa-edit mr-1"></i> Edit
+                                </button>
+                                <div class="flex space-x-2">
+                                    <button onclick="useClientForOrder('${client.id}')" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
+                                        <i class="fas fa-cart-plus mr-1"></i> New Order
+                                    </button>
+                                    <button onclick="TailoringManager.deleteClient('${client.id}')" class="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-50">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            static populateClientDropdown() {
+                const dropdown = document.getElementById('orderClientId');
+                dropdown.innerHTML = '<option value="">-- Choose a Client --</option>';
+                
+                clients.forEach(client => {
+                    const option = document.createElement('option');
+                    option.value = client.id;
+                    option.textContent = `${client.name} (${client.phone || 'No phone'})`;
+                    dropdown.appendChild(option);
+                });
+            }
+
+            // Enhanced Orders with React features
+            static async loadOrders() {
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const q = query(ordersRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    orders = [];
+                    querySnapshot.forEach((doc) => {
+                        orders.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderOrders();
+                    this.updateDashboard();
+                    this.updateTabCounts();
+                } catch (error) {
+                    console.error("Error loading orders:", error);
+                    showNotification('Error loading orders', 'error');
+                }
+            }
+
+            static async saveOrder(orderData, orderId = null) {
+                const ordersRef = getCollectionRef('tailoring_orders');
+                if (!ordersRef) return;
+
+                try {
+                    const client = clients.find(c => c.id === orderData.clientId);
+                    
+                    if (orderId) {
+                        const orderDoc = doc(db, ordersRef.path, orderId);
+                        await updateDoc(orderDoc, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            updatedAt: Timestamp.now()
+                        });
+                        showNotification('Order updated successfully!', 'success');
+                    } else {
+                        await addDoc(ordersRef, {
+                            ...orderData,
+                            clientName: client?.name || 'Unknown Client',
+                            createdAt: Timestamp.now(),
+                            orderDate: getTodayDate()
+                        });
+                        showNotification('Order created successfully!', 'success');
+                    }
+                    
+                    this.loadOrders();
+                    closeOrderModal();
+                } catch (error) {
+                    console.error("Error saving order:", error);
+                    showNotification('Failed to save order', 'error');
+                }
+            }
+
+            static renderOrders() {
+                const ordersList = document.getElementById('ordersList');
+                const statusFilter = document.getElementById('filterStatus').value;
+                const typeFilter = document.getElementById('filterOrderType').value;
+                const dateFilter = document.getElementById('filterDateRange').value;
+                const minPrice = document.getElementById('filterMinPrice').value;
+                const maxPrice = document.getElementById('filterMaxPrice').value;
+                
+                let filteredOrders = orders.filter(order => order.status === currentOrderStatus);
+                
+                // Apply additional filters
+                if (statusFilter) {
+                    filteredOrders = filteredOrders.filter(order => order.status === statusFilter);
+                }
+                if (typeFilter) {
+                    filteredOrders = filteredOrders.filter(order => order.orderType === typeFilter);
+                }
+                if (minPrice) {
+                    filteredOrders = filteredOrders.filter(order => order.price >= parseFloat(minPrice));
+                }
+                if (maxPrice) {
+                    filteredOrders = filteredOrders.filter(order => order.price <= parseFloat(maxPrice));
+                }
+
+                this.updateOrderTabCounts();
+
+                if (filteredOrders.length === 0) {
+                    ordersList.innerHTML = `<div class="text-gray-500 italic text-center py-8">No ${currentOrderStatus.replace('-', ' ')} orders found</div>`;
+                    return;
+                }
+
+                ordersList.innerHTML = filteredOrders.map(order => {
+                    const statusClass = order.status || 'pending';
+                    const statusText = order.status ? order.status.replace('-', ' ') : 'pending';
+                    const isAlteration = order.orderType === 'Alteration';
+                    const product = order.productId ? products.find(p => p.id === order.productId) : null;
+
+                    return `
+                        <div class="order-card ${statusClass} bg-white p-5 rounded-xl border border-gray-200 shadow-lg">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex-1">
+                                    <h3 class="text-xl font-bold text-indigo-700 flex items-center">
+                                        <i class="fas fa-user mr-2"></i> ${order.clientName}
+                                    </h3>
+                                    <p class="text-sm text-gray-600 mt-1">
+                                        <span class="font-semibold">${order.orderType}:</span> ${order.garment || 'N/A'}
+                                    </p>
+                                    ${product ? `
+                                        <p class="text-sm text-blue-600 flex items-center mt-1">
+                                            <i class="fas fa-tshirt mr-1"></i> Design: ${product.name}
+                                        </p>
+                                    ` : ''}
+                                </div>
+                                
+                                <div class="flex flex-col items-end space-y-2">
+                                    <span class="px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[statusText] || 'bg-gray-100 text-gray-800'}">
+                                        ${statusText}
+                                    </span>
+                                    <span class="text-lg font-bold text-green-700">${formatCurrency(order.price)}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-3 border-t border-gray-100">
+                                ${isAlteration ? `
+                                    <p class="text-md font-semibold text-gray-700 flex items-center">
+                                        <i class="fas fa-hand-paper mr-1.5 text-red-500"></i> Alteration Notes:
+                                        <span class="ml-2 font-normal truncate">${order.notes || 'No notes.'}</span>
+                                    </p>
+                                ` : `
+                                    <p class="text-md font-semibold text-gray-700 mb-2 flex items-center">
+                                        <i class="fas fa-ruler mr-1.5 text-indigo-500"></i> Key Measurements:
+                                    </p>
+                                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                                        ${Object.entries(order.measurements || {}).slice(0, 4).map(([key, value]) => `
+                                            <div class="bg-indigo-50 p-2 rounded-lg text-gray-800 truncate">
+                                                <span class="font-medium block">${key}</span> 
+                                                <span class="font-bold">${value} ${document.getElementById('measurementUnit').value === 'imperial' ? 'inches' : 'cm'}</span>
+                                            </div>
+                                        `).join('')}
+                                        ${Object.keys(order.measurements || {}).length > 4 ? `
+                                            <div class="bg-indigo-50 p-2 rounded-lg text-gray-800 flex items-center justify-center">
+                                                <span class="font-medium text-xs text-indigo-600">+ ${Object.keys(order.measurements || {}).length - 4} More</span>
+                                            </div>
+                                        ` : ''}
+                                        ${Object.keys(order.measurements || {}).length === 0 && `
+                                            <span class="text-gray-500 col-span-4">No measurements recorded.</span>
+                                        `}
+                                    </div>
+                                `}
+                            </div>
+                            
+                            <div class="flex justify-between items-center mt-4">
+                                <div class="flex gap-2">
+                                    ${order.status === 'pending' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'in-progress')" class="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700">Start Work</button>
+                                    ` : ''}
+                                    ${order.status === 'in-progress' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'completed')" class="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700">Complete</button>
+                                    ` : ''}
+                                    ${order.status === 'completed' ? `
+                                        <button onclick="TailoringManager.updateOrderStatus('${order.id}', 'delivered')" class="text-xs bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700">Deliver</button>
+                                    ` : ''}
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button onclick="viewOrderDetails('${order.id}')" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                        <i class="fas fa-eye mr-1"></i> View
+                                    </button>
+                                    <button onclick="editOrder('${order.id}')" class="text-sm text-green-600 hover:text-green-800 font-medium">
+                                        <i class="fas fa-edit mr-1"></i> Edit
+                                    </button>
+                                    <button onclick="TailoringManager.deleteOrder('${order.id}')" class="text-sm text-red-600 hover:text-red-800 font-medium">
+                                        <i class="fas fa-trash mr-1"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <p class="text-xs text-gray-400 mt-3 text-right">Order Placed: ${order.orderDate || 'N/A'}</p>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Products with image upload capability
+            static async loadProducts() {
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    const q = query(productsRef, orderBy('createdAt', 'desc'));
+                    const querySnapshot = await getDocs(q);
+                    
+                    products = [];
+                    querySnapshot.forEach((doc) => {
+                        products.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    this.renderProducts();
+                    this.populateProductDropdown();
+                    this.updateTabCounts();
+                } catch (error) {
+                    console.error("Error loading products:", error);
+                    showNotification('Error loading designs', 'error');
+                }
+            }
+
+            static async saveProduct(productData, productId = null) {
+                const productsRef = getCollectionRef('tailoring_products');
+                if (!productsRef) return;
+
+                try {
+                    let imageUrl = productData.imageUrl || '';
+
+                    // Handle image upload
+                    if (productData.imageFile) {
+                        const imageRef = ref(storage, `products/${SHARED_AGENT_ID}/${Date.now()}_${productData.imageFile.name}`);
+                        await uploadBytes(imageRef, productData.imageFile);
+                        imageUrl = await getDownloadURL(imageRef);
+                    }
+
+                    if (productId) {
+                        const productDoc = doc(db, productsRef.path, productId);
+                        await updateDoc(productDoc, {
+                            ...productData,
+                            imageUrl: imageUrl,
+                            updatedAt: Timestamp.now()
+                        });
+                        showNotification('Design updated successfully!', 'success');
+                    } else {
+                        await addDoc(productsRef, {
+                            ...productData,
+                            imageUrl: imageUrl,
+                            createdAt: Timestamp.now()
+                        });
+                        showNotification('Design added successfully!', 'success');
+                    }
+                    
+                    this.loadProducts();
+                    closeProductModal();
+                } catch (error) {
+                    console.error("Error saving product:", error);
+                    showNotification('Failed to save design', 'error');
+                }
+            }
+
+            static renderProducts() {
+                const productsList = document.getElementById('productsList');
+                const searchTerm = document.getElementById('productSearch').value.toLowerCase();
+                
+                const filteredProducts = products.filter(product => 
+                    product.name.toLowerCase().includes(searchTerm) ||
+                    product.category.toLowerCase().includes(searchTerm)
+                );
+                
+                if (filteredProducts.length === 0) {
+                    productsList.innerHTML = '<div class="text-gray-500 italic text-center py-8 col-span-3">No designs found</div>';
+                    return;
+                }
+
+                productsList.innerHTML = filteredProducts.map(product => `
+                    <div class="product-card bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+                        <div class="h-48 bg-gray-100 relative">
+                            ${product.imageUrl ? `
+                                <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-full object-cover">
+                            ` : `
+                                <div class="w-full h-full flex items-center justify-center">
+                                    <i class="fas fa-image text-4xl text-gray-400"></i>
+                                </div>
+                            `}
+                        </div>
+                        
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="text-lg font-bold text-gray-800 truncate">${product.name}</h3>
+                                <span class="text-lg font-bold text-green-600 font-mono">
+                                    ${formatCurrency(product.price)}
+                                </span>
+                            </div>
+                            
+                            <p class="text-sm text-gray-600 mb-2">${product.category}</p>
+                            
+                            ${product.description && `
+                                <p class="text-sm text-gray-500 mb-3 line-clamp-2">${product.description}</p>
+                            `}
+                            
+                            <div class="mb-3">
+                                <p class="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
+                                <div class="flex flex-wrap gap-1">
+                                    ${product.requiredMeasurements?.slice(0, 3).map(measurement => `
+                                        <span class="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
+                                            ${measurement}
+                                        </span>
+                                    `).join('')}
+                                    ${product.requiredMeasurements?.length > 3 ? `
+                                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                            +${product.requiredMeasurements.length - 3} more
+                                        </span>
+                                    ` : ''}
+                                    ${(!product.requiredMeasurements || product.requiredMeasurements.length === 0) && `
+                                        <span class="text-xs text-gray-400">No specific measurements</span>
+                                    `}
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-between items-center text-xs text-gray-400">
+                                <span>Added: ${product.createdAt?.toDate ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
+                                <div class="flex space-x-2">
+                                    <button onclick="editProduct('${product.id}')" class="text-green-600 hover:text-green-800">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="TailoringManager.deleteProduct('${product.id}')" class="text-red-600 hover:text-red-800">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            static populateProductDropdown() {
+                const dropdown = document.getElementById('orderProductId');
+                dropdown.innerHTML = '<option value="">-- Custom Order (No Design) --</option>';
+                
+                products.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.id;
+                    option.textContent = `${product.name} - ${product.category} (${formatCurrency(product.price)})`;
+                    dropdown.appendChild(option);
+                });
+            }
+
+            // Enhanced Dashboard with React calculations
+            static updateDashboard() {
+                // Revenue calculations
+                const totalRevenue = orders.reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+                const totalExpensesAmount = expenses.reduce((sum, expense) => sum + (parseFloat(expense.amount) || 0), 0);
+                const netProfit = totalRevenue - totalExpensesAmount;
+                
+                // Outstanding balance (orders not delivered)
+                const outstandingBalance = orders
+                    .filter(order => order.status !== 'delivered')
+                    .reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+
+                // Order counts
+                const pendingOrders = orders.filter(o => o.status === 'pending').length;
+                const inProgressOrders = orders.filter(o => o.status === 'in-progress').length;
+                const completedOrders = orders.filter(o => o.status === 'completed').length;
+                const deliveredOrders = orders.filter(o => o.status === 'delivered').length;
+
+                // Inventory value
+                const inventoryValue = inventory.reduce((sum, item) => sum + (parseFloat(item.totalValue) || 0), 0);
+
+                // Update dashboard displays
+                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+                document.getElementById('netProfit').textContent = formatCurrency(netProfit);
+                document.getElementById('outstandingBalance').textContent = formatCurrency(outstandingBalance);
+                document.getElementById('totalExpenses').textContent = formatCurrency(totalExpensesAmount);
+                document.getElementById('pendingOrders').textContent = pendingOrders;
+                document.getElementById('inProgressOrders').textContent = inProgressOrders;
+                document.getElementById('completedOrders').textContent = completedOrders;
+                document.getElementById('inventoryValue').textContent = formatCurrency(inventoryValue);
+
+                // Revenue tab
+                const realizedRevenue = orders
+                    .filter(order => order.status === 'delivered')
+                    .reduce((sum, order) => sum + (parseFloat(order.price) || 0), 0);
+                
+                document.getElementById('realizedRevenue').textContent = formatCurrency(realizedRevenue);
+                document.getElementById('pendingRevenue').textContent = formatCurrency(outstandingBalance);
+                document.getElementById('totalPotentialRevenue').textContent = formatCurrency(totalRevenue);
+
+                // Status breakdown
+                const statusBreakdown = document.getElementById('statusBreakdown');
+                const statusCounts = {
+                    'pending': orders.filter(o => o.status === 'pending').length,
+                    'in-progress': orders.filter(o => o.status === 'in-progress').length,
+                    'completed': orders.filter(o => o.status === 'completed').length,
+                    'delivered': orders.filter(o => o.status === 'delivered').length
+                };
+
+                statusBreakdown.innerHTML = Object.entries(statusCounts).map(([status, count]) => {
+                    const statusClass = `status-${status}`;
+                    const statusText = status.replace('-', ' ');
+
+                    return `
+                        <div class="p-4 rounded-xl text-center ${statusClass}">
+                            <div class="text-2xl font-bold">${count}</div>
+                            <div class="text-sm font-medium capitalize">${statusText}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Update recent activity
+                this.updateRecentActivity();
+            }
+
+            static updateRecentActivity() {
+                const recentActivity = document.getElementById('recentActivity');
+                const recentOrders = orders.slice(0, 5);
+                
+                if (recentOrders.length === 0) {
+                    recentActivity.innerHTML = '<div class="text-gray-500 italic text-center py-4">No recent activity</div>';
+                    return;
+                }
+
+                recentActivity.innerHTML = recentOrders.map(order => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">New order for ${order.clientName}</p>
+                                <p class="text-xs text-gray-500">${order.garment} - ${formatCurrency(order.price)}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs text-gray-400">${order.orderDate || 'Recently'}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Initialize all data
+            static async loadAllData() {
+                await this.loadClients();
+                await this.loadOrders();
+                await this.loadProducts();
+                await this.loadExpenses();
+                await this.loadInventory();
+                this.updateDashboard();
+            }
+        }
+
+        // Initialize the application
+        const initTailoringApp = async () => {
+            try {
+                const app = initializeApp(USER_PROVIDED_FIREBASE_CONFIG);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                storage = getStorage(app);
+                
+                // Set current date
+                document.getElementById('currentDate').textContent = getTodayDate();
+                document.getElementById('expenseDate').value = getTodayDate();
+
+                // Sign in anonymously
+                await signInAnonymously(auth);
+                console.log("Signed in anonymously successfully.");
+                isDatabaseReady = true;
+                
+                // Initialize event listeners
+                initializeEventListeners();
+                
+                // Load all data
+                await TailoringManager.loadAllData();
+                
+                showNotification('Tailoring shop ready!', 'success');
+                
+            } catch (error) {
+                console.error("Failed to initialize tailoring app:", error);
+                showNotification('Error initializing tailoring shop', 'error');
+            }
+        };
+
+        // Event Listeners
+        function initializeEventListeners() {
+            // Client form
+            document.getElementById('clientForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const clientId = document.getElementById('clientId').value;
+                const measurements = arrayToObj(Array.from(document.querySelectorAll('#clientMeasurementsContainer .measurement-row')).map(row => ({
+                    key: row.querySelector('.measurement-key').value,
+                    value: row.querySelector('.measurement-value').value
+                })));
+
+                const formData = {
+                    name: document.getElementById('clientName').value.trim(),
+                    phone: document.getElementById('clientPhone').value.trim(),
+                    location: document.getElementById('clientLocation').value.trim(),
+                    notes: document.getElementById('clientNotes').value.trim(),
+                    measurements: measurements
+                };
+
+                if (!formData.name || !formData.phone) {
+                    showNotification('Please fill in all required fields', 'error');
+                    return;
+                }
+
+                await TailoringManager.saveClient(formData, clientId || null);
+            });
+
+            // Order form with enhanced features
+            document.getElementById('orderForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const orderId = document.getElementById('orderId').value;
+                const isNewClient = document.getElementById('isNewClient').checked;
+                
+                let clientId = document.getElementById('orderClientId').value;
+                let clientName = '';
+                let clientPhone = '';
+
+                // Handle new client creation
+                if (isNewClient) {
+                    const newClientData = {
+                        name: document.getElementById('newClientName').value.trim(),
+                        phone: document.getElementById('newClientPhone').value.trim(),
+                        location: 'N/A',
+                        measurements: {},
+                        createdAt: Timestamp.now()
+                    };
+
+                    if (!newClientData.name || !newClientData.phone) {
+                        showNotification('Please fill in all required client fields', 'error');
+                        return;
+                    }
+
+                    // Create new client
+                    const clientsRef = getCollectionRef('tailoring_clients');
+                    const docRef = await addDoc(clientsRef, newClientData);
+                    clientId = docRef.id;
+                    clientName = newClientData.name;
+                    clientPhone = newClientData.phone;
+                } else {
+                    const client = clients.find(c => c.id === clientId);
+                    clientName = client?.name || 'Unknown Client';
+                    clientPhone = client?.phone || 'N/A';
+                }
+
+                // Get measurements
+                const measurements = {};
+                if (document.getElementById('orderType').value === 'Production Order') {
+                    Array.from(document.querySelectorAll('#orderMeasurementsContainer .measurement-input')).forEach(input => {
+                        if (input.value) {
+                            measurements[input.dataset.key] = input.value;
+                        }
+                    });
+                }
+
+                const formData = {
+                    clientId: clientId,
+                    clientName: clientName,
+                    orderType: document.getElementById('orderType').value,
+                    garmentType: document.getElementById('garmentType').value,
+                    price: parseFloat(document.getElementById('orderPrice').value) || 0,
+                    status: document.getElementById('orderStatus').value,
+                    measurements: measurements,
+                    notes: document.getElementById('orderNotes').value.trim(),
+                    productId: document.getElementById('orderProductId').value || null
+                };
+
+                if (!formData.clientId || !formData.garmentType || formData.price <= 0) {
+                    showNotification('Please fill in all required fields with valid data', 'error');
+                    return;
+                }
+
+                await TailoringManager.saveOrder(formData, orderId || null);
+            });
+
+            // Product form with image upload
+            document.getElementById('productForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const productId = document.getElementById('productId').value;
+                const measurements = Array.from(document.querySelectorAll('#productMeasurementsContainer input'))
+                    .map(input => input.value.trim())
+                    .filter(value => value !== '');
+                
+                const imageFile = document.getElementById('productImage').files[0];
+
+                const formData = {
+                    name: document.getElementById('productName').value.trim(),
+                    category: document.getElementById('productCategory').value,
+                    price: parseFloat(document.getElementById('productPrice').value) || 0,
+                    description: document.getElementById('productDescription').value.trim(),
+                    requiredMeasurements: measurements,
+                    imageFile: imageFile
+                };
+
+                if (!formData.name || !formData.category || formData.price <= 0) {
+                    showNotification('Please fill in all required fields with valid data', 'error');
+                    return;
+                }
+
+                await TailoringManager.saveProduct(formData, productId || null);
+            });
+
+            // Enhanced order status tabs
+            document.querySelectorAll('.order-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.order-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentOrderStatus = tab.getAttribute('data-order-status');
+                    TailoringManager.renderOrders();
+                });
+            });
+
+            // Filter event listeners
+            document.getElementById('filterStatus').addEventListener('change', () => TailoringManager.renderOrders());
+            document.getElementById('filterOrderType').addEventListener('change', () => TailoringManager.renderOrders());
+            document.getElementById('filterDateRange').addEventListener('change', () => TailoringManager.renderOrders());
+            document.getElementById('filterMinPrice').addEventListener('input', () => TailoringManager.renderOrders());
+            document.getElementById('filterMaxPrice').addEventListener('input', () => TailoringManager.renderOrders());
+
+            // Search functionality
+            document.getElementById('clientSearch').addEventListener('input', () => {
+                TailoringManager.renderClients();
+            });
+
+            document.getElementById('productSearch').addEventListener('input', () => {
+                TailoringManager.renderProducts();
+            });
+
+            // New client toggle
+            document.getElementById('isNewClient').addEventListener('change', (e) => {
+                const isNew = e.target.checked;
+                document.getElementById('existingClientSection').classList.toggle('hidden', isNew);
+                document.getElementById('newClientSection').classList.toggle('hidden', !isNew);
+            });
+
+            // Product selection in order form
+            document.getElementById('orderProductId').addEventListener('change', (e) => {
+                const productId = e.target.value;
+                if (!productId) return;
+
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    document.getElementById('garmentType').value = product.category;
+                    document.getElementById('orderPrice').value = product.price;
+                    
+                    // Auto-fill measurements based on product requirements
+                    const measurementsContainer = document.getElementById('orderMeasurementsContainer');
+                    measurementsContainer.innerHTML = product.requiredMeasurements.map(measurement => `
+                        <div class="space-y-2">
+                            <label class="text-sm font-medium text-gray-700">${measurement}</label>
+                            <input type="number" step="0.1" data-key="${measurement}" class="measurement-input input-style" placeholder="0.0">
+                        </div>
+                    `).join('');
+                }
+            });
+
+            // Garment type change
+            document.getElementById('garmentType').addEventListener('change', (e) => {
+                if (document.getElementById('orderType').value === 'Production Order') {
+                    updateMeasurementFields(e.target.value);
+                }
+            });
+
+            // Order type change
+            document.getElementById('orderType').addEventListener('change', (e) => {
+                const isProduction = e.target.value === 'Production Order';
+                document.getElementById('measurementsSection').classList.toggle('hidden', !isProduction);
+                if (isProduction) {
+                    updateMeasurementFields(document.getElementById('garmentType').value);
+                }
+            });
+        }
+
+        // Make TailoringManager available globally
+        window.TailoringManager = TailoringManager;
+
+        // Initialize when page loads
+        window.onload = initTailoringApp;
+    </script>
+
+    <script>
+        // Tab management
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('border-indigo-600', 'text-indigo-700');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('border-indigo-600', 'text-indigo-700');
+        }
+
+        // Initialize tab buttons
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchTab(btn.getAttribute('data-tab'));
+            });
+        });
+
+        // Enhanced Modal management with React features
+        function openClientModal(clientId = null) {
+            document.getElementById('clientModalTitle').textContent = clientId ? 'Edit Client' : 'Add New Client';
+            document.getElementById('clientId').value = clientId || '';
+            document.getElementById('deleteClientBtn').classList.toggle('hidden', !clientId);
+            
+            const measurementsContainer = document.getElementById('clientMeasurementsContainer');
+            measurementsContainer.innerHTML = '';
+            
+            if (clientId) {
+                const client = window.TailoringManager?.clients?.find(c => c.id === clientId);
+                if (client) {
+                    document.getElementById('clientName').value = client.name || '';
+                    document.getElementById('clientPhone').value = client.phone || '';
+                    document.getElementById('clientLocation').value = client.location || '';
+                    document.getElementById('clientNotes').value = client.notes || '';
+                    
+                    // Load measurements
+                    Object.entries(client.measurements || {}).forEach(([key, value]) => {
+                        addClientMeasurementField(key, value);
+                    });
+                }
+            } else {
+                document.getElementById('clientForm').reset();
+            }
+            
+            // Add at least one measurement field
+            if (measurementsContainer.children.length === 0) {
+                addClientMeasurementField();
+            }
+            
+            document.getElementById('clientModal').classList.add('active');
+        }
+
+        function addClientMeasurementField(key = '', value = '') {
+            const container = document.getElementById('clientMeasurementsContainer');
+            const index = container.children.length;
+            const field = document.createElement('div');
+            field.className = 'measurement-row flex space-x-2 items-center';
+            field.innerHTML = `
+                <input type="text" value="${key}" placeholder="Measurement (e.g., Chest)" class="measurement-key flex-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <input type="number" step="0.1" value="${value}" placeholder="Value" class="measurement-value w-1/3 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <span class="text-sm font-medium text-gray-500 w-1/6">${document.getElementById('measurementUnit').value === 'imperial' ? 'inches' : 'cm'}</span>
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(field);
+        }
+
+        function closeClientModal() {
+            document.getElementById('clientModal').classList.remove('active');
+        }
+
+        function openOrderModal(clientId = null) {
+            document.getElementById('orderModalTitle').textContent = 'New Order';
+            document.getElementById('orderId').value = '';
+            document.getElementById('deleteOrderBtn').classList.add('hidden');
+            
+            document.getElementById('orderForm').reset();
+            document.getElementById('isNewClient').checked = false;
+            document.getElementById('existingClientSection').classList.remove('hidden');
+            document.getElementById('newClientSection').classList.add('hidden');
+            
+            // Pre-fill client if provided
+            if (clientId) {
+                document.getElementById('orderClientId').value = clientId;
+            }
+            
+            // Initialize measurement fields
+            updateMeasurementFields('Shirt');
+            
+            document.getElementById('orderModal').classList.add('active');
+        }
+
+        function updateMeasurementFields(garmentType) {
+            const measurementsContainer = document.getElementById('orderMeasurementsContainer');
+            const measurements = measurementTemplates[garmentType] || measurementTemplates.Other;
+            
+            measurementsContainer.innerHTML = measurements.map(measurement => `
+                <div class="space-y-2">
+                    <label class="text-sm font-medium text-gray-700">${measurement}</label>
+                    <input type="number" step="0.1" data-key="${measurement}" class="measurement-input input-style" placeholder="0.0">
+                </div>
+            `).join('');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.remove('active');
+        }
+
+        function openProductModal(productId = null) {
+            document.getElementById('productModalTitle').textContent = productId ? 'Edit Design' : 'Add New Design';
+            document.getElementById('productId').value = productId || '';
+            document.getElementById('deleteProductBtn').classList.toggle('hidden', !productId);
+            
+            const container = document.getElementById('productMeasurementsContainer');
+            container.innerHTML = '';
+            
+            // Reset image preview
+            document.getElementById('imageUploadContent').classList.remove('hidden');
+            document.getElementById('imagePreview').classList.add('hidden');
+            document.getElementById('productImage').value = '';
+            
+            if (productId) {
+                const product = window.TailoringManager?.products?.find(p => p.id === productId);
+                if (product) {
+                    document.getElementById('productName').value = product.name || '';
+                    document.getElementById('productCategory').value = product.category || '';
+                    document.getElementById('productPrice').value = product.price || '';
+                    document.getElementById('productDescription').value = product.description || '';
+                    
+                    // Load image if exists
+                    if (product.imageUrl) {
+                        document.getElementById('imageUploadContent').classList.add('hidden');
+                        document.getElementById('imagePreview').classList.remove('hidden');
+                        document.getElementById('imagePreview').src = product.imageUrl;
+                    }
+                    
+                    // Add measurement fields
+                    if (product.requiredMeasurements) {
+                        product.requiredMeasurements.forEach(measurement => {
+                            addProductMeasurementField(measurement);
+                        });
+                    }
+                }
+            } else {
+                document.getElementById('productForm').reset();
+                // Add one empty measurement field by default
+                addProductMeasurementField();
+            }
+            
+            document.getElementById('productModal').classList.add('active');
+        }
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imageUploadContent').classList.add('hidden');
+                    document.getElementById('imagePreview').classList.remove('hidden');
+                    document.getElementById('imagePreview').src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function closeProductModal() {
+            document.getElementById('productModal').classList.remove('active');
+        }
+
+        function openExpenseModal(expenseId = null) {
+            document.getElementById('expenseModalTitle').textContent = expenseId ? 'Edit Expense' : 'Add Expense';
+            document.getElementById('expenseId').value = expenseId || '';
+            document.getElementById('deleteExpenseBtn').classList.toggle('hidden', !expenseId);
+            
+            if (expenseId) {
+                const expense = window.TailoringManager?.expenses?.find(e => e.id === expenseId);
+                if (expense) {
+                    document.getElementById('expenseCategory').value = expense.category || '';
+                    document.getElementById('expenseAmount').value = expense.amount || '';
+                    document.getElementById('expenseDescription').value = expense.description || '';
+                    document.getElementById('expenseDate').value = expense.date || '';
+                }
+            } else {
+                document.getElementById('expenseForm').reset();
+                document.getElementById('expenseDate').value = new Date().toISOString().split('T')[0];
+            }
+            
+            document.getElementById('expenseModal').classList.add('active');
+        }
+
+        function closeExpenseModal() {
+            document.getElementById('expenseModal').classList.remove('active');
+        }
+
+        function openInventoryModal(inventoryId = null) {
+            document.getElementById('inventoryModalTitle').textContent = inventoryId ? 'Edit Inventory Item' : 'Add Inventory Item';
+            document.getElementById('inventoryId').value = inventoryId || '';
+            document.getElementById('deleteInventoryBtn').classList.toggle('hidden', !inventoryId);
+            
+            if (inventoryId) {
+                const item = window.TailoringManager?.inventory?.find(i => i.id === inventoryId);
+                if (item) {
+                    document.getElementById('inventoryName').value = item.name || '';
+                    document.getElementById('inventoryCategory').value = item.category || '';
+                    document.getElementById('inventoryQuantity').value = item.quantity || '';
+                    document.getElementById('inventoryUnit').value = item.unit || '';
+                    document.getElementById('inventoryCost').value = item.cost || '';
+                    document.getElementById('inventorySupplier').value = item.supplier || '';
+                    document.getElementById('inventoryNotes').value = item.notes || '';
+                }
+            } else {
+                document.getElementById('inventoryForm').reset();
+            }
+            
+            document.getElementById('inventoryModal').classList.add('active');
+        }
+
+        function closeInventoryModal() {
+            document.getElementById('inventoryModal').classList.remove('active');
+        }
+
+        // Enhanced order detail view
+        function viewOrderDetails(orderId) {
+            const order = window.TailoringManager?.orders?.find(o => o.id === orderId);
+            if (!order) return;
+
+            const client = window.TailoringManager?.clients?.find(c => c.id === order.clientId);
+            const product = order.productId ? window.TailoringManager?.products?.find(p => p.id === order.productId) : null;
+
+            const content = document.getElementById('orderDetailContent');
+            content.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b pb-4">
+                    <p class="text-sm">
+                        <span class="font-semibold text-gray-700">Client:</span> 
+                        <span class="text-indigo-600 font-medium">${client?.name || 'Unknown Client'}</span>
+                    </p>
+                    <p class="text-sm">
+                        <span class="font-semibold text-gray-700">Phone:</span> 
+                        <span class="text-indigo-600">${client?.phone || 'N/A'}</span>
+                    </p>
+                    <p class="text-sm">
+                        <span class="font-semibold text-gray-700">Garment:</span> ${order.garmentType || 'N/A'}
+                    </p>
+                    <p class="text-sm">
+                        <span class="font-semibold text-gray-700">Order Type:</span> 
+                        <span class="font-medium text-gray-900">
+                            ${order.orderType === 'Alteration' ? '<i class="fas fa-hand-paper mr-1 text-red-500"></i>' : '<i class="fas fa-industry mr-1 text-blue-500"></i>'} 
+                            ${order.orderType}
+                        </span>
+                    </p>
+                    <p class="text-sm">
+                        <span class="font-semibold text-gray-700">Price:</span> 
+                        <span class="text-green-600 font-medium font-mono">MWK ${order.price ? order.price.toFixed(2) : '0.00'}</span>
+                    </p>
+                    <div class="flex items-center text-sm">
+                        <span class="font-semibold text-gray-700 mr-2">Status:</span>
+                        <span class="px-3 py-1 text-xs font-semibold rounded-full border ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-800 border-yellow-500' : order.status === 'in-progress' ? 'bg-blue-100 text-blue-800 border-blue-500' : order.status === 'completed' ? 'bg-green-100 text-green-800 border-green-500' : 'bg-purple-100 text-purple-800 border-purple-500'}">
+                            ${order.status ? order.status.replace('-', ' ') : 'pending'}
+                        </span>
+                    </div>
+                </div>
+
+                ${product ? `
+                    <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                        <h3 class="text-lg font-semibold text-blue-700 mb-2 flex items-center">
+                            <i class="fas fa-tshirt mr-2"></i> Design Information
+                        </h3>
+                        <div class="flex items-center space-x-4">
+                            ${product.imageUrl ? `
+                                <img src="${product.imageUrl}" alt="${product.name}" class="w-16 h-16 object-cover rounded-lg border border-blue-300">
+                            ` : ''}
+                            <div>
+                                <p class="font-semibold text-blue-800">${product.name}</p>
+                                <p class="text-sm text-blue-600">${product.category}</p>
+                                <p class="text-xs text-blue-500">${product.description || ''}</p>
+                            </div>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${order.orderType === 'Production Order' && Object.keys(order.measurements || {}).length > 0 ? `
+                    <div>
+                        <h3 class="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
+                            <i class="fas fa-ruler mr-2"></i> Measurements
+                        </h3>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-indigo-50 p-4 rounded-xl">
+                            ${Object.entries(order.measurements).map(([key, value]) => `
+                                <div class="p-2 bg-white rounded-lg shadow-sm">
+                                    <span class="text-xs font-medium text-gray-500 block">${key}:</span>
+                                    <span class="text-lg font-bold text-gray-900">${value} ${document.getElementById('measurementUnit').value === 'imperial' ? 'inches' : 'cm'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
+                        <i class="fas fa-clipboard-list mr-2"></i> Order Notes
+                    </h3>
+                    <div class="bg-gray-100 p-4 rounded-xl border border-gray-200">
+                        <p class="text-gray-700 whitespace-pre-wrap">${order.notes || 'No specific notes recorded for this order.'}</p>
+                    </div>
+                </div>
+
+                <div class="flex space-x-2 pt-4 border-t">
+                    <button onclick="editOrder('${order.id}')" class="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                        <i class="fas fa-edit mr-2"></i> Edit Order
+                    </button>
+                    <button onclick="closeOrderDetailModal()" class="flex-1 bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
+                        <i class="fas fa-times mr-2"></i> Close
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('orderDetailModal').classList.add('active');
+        }
+
+        function closeOrderDetailModal() {
+            document.getElementById('orderDetailModal').classList.remove('active');
+        }
+
+        // Edit functions
+        function editClient(clientId) {
+            openClientModal(clientId);
+        }
+
+        function editOrder(orderId) {
+            const order = window.TailoringManager?.orders?.find(o => o.id === orderId);
+            if (order) {
+                document.getElementById('orderModalTitle').textContent = 'Edit Order';
+                document.getElementById('orderId').value = orderId;
+                document.getElementById('deleteOrderBtn').classList.remove('hidden');
+                
+                document.getElementById('orderClientId').value = order.clientId || '';
+                document.getElementById('orderType').value = order.orderType || '';
+                document.getElementById('garmentType').value = order.garmentType || '';
+                document.getElementById('orderPrice').value = order.price || '';
+                document.getElementById('orderStatus').value = order.status || 'pending';
+                document.getElementById('orderNotes').value = order.notes || '';
+                document.getElementById('orderProductId').value = order.productId || '';
+                
+                // Load measurements
+                if (order.orderType === 'Production Order') {
+                    updateMeasurementFields(order.garmentType);
+                    setTimeout(() => {
+                        Object.entries(order.measurements || {}).forEach(([key, value]) => {
+                            const input = document.querySelector(`[data-key="${key}"]`);
+                            if (input) input.value = value;
+                        });
+                    }, 100);
+                }
+                
+                document.getElementById('orderModal').classList.add('active');
+            }
+        }
+
+        function editProduct(productId) {
+            openProductModal(productId);
+        }
+
+        // Utility functions
+        function useClientForOrder(clientId) {
+            switchTab('orders');
+            openOrderModal(clientId);
+        }
+
+        function addProductMeasurementField(value = '') {
+            const container = document.getElementById('productMeasurementsContainer');
+            const index = container.children.length;
+            const field = document.createElement('div');
+            field.className = 'flex space-x-2 items-center';
+            field.innerHTML = `
+                <input type="text" 
+                       value="${value}"
+                       placeholder="Measurement name (e.g., Chest, Waist)" 
+                       class="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <button type="button" 
+                        onclick="this.parentElement.remove()" 
+                        class="text-red-500 hover:text-red-700 transition p-2 rounded-full hover:bg-red-50">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(field);
+        }
+
+        function clearFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterOrderType').value = '';
+            document.getElementById('filterDateRange').value = '';
+            document.getElementById('filterMinPrice').value = '';
+            document.getElementById('filterMaxPrice').value = '';
+            window.TailoringManager.renderOrders();
+        }
+
+        // Close modals when clicking outside
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        });
+
+        // Export functions
+        function exportClients() {
+            window.TailoringManager.exportClients();
+        }
+
+        function exportOrders() {
+            window.TailoringManager.exportOrders();
+        }
+
+        function exportProducts() {
+            window.TailoringManager.exportProducts();
+        }
+
+        // Make functions globally available
+        window.addProductMeasurementField = addProductMeasurementField;
+        window.addClientMeasurementField = addClientMeasurementField;
+        window.useClientForOrder = useClientForOrder;
+        window.openOrderModal = openOrderModal;
+        window.openClientModal = openClientModal;
+        window.openProductModal = openProductModal;
+        window.openExpenseModal = openExpenseModal;
+        window.openInventoryModal = openInventoryModal;
+        window.editClient = editClient;
+        window.editOrder = editOrder;
+        window.editProduct = editProduct;
+        window.viewOrderDetails = viewOrderDetails;
+        window.closeOrderDetailModal = closeOrderDetailModal;
+        window.clearFilters = clearFilters;
+        window.handleImageUpload = handleImageUpload;
+    </script>
+</body>
+</html>
