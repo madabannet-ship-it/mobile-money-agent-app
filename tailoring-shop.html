@@ -1,2670 +1,458 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// Lucide icons for a clean look
-import { Gauge, User, Plus, Search, Trash2, Ruler, Save, ClipboardList, X, History, DollarSign, BarChart3, TrendingUp, Hand, Factory, MapPin, Pencil, Download, Filter, Calendar, AlertCircle, CheckCircle, Loader, Image, Package, ShoppingBag } from 'lucide-react';
-// Firebase imports
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, query, onSnapshot, addDoc, doc, deleteDoc, updateDoc, where, Timestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import React, { useState, useEffect } from 'react';
 
-// --- CONFIGURATION AND INITIALIZATION ---
-// Global variables provided by the Canvas environment
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+// Helper for unique IDs
+const generateId = () => `_${Math.random().toString(36).substr(2, 9)}`;
 
-// New Order Types
-const ORDER_TYPES = ['Production Order', 'Alteration'];
+// --- Mock Data ---
+const initialCustomers = [
+    { id: 'c1', name: 'John Doe', phone: '555-1234', email: 'john.doe@example.com', location: 'Blantyre' },
+    { id: 'c2', name: 'Jane Smith', phone: '555-5678', email: 'jane.smith@example.com', location: 'Limbe' },
+];
 
-// Measurement Units Configuration
-const MEASUREMENT_UNITS = {
-  imperial: 'inches',
-  metric: 'cm'
-};
+const initialGarments = [
+    { id: 'g1', name: 'Men\'s Shirt', price: 45000, measurements: ['Neck', 'Chest', 'Sleeve', 'Waist', 'Length'] },
+    { id: 'g2', name: 'Women\'s Dress', price: 75000, measurements: ['Bust', 'Waist', 'Hips', 'Length'] },
+];
 
-// Standard Measurement sets for different garments (only used for Production Orders)
-const measurementTemplates = {
-  Shirt: ['Neck', 'Chest', 'Waist', 'Shoulder', 'Sleeve', 'Length'],
-  Trousers: ['Waist', 'Hip', 'Inseam', 'Thigh', 'Cuff'],
-  Jacket: ['Chest', 'Waist', 'Shoulder', 'Sleeve', 'Back Length', 'Bicep'],
-  Kurta: ['Neck', 'Chest', 'Shoulder', 'Length', 'Knee Length'],
-  Other: ['Custom 1', 'Custom 2', 'Notes'],
-};
+const initialOrders = [
+    { id: 'o1', customerId: 'c1', garmentId: 'g1', status: 'In Progress', creationDate: '2023-10-26', deliveryDate: '2023-11-10', trialDate: '2023-11-05T14:00', measurements: { Neck: '16', Chest: '42', Sleeve: '25' }, price: 45000, paid: 20000, fabricPicture: 'https://placehold.co/100x100/EFEFEF/333?text=Fabric', styleImage: 'https://placehold.co/100x100/EFEFEF/333?text=Style' },
+    { id: 'o2', customerId: 'c2', garmentId: 'g2', status: 'Completed', creationDate: '2023-10-20', deliveryDate: '2023-11-01', trialDate: '2023-10-28T11:00', measurements: { Bust: '36', Waist: '28' }, price: 75000, paid: 75000, fabricPicture: 'https://placehold.co/100x100/EFEFEF/333?text=Fabric', styleImage: 'https://placehold.co/100x100/EFEFEF/333?text=Style' },
+];
 
-const statusColors = {
-    'Pending': 'bg-yellow-100 text-yellow-800 border-yellow-500',
-    'In Progress': 'bg-blue-100 text-blue-800 border-blue-500',
-    'Completed': 'bg-green-100 text-green-800 border-green-500',
-    'Review': 'bg-red-100 text-red-800 border-red-500',
-};
+const initialFabrics = [
+    { id: 'f1', name: 'Cotton', price: 8000 },
+    { id: 'f2', name: 'Silk', price: 15000 },
+];
 
-const CURRENCY_SYMBOL = 'MWK'; // Set the currency globally
+const initialEquipment = [
+    { id: 'e1', name: 'Sewing Machine', quantity: 3 },
+    { id: 'e2', name: 'Scissors', quantity: 10 },
+];
 
-// Utility function to convert measurements object to array for form state
-const objToArray = (obj) => {
-    return Object.entries(obj || {}).map(([key, value]) => ({ key, value }));
-};
+const initialWorkers = [
+    { id: 'w1', name: 'Alice', role: 'Lead Tailor' },
+    { id: 'w2', name: 'Bob', role: 'Apprentice' },
+];
 
-// Utility function to convert measurements array to object for Firestore
-const arrayToObj = (arr) => {
-    return (arr || [])
-        .filter(m => m.key && m.value)
-        .reduce((acc, current) => {
-            acc[current.key] = current.value;
-            return acc;
-        }, {});
-};
+const initialLoans = [
+    { id: 'l1', lender: 'Bank', amount: 5000000, paid: 1000000, date: '2023-01-15' },
+];
 
-// Validation functions - FIXED: Added safe optional chaining
-const validateOrder = (order) => {
-  const errors = {};
-  if (!order.clientId && order.isNewClient && !order.name?.trim()) {
-    errors.name = "Client name is required";
-  }
-  if (order.price <= 0) {
-    errors.price = "Valid price is required";
-  }
-  if (order.isNewClient && !order.phone?.trim()) {
-    errors.phone = "Phone number is required for new clients";
-  }
-  return errors;
-};
+const initialExpenses = [
+    { id: 'ex1', category: 'Rent', amount: 250000, date: '2023-10-01' },
+    { id: 'ex2', category: 'Utilities', amount: 75000, date: '2023-10-05' },
+];
 
-const validateClient = (client) => {
-  const errors = {};
-  if (!client.name?.trim()) {
-    errors.name = "Client name is required";
-  }
-  if (!client.phone?.trim()) {
-    errors.phone = "Phone number is required";
-  }
-  return errors;
-};
+// --- Main App Component ---
+export default function App() {
+    const [activeView, setActiveView] = useState('dashboard');
+    const [unit, setUnit] = useState('inches');
 
-const validateProduct = (product) => {
-  const errors = {};
-  if (!product.name?.trim()) {
-    errors.name = "Product name is required";
-  }
-  if (product.price <= 0) {
-    errors.price = "Valid price is required";
-  }
-  if (!product.category?.trim()) {
-    errors.category = "Category is required";
-  }
-  return errors;
-};
+    // --- State Management for all features ---
+    const [customers, setCustomers] = useState(initialCustomers);
+    const [orders, setOrders] = useState(initialOrders);
+    const [garments, setGarments] = useState(initialGarments);
+    const [fabrics, setFabrics] = useState(initialFabrics);
+    const [equipment, setEquipment] = useState(initialEquipment);
+    const [workers, setWorkers] = useState(initialWorkers);
+    const [loans, setLoans] = useState(initialLoans);
+    const [expenses, setExpenses] = useState(initialExpenses);
 
-// Debounce hook for search
-const useDebounce = (value, delay) => {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
+    const renderView = () => {
+        switch (activeView) {
+            case 'dashboard': return <DashboardView orders={orders} expenses={expenses} />;
+            case 'customers': return <CustomersView customers={customers} setCustomers={setCustomers} />;
+            case 'orders': return <OrdersView orders={orders} setOrders={setOrders} customers={customers} garments={garments} unit={unit} />;
+            case 'catalogue': return <GarmentCatalogueView garments={garments} setGarments={setGarments} />;
+            // FIX: Expense CRUD logic is now within FinancesView
+            case 'finances': return <FinancesView orders={orders} expenses={expenses} setExpenses={setExpenses} />;
+            
+            // FIX: Changed prop names to generic 'items' and 'setItems' to match createCrudView destructuring
+            case 'fabrics': return <FabricsView items={fabrics} setItems={setFabrics} />;
+            case 'equipment': return <EquipmentView items={equipment} setItems={setEquipment} />;
+            case 'workers': return <WorkersView items={workers} setItems={setWorkers} />;
+            case 'loans': return <LoansView items={loans} setItems={setLoans} />;
+            default: return <DashboardView orders={orders} expenses={expenses} />;
+        }
     };
-  }, [value, delay]);
 
-  return debouncedValue;
-};
-
-// Export utilities
-const exportToCSV = (data, filename) => {
-  if (!data.length) return;
-  
-  const headers = Object.keys(data[0]);
-  const csvContent = [
-    headers.join(','),
-    ...data.map(row => headers.map(header => {
-      const value = row[header];
-      return typeof value === 'string' && value.includes(',') ? `"${value}"` : value;
-    }).join(','))
-  ].join('\n');
-
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
-  link.click();
-  window.URL.revokeObjectURL(url);
-};
-
-// The main App component
-const App = () => {
-  const [db, setDb] = useState(null);
-  const [storage, setStorage] = useState(null);
-  const [auth, setAuth] = useState(null);
-  const [userId, setUserId] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [measurementUnit, setMeasurementUnit] = useState('imperial');
-  
-  const [clients, setClients] = useState([]); 
-  const [orders, setOrders] = useState([]); 
-  const [products, setProducts] = useState([]); // NEW: Products state
-  
-  const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const [activeTab, setActiveTab] = useState('orders'); 
-  
-  // Enhanced filtering state
-  const [filters, setFilters] = useState({
-    status: '',
-    orderType: '',
-    dateRange: '',
-    minPrice: '',
-    maxPrice: ''
-  });
-
-  // Notification state
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-
-  // NEW State for Client Profile Viewing/Editing
-  const [selectedClientForProfile, setSelectedClientForProfile] = useState(null); 
-  const [isClientProfileModalOpen, setIsClientProfileModalOpen] = useState(false);
-
-  // NEW State for Product Management
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
-
-  // State for adding a new order
-  const [newOrder, setNewOrder] = useState({ 
-    clientId: '', 
-    name: '', 
-    phone: '', 
-    garment: 'Shirt', 
-    orderType: 'Production Order', 
-    measurements: {}, 
-    notes: '',
-    status: 'Pending',
-    price: 0,
-    isNewClient: true,
-    selectedProductId: '', // NEW: Selected product for order
-  });
-
-  // Loading states
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [deletingId, setDeletingId] = useState(null);
-  const [uploadingImage, setUploadingImage] = useState(false); // NEW: Image upload state
-  
-  // State for the Detail Modal (holds selected Order data)
-  const [selectedOrder, setSelectedOrder] = useState(null); 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Show notification function
-  const showNotification = (message, type = 'success') => {
-    setNotification({ show: true, message, type });
-    setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), 5000);
-  };
-
-  // --- FIREBASE INITIALIZATION AND AUTHENTICATION ---
-  useEffect(() => {
-    if (Object.keys(firebaseConfig).length === 0) {
-      console.error("Firebase config is missing.");
-      setIsLoading(false);
-      showNotification("Firebase configuration error", "error");
-      return;
-    }
-
-    try {
-      const app = initializeApp(firebaseConfig);
-      const firestore = getFirestore(app);
-      const firebaseStorage = getStorage(app);
-      const firebaseAuth = getAuth(app);
-      setDb(firestore);
-      setStorage(firebaseStorage);
-      setAuth(firebaseAuth);
-
-      const setupAuth = async () => {
-        try {
-          if (initialAuthToken) {
-            await signInWithCustomToken(firebaseAuth, initialAuthToken);
-          } else {
-            await signInAnonymously(firebaseAuth);
-          }
-        } catch (error) {
-          console.error("Firebase Auth failed, attempting anonymous sign-in:", error);
-          await signInAnonymously(firebaseAuth);
-        }
-      };
-      
-      onAuthStateChanged(firebaseAuth, (user) => {
-        if (user) {
-          setUserId(user.uid);
-          console.log(`Authenticated as user: ${user.uid}`);
-        } else {
-          setUserId(null);
-        }
-        setIsLoading(false);
-      });
-
-      setupAuth();
-    } catch (e) {
-      console.error("Error initializing Firebase:", e);
-      setIsLoading(false);
-      showNotification("Failed to initialize application", "error");
-    }
-  }, []); 
-
-  // --- FIRESTORE DATA LISTENERS ---
-  useEffect(() => {
-    if (!db || !userId) return;
-
-    // 1. Clients Listener
-    const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
-    const clientsCollectionRef = collection(db, clientCollectionPath);
-    const qClients = query(clientsCollectionRef, where("creatorId", "==", userId));
-
-    const unsubscribeClients = onSnapshot(qClients, (snapshot) => {
-      const clientList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        measurements: doc.data().measurements || {}, 
-      }));
-      setClients(clientList);
-    }, (error) => {
-      console.error("Error fetching clients:", error);
-      showNotification("Error loading clients", "error");
-    });
-    
-    // 2. Orders Listener
-    const orderCollectionPath = `artifacts/${appId}/public/data/orders`;
-    const ordersCollectionRef = collection(db, orderCollectionPath);
-
-    const qOrders = query(ordersCollectionRef, where("creatorId", "==", userId));
-
-    const unsubscribeOrders = onSnapshot(qOrders, (snapshot) => {
-      const orderList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        price: parseFloat(doc.data().price) || 0, // Ensure price is number
-      }));
-      setOrders(orderList);
-    }, (error) => {
-      console.error("Error fetching orders:", error);
-      showNotification("Error loading orders", "error");
-    });
-
-    // 3. NEW: Products Listener
-    const productCollectionPath = `artifacts/${appId}/public/data/products`;
-    const productsCollectionRef = collection(db, productCollectionPath);
-    const qProducts = query(productsCollectionRef, where("creatorId", "==", userId));
-
-    const unsubscribeProducts = onSnapshot(qProducts, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        price: parseFloat(doc.data().price) || 0,
-        requiredMeasurements: doc.data().requiredMeasurements || [],
-      }));
-      setProducts(productList);
-    }, (error) => {
-      console.error("Error fetching products:", error);
-      showNotification("Error loading products", "error");
-    });
-
-    return () => {
-        unsubscribeClients();
-        unsubscribeOrders();
-        unsubscribeProducts();
-    }; // Cleanup all listeners
-  }, [db, userId]); 
-
-  // Helper function to get client info from an ID
-  const getClientInfo = useCallback((clientId) => {
-      const client = clients.find(c => c.id === clientId);
-      return {
-          name: client ? client.name : 'Unknown Client',
-          phone: client ? client.phone : 'N/A',
-          location: client ? client.location : 'N/A',
-          measurements: client ? client.measurements : {},
-      };
-  }, [clients]);
-
-  // Helper function to get product info from an ID
-  const getProductInfo = useCallback((productId) => {
-      const product = products.find(p => p.id === productId);
-      return product || null;
-  }, [products]);
-
-  // --- DATA MANAGEMENT FUNCTIONS ---
-
-  // Handle input changes for the new order form
-  const handleNewOrderChange = (field, value) => {
-    const finalValue = field === 'price' ? parseFloat(value) || 0 : value;
-    setNewOrder(prev => ({ ...prev, [field]: finalValue }));
-  };
-
-  // Handle measurement input changes (only for production orders)
-  const handleOrderMeasurementChange = (key, value) => {
-    setNewOrder(prev => ({
-      ...prev,
-      measurements: {
-        ...prev.measurements,
-        [key]: value,
-      }
-    }));
-  };
-
-  // NEW: Handle product selection in order form
-  const handleProductSelection = (productId) => {
-    if (!productId) {
-      // Clear product selection
-      setNewOrder(prev => ({
-        ...prev,
-        selectedProductId: '',
-        garment: 'Shirt',
-        measurements: {},
-        price: 0
-      }));
-      return;
-    }
-
-    const selectedProduct = getProductInfo(productId);
-    if (selectedProduct) {
-      // Auto-fill order details from product
-      const clientMeasurements = newOrder.clientId ? getClientInfo(newOrder.clientId).measurements : {};
-      
-      // Pre-fill measurements from client profile if available
-      const autoFilledMeasurements = {};
-      selectedProduct.requiredMeasurements.forEach(measurement => {
-        if (clientMeasurements[measurement]) {
-          autoFilledMeasurements[measurement] = clientMeasurements[measurement];
-        }
-      });
-
-      setNewOrder(prev => ({
-        ...prev,
-        selectedProductId: productId,
-        garment: selectedProduct.category,
-        measurements: autoFilledMeasurements,
-        price: selectedProduct.price,
-        notes: selectedProduct.description ? `Design: ${selectedProduct.name}\n${selectedProduct.description}` : `Design: ${selectedProduct.name}`
-      }));
-    }
-  };
-  
-  // NEW: Function to handle updating an existing client profile
-  const handleUpdateClient = async (clientId, updatedData) => {
-      if (!db || !userId) {
-          console.error("Database or User not ready.");
-          showNotification("Database not ready", "error");
-          return;
-      }
-      
-      const errors = validateClient(updatedData);
-      if (Object.keys(errors).length > 0) {
-        showNotification("Please fix validation errors", "error");
-        return;
-      }
-
-      setIsSubmitting(true);
-      try {
-          const clientDocRef = doc(db, `artifacts/${appId}/public/data/clients`, clientId);
-          await updateDoc(clientDocRef, {
-              ...updatedData,
-              updatedAt: Timestamp.now(),
-          });
-          console.log(`Client ${clientId} successfully updated.`);
-          showNotification("Client updated successfully");
-      } catch (error) {
-          console.error("Error updating client: ", error);
-          showNotification("Error updating client", "error");
-      } finally {
-        setIsSubmitting(false);
-      }
-  };
-
-  // Function to create a NEW client profile
-  const handleCreateClient = async (clientData) => {
-    if (!db || !userId) {
-        console.error("Database or User not ready.");
-        showNotification("Database not ready", "error");
-        return;
-    }
-    
-    const errors = validateClient(clientData);
-    if (Object.keys(errors).length > 0) {
-      showNotification("Please fix validation errors", "error");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-        const clientToAdd = {
-            name: (clientData.name || '').trim(),
-            phone: (clientData.phone || '').trim(),
-            location: (clientData.location || 'N/A').trim(),
-            measurements: clientData.measurements || {}, 
-            notes: (clientData.notes || '').trim(),
-            createdAt: Timestamp.now(),
-            creatorId: userId,
-        };
-        const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
-        await addDoc(collection(db, clientCollectionPath), clientToAdd);
-        console.log("Client successfully added.");
-        showNotification("Client added successfully");
-        setSearchTerm('');
-    } catch (error) {
-        console.error("Error adding client: ", error);
-        showNotification("Error adding client", "error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // NEW: Function to create a product/design
-  const handleCreateProduct = async (productData, imageFile) => {
-    if (!db || !userId || !storage) {
-        console.error("Database, Storage or User not ready.");
-        showNotification("System not ready", "error");
-        return;
-    }
-    
-    const errors = validateProduct(productData);
-    if (Object.keys(errors).length > 0) {
-      showNotification("Please fix validation errors", "error");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setUploadingImage(true);
-    try {
-        let imageUrl = '';
-        
-        // Upload image if provided
-        if (imageFile) {
-            const imageRef = ref(storage, `products/${userId}/${Date.now()}_${imageFile.name}`);
-            await uploadBytes(imageRef, imageFile);
-            imageUrl = await getDownloadURL(imageRef);
-        }
-
-        const productToAdd = {
-            name: (productData.name || '').trim(),
-            description: (productData.description || '').trim(),
-            category: (productData.category || '').trim(),
-            price: parseFloat(productData.price) || 0,
-            requiredMeasurements: productData.requiredMeasurements || [],
-            imageUrl: imageUrl,
-            createdAt: Timestamp.now(),
-            creatorId: userId,
-        };
-        
-        const productCollectionPath = `artifacts/${appId}/public/data/products`;
-        await addDoc(collection(db, productCollectionPath), productToAdd);
-        console.log("Product successfully added.");
-        showNotification("Product added successfully");
-        setIsAddProductModalOpen(false);
-    } catch (error) {
-        console.error("Error adding product: ", error);
-        showNotification("Error adding product", "error");
-    } finally {
-      setIsSubmitting(false);
-      setUploadingImage(false);
-    }
-  };
-
-  // NEW: Function to update a product
-  const handleUpdateProduct = async (productId, productData, imageFile) => {
-    if (!db || !userId || !storage) {
-        console.error("Database, Storage or User not ready.");
-        showNotification("System not ready", "error");
-        return;
-    }
-    
-    const errors = validateProduct(productData);
-    if (Object.keys(errors).length > 0) {
-      showNotification("Please fix validation errors", "error");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setUploadingImage(true);
-    try {
-        let imageUrl = productData.imageUrl || '';
-        
-        // Upload new image if provided
-        if (imageFile) {
-            const imageRef = ref(storage, `products/${userId}/${Date.now()}_${imageFile.name}`);
-            await uploadBytes(imageRef, imageFile);
-            imageUrl = await getDownloadURL(imageRef);
-        }
-
-        const productToUpdate = {
-            name: (productData.name || '').trim(),
-            description: (productData.description || '').trim(),
-            category: (productData.category || '').trim(),
-            price: parseFloat(productData.price) || 0,
-            requiredMeasurements: productData.requiredMeasurements || [],
-            imageUrl: imageUrl,
-            updatedAt: Timestamp.now(),
-        };
-        
-        const productDocRef = doc(db, `artifacts/${appId}/public/data/products`, productId);
-        await updateDoc(productDocRef, productToUpdate);
-        console.log("Product successfully updated.");
-        showNotification("Product updated successfully");
-        setIsProductModalOpen(false);
-    } catch (error) {
-        console.error("Error updating product: ", error);
-        showNotification("Error updating product", "error");
-    } finally {
-      setIsSubmitting(false);
-      setUploadingImage(false);
-    }
-  };
-
-  // NEW: Function to delete a product
-  const handleDeleteProduct = async (productId, productName) => {
-    if (!db || !userId) {
-        console.error("Database or User not ready.");
-        showNotification("Database not ready", "error");
-        return;
-    }
-
-    if (window.confirm(`Are you sure you want to delete the product "${productName}"?`)) {
-        setDeletingId(productId);
-        try {
-            const productDocRef = doc(db, `artifacts/${appId}/public/data/products`, productId);
-            await deleteDoc(productDocRef);
-            console.log(`Product ${productName} deleted.`);
-            showNotification("Product deleted successfully");
-        } catch (error) {
-            console.error("Error deleting product: ", error);
-            showNotification("Error deleting product", "error");
-        } finally {
-          setDeletingId(null);
-        }
-    }
-  };
-
-  // Handle adding a new order (includes logic for adding a new client first)
-  const handleAddOrder = async (e) => {
-    e.preventDefault();
-    if (!db || !userId) {
-      console.error("Database or User not ready.");
-      showNotification("Database not ready", "error");
-      return;
-    }
-    
-    const errors = validateOrder(newOrder);
-    if (Object.keys(errors).length > 0) {
-      showNotification("Please fix validation errors", "error");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      let finalClientId = newOrder.clientId;
-
-      // 1. Add new client if requested
-      if (newOrder.isNewClient) {
-        const clientData = {
-          name: (newOrder.name || '').trim(),
-          phone: (newOrder.phone || '').trim(),
-          location: 'N/A',
-          measurements: {}, 
-          createdAt: Timestamp.now(),
-          creatorId: userId,
-        };
-        const clientCollectionPath = `artifacts/${appId}/public/data/clients`;
-        const docRef = await addDoc(collection(db, clientCollectionPath), clientData);
-        finalClientId = docRef.id; // Use the new client's ID
-      }
-
-      // 2. Add the order
-      const orderData = {
-        clientId: finalClientId,
-        garment: newOrder.garment,
-        orderType: newOrder.orderType,
-        measurements: newOrder.orderType === 'Production Order' ? newOrder.measurements : {},
-        notes: (newOrder.notes || '').trim(),
-        status: newOrder.status,
-        price: parseFloat(newOrder.price) || 0,
-        productId: newOrder.selectedProductId || null, // NEW: Store product reference
-        createdAt: Timestamp.now(),
-        creatorId: userId,
-      };
-
-      const orderCollectionPath = `artifacts/${appId}/public/data/orders`;
-      await addDoc(collection(db, orderCollectionPath), orderData);
-
-      // Reset form and switch tab
-      setNewOrder({ clientId: '', name: '', phone: '', garment: 'Shirt', orderType: 'Production Order', measurements: {}, notes: '', status: 'Pending', price: 0, isNewClient: true, selectedProductId: '' });
-      setActiveTab('orders');
-      console.log("Order successfully added.");
-      showNotification("Order added successfully");
-
-    } catch (error) {
-      console.error("Error adding order: ", error);
-      showNotification("Error adding order", "error");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  // Handle deleting an order 
-  const handleDeleteOrder = async (id, clientName) => {
-    if (!db || !userId) {
-      console.error("Database or User not ready.");
-      showNotification("Database not ready", "error");
-      return;
-    }
-
-    if (window.confirm(`Are you sure you want to delete the order for ${clientName}?`)) {
-        setDeletingId(id);
-        try {
-            const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, id);
-            await deleteDoc(orderDocRef);
-            console.log("Order successfully deleted.");
-            showNotification("Order deleted successfully");
-        } catch (error) {
-            console.error("Error deleting order: ", error);
-            showNotification("Error deleting order", "error");
-        } finally {
-          setDeletingId(null);
-        }
-    }
-  };
-  
-  // Handle deleting a client (and all associated orders)
-  const handleDeleteClient = async (id, name) => {
-      if (!db || !userId) {
-          console.error("Database or User not ready.");
-          showNotification("Database not ready", "error");
-          return;
-      }
-
-      const associatedOrders = orders.filter(o => o.clientId === id);
-      const confirmationMessage = associatedOrders.length > 0
-          ? `WARNING: This client has ${associatedOrders.length} active order(s). Deleting the client (${name}) will delete all associated orders. Are you sure?`
-          : `Are you sure you want to delete client ${name}?`;
-
-      if (window.confirm(confirmationMessage)) {
-          setDeletingId(id);
-          try {
-              // 1. Delete client document
-              const clientDocRef = doc(db, `artifacts/${appId}/public/data/clients`, id);
-              await deleteDoc(clientDocRef);
-              console.log(`Client ${name} deleted.`);
-
-              // 2. Delete associated orders
-              await Promise.all(associatedOrders.map(async (order) => {
-                  const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, order.id);
-                  await deleteDoc(orderDocRef);
-              }));
-              
-              console.log(`${associatedOrders.length} associated orders deleted.`);
-              showNotification("Client and associated orders deleted successfully");
-
-          } catch (error) {
-              console.error("Error deleting client or associated orders: ", error);
-              showNotification("Error deleting client", "error");
-          } finally {
-            setDeletingId(null);
-          }
-      }
-  };
-
-  // Handle status update (for order)
-  const handleUpdateStatus = async (id, newStatus) => {
-    if (!db) {
-        console.error("Database not ready.");
-        showNotification("Database not ready", "error");
-        return;
-    }
-    try {
-        const orderDocRef = doc(db, `artifacts/${appId}/public/data/orders`, id);
-        await updateDoc(orderDocRef, {
-            status: newStatus,
-            updatedAt: Timestamp.now()
-        });
-        // If modal is open, update selected order's state too
-        if (selectedOrder && selectedOrder.id === id) {
-            setSelectedOrder(prev => ({ ...prev, status: newStatus }));
-        }
-        console.log(`Status updated to: ${newStatus}`);
-        showNotification("Status updated successfully");
-    } catch (error) {
-        console.error("Error updating status:", error);
-        showNotification("Error updating status", "error");
-    }
-  };
-
-  // Enhanced filtering with memoization
-  const filteredOrders = useMemo(() => {
-    let filtered = orders.filter(o => {
-      const info = getClientInfo(o.clientId);
-      const matchesSearch = info.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-             info.phone.includes(debouncedSearchTerm);
-      
-      const matchesFilters = 
-        (!filters.status || o.status === filters.status) &&
-        (!filters.orderType || o.orderType === filters.orderType) &&
-        (!filters.minPrice || o.price >= parseFloat(filters.minPrice)) &&
-        (!filters.maxPrice || o.price <= parseFloat(filters.maxPrice));
-
-      return matchesSearch && matchesFilters;
-    });
-
-    // Date range filtering
-    if (filters.dateRange) {
-      const now = new Date();
-      const rangeMap = {
-        'today': new Date(now.getFullYear(), now.getMonth(), now.getDate()),
-        'week': new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-        'month': new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()),
-      };
-      
-      if (rangeMap[filters.dateRange]) {
-        filtered = filtered.filter(o => 
-          o.createdAt?.toDate() >= rangeMap[filters.dateRange]
-        );
-      }
-    }
-
-    return filtered;
-  }, [orders, debouncedSearchTerm, filters, getClientInfo]);
-  
-  // Filter clients based on name or phone
-  const filteredClients = useMemo(() => 
-    clients.filter(c => 
-      c.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-      c.phone.includes(debouncedSearchTerm)
-    ), [clients, debouncedSearchTerm]
-  );
-
-  // NEW: Filter products based on name or category
-  const filteredProducts = useMemo(() => 
-    products.filter(p => 
-      p.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-      p.category.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-    ), [products, debouncedSearchTerm]
-  );
-
-  // Export functions
-  const exportOrders = () => {
-    const exportData = filteredOrders.map(order => {
-      const client = getClientInfo(order.clientId);
-      const product = order.productId ? getProductInfo(order.productId) : null;
-      return {
-        'Order ID': order.id,
-        'Client Name': client.name,
-        'Client Phone': client.phone,
-        'Garment': order.garment,
-        'Order Type': order.orderType,
-        'Status': order.status,
-        'Price': order.price,
-        'Product Design': product ? product.name : 'Custom',
-        'Created Date': order.createdAt?.toDate().toLocaleDateString(),
-        'Notes': order.notes
-      };
-    });
-    exportToCSV(exportData, 'orders');
-    showNotification("Orders exported successfully");
-  };
-
-  const exportClients = () => {
-    const exportData = filteredClients.map(client => ({
-      'Client ID': client.id,
-      'Name': client.name,
-      'Phone': client.phone,
-      'Location': client.location,
-      'Total Orders': orders.filter(o => o.clientId === client.id).length,
-      'Created Date': client.createdAt?.toDate().toLocaleDateString(),
-      'Notes': client.notes
-    }));
-    exportToCSV(exportData, 'clients');
-    showNotification("Clients exported successfully");
-  };
-
-  // NEW: Export products
-  const exportProducts = () => {
-    const exportData = filteredProducts.map(product => ({
-      'Product ID': product.id,
-      'Name': product.name,
-      'Category': product.category,
-      'Price': product.price,
-      'Required Measurements': product.requiredMeasurements.join(', '),
-      'Created Date': product.createdAt?.toDate().toLocaleDateString(),
-      'Description': product.description
-    }));
-    exportToCSV(exportData, 'products');
-    showNotification("Products exported successfully");
-  };
-
-  // Clear filters
-  const clearFilters = () => {
-    setFilters({
-      status: '',
-      orderType: '',
-      dateRange: '',
-      minPrice: '',
-      maxPrice: ''
-    });
-  };
-
-  // --- UI RENDER COMPONENTS ---
-
-  const Header = () => (
-    <header className="bg-indigo-700 text-white p-4 shadow-xl sticky top-0 z-20 rounded-b-lg">
-      <div className="flex justify-between items-center max-w-5xl mx-auto">
-        <h1 className="text-2xl font-extrabold flex items-center">
-          <Ruler className="mr-3 h-6 w-6 text-yellow-300" /> Tailor Shop Manager
-        </h1>
-        <div className="flex items-center space-x-4">
-          <select
-            value={measurementUnit}
-            onChange={(e) => setMeasurementUnit(e.target.value)}
-            className="bg-indigo-600 border border-indigo-500 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-yellow-300"
-          >
-            <option value="imperial">Inches</option>
-            <option value="metric">Centimeters</option>
-          </select>
-          <div className="text-xs opacity-75 hidden sm:block">
-            <p>Manager ID: <span className="font-mono text-yellow-300">{userId || 'Loading...'}</span></p>
-          </div>
+    return (
+        <div className="bg-gray-100 min-h-screen font-sans text-gray-800 pb-24">
+            <div className="container mx-auto p-4 max-w-lg">
+                <Header unit={unit} setUnit={setUnit} />
+                <main className="mt-4">{renderView()}</main>
+                <NavBar activeView={activeView} setActiveView={setActiveView} />
+            </div>
         </div>
-      </div>
+    );
+}
+
+// --- Generic Components ---
+const Header = ({ unit, setUnit }) => (
+    <header className="bg-white p-4 rounded-lg shadow-md flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-purple-700">TailorFlow</h1>
+        <div className="flex items-center space-x-2">
+            <span className="text-sm font-medium">Units:</span>
+            <select value={unit} onChange={(e) => setUnit(e.target.value)} className="p-1 border rounded-md">
+                <option value="inches">Inches</option>
+                <option value="cm">cm</option>
+            </select>
+        </div>
     </header>
-  );
+);
 
-  // Notification Component
-  const Notification = () => {
-    if (!notification.show) return null;
-
+const NavBar = ({ activeView, setActiveView }) => {
+    const navItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
+        { id: 'customers', label: 'Customers', icon: '👥' },
+        { id: 'orders', label: 'Orders', icon: '✂️' },
+        { id: 'catalogue', label: 'Catalogue', icon: '👚' },
+        { id: 'finances', label: 'Finances', icon: '💰' },
+        { id: 'fabrics', label: 'Fabrics', icon: '🧵' },
+        { id: 'equipment', label: 'Equipment', icon: '🛠️' },
+        { id: 'workers', label: 'Workers', icon: '👷' },
+        { id: 'loans', label: 'Loans', icon: '🏦' },
+    ];
     return (
-      <div className={`fixed top-20 right-4 z-50 max-w-sm ${
-        notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'
-      } text-white p-4 rounded-lg shadow-lg transform transition-transform duration-300`}>
-        <div className="flex items-center">
-          {notification.type === 'error' ? (
-            <AlertCircle className="h-5 w-5 mr-2" />
-          ) : (
-            <CheckCircle className="h-5 w-5 mr-2" />
-          )}
-          <span>{notification.message}</span>
-        </div>
-      </div>
+        <nav className="fixed bottom-0 left-0 right-0 bg-white shadow-lg overflow-x-auto"><div className="flex justify-around max-w-lg mx-auto">{navItems.map(item => (<button key={item.id} onClick={() => setActiveView(item.id)} className={`flex flex-col items-center justify-center p-2 w-full ${activeView === item.id ? 'text-purple-700' : 'text-gray-500'}`}><span className="text-2xl">{item.icon}</span><span className="text-xs">{item.label}</span></button>))}</div></nav>
     );
-  };
+};
+const Card = ({ children, className }) => (<div className={`bg-white p-4 rounded-lg shadow-md mb-4 ${className}`}>{children}</div>);
+const Button = ({ onClick, children, className = 'bg-purple-600 hover:bg-purple-700 text-white', type = 'button' }) => (<button type={type} onClick={onClick} className={`w-full py-2 px-4 rounded-lg font-semibold transition ${className}`}>{children}</button>);
+const ViewHeader = ({ title, onAdd }) => (<div className="flex justify-between items-center mb-4"><h2 className="text-xl font-semibold">{title}</h2><Button onClick={onAdd} className="w-auto px-4 py-1 text-sm bg-purple-500 hover:bg-purple-600">+</Button></div>);
+const CrudListItem = ({ onEdit, onDelete, children }) => (<div className="flex justify-between items-center"><div>{children}</div><div><button onClick={onEdit} className="text-blue-500 mr-2">Edit</button><button onClick={onDelete} className="text-red-500">Delete</button></div></div>);
+const FormButtons = ({ onCancel }) => (<div className="flex space-x-2 mt-4"><Button onClick={onCancel} className="bg-gray-300 hover:bg-gray-400 text-gray-800">Cancel</Button><Button type="submit">Save</Button></div>);
 
-  // Order Detail Modal (Updated with product information)
-  const OrderDetailModal = ({ order, onClose, onUpdateStatus }) => {
-    if (!order) return null;
-    const { name: clientName, phone: clientPhone } = getClientInfo(order.clientId);
-    const product = order.productId ? getProductInfo(order.productId) : null;
-
+// --- Dashboard View ---
+const DashboardView = ({ orders, expenses }) => {
+    const totalIncome = orders.reduce((sum, order) => sum + order.paid, 0);
+    const totalExpected = orders.reduce((sum, order) => sum + order.price, 0);
+    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-100 transition-all duration-300">
-                
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
-                        <User className="mr-3 h-6 w-6" /> Order for {clientName}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                        <X className="h-6 w-6" />
-                    </button>
-                </div>
-
-                <div className="p-6 space-y-6">
-                    {/* Basic Info */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b pb-4">
-                        <p className="text-sm">
-                            <span className="font-semibold text-gray-700">Client Phone:</span> <span className="text-indigo-600 font-medium">{clientPhone}</span>
-                        </p>
-                        <p className="text-sm">
-                            <span className="font-semibold text-gray-700">Garment:</span> {order.garment || 'N/A'}
-                        </p>
-                        <p className="text-sm">
-                            <span className="font-semibold text-gray-700">Order Type:</span> 
-                            <span className="font-medium text-gray-900 ml-2">
-                                {order.orderType === 'Alteration' ? <Hand className="h-4 w-4 inline mr-1 text-red-500"/> : <Factory className="h-4 w-4 inline mr-1 text-blue-500"/>} 
-                                {order.orderType}
-                            </span>
-                        </p>
-                        <p className="text-sm">
-                            <span className="font-semibold text-gray-700">Order Date:</span> {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A'}
-                        </p>
-                        <p className="text-sm">
-                            <span className="font-semibold text-gray-700">Price:</span> <span className="text-green-600 font-medium font-mono">{CURRENCY_SYMBOL} {order.price ? order.price.toFixed(2) : '0.00'}</span>
-                        </p>
-                        <div className="flex items-center text-sm">
-                            <span className="font-semibold text-gray-700 mr-2">Status:</span>
-                            <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[order.status]}`}>
-                                {order.status}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Product Design Information */}
-                    {product && (
-                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                            <h3 className="text-lg font-semibold text-blue-700 mb-2 flex items-center">
-                                <ShoppingBag className="h-5 w-5 mr-2" /> Design Information
-                            </h3>
-                            <div className="flex items-center space-x-4">
-                                {product.imageUrl && (
-                                    <img 
-                                        src={product.imageUrl} 
-                                        alt={product.name}
-                                        className="w-16 h-16 object-cover rounded-lg border border-blue-300"
-                                    />
-                                )}
-                                <div>
-                                    <p className="font-semibold text-blue-800">{product.name}</p>
-                                    <p className="text-sm text-blue-600">{product.category}</p>
-                                    <p className="text-xs text-blue-500">{product.description}</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Status Update Dropdown */}
-                    <div className="flex items-center space-x-3">
-                        <label htmlFor="status-select" className="text-sm font-medium text-gray-700">Update Status:</label>
-                        <select
-                            id="status-select"
-                            value={order.status}
-                            onChange={(e) => onUpdateStatus(order.id, e.target.value)}
-                            className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                        >
-                            {Object.keys(statusColors).map(status => (
-                                <option key={status} value={status}>{status}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Measurements (Only show for Production Order) */}
-                    {order.orderType === 'Production Order' && Object.keys(order.measurements).length > 0 && (
-                        <div>
-                            <h3 className="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
-                                <Ruler className="h-5 w-5 mr-2" /> Key Measurements ({MEASUREMENT_UNITS[measurementUnit]})
-                            </h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-indigo-50 p-4 rounded-xl">
-                                {Object.entries(order.measurements).map(([key, value]) => (
-                                    <div key={key} className="p-2 bg-white rounded-lg shadow-sm">
-                                        <span className="text-xs font-medium text-gray-500 block">{key}:</span>
-                                        <span className="text-lg font-bold text-gray-900">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* Notes/Design Details */}
-                    <div>
-                        <h3 className="text-xl font-semibold text-indigo-600 mb-3 flex items-center">
-                            <ClipboardList className="h-5 w-5 mr-2" /> Order Notes
-                        </h3>
-                        <div className="bg-gray-100 p-4 rounded-xl border border-gray-200">
-                            <p className="text-gray-700 whitespace-pre-wrap">{order.notes || 'No specific notes recorded for this order.'}</p>
-                        </div>
-                    </div>
-                </div>
+        <div>
+            <h2 className="text-xl font-semibold mb-4">Dashboard</h2>
+            <div className="grid grid-cols-2 gap-4">
+                <Card><h3 className="font-bold text-lg text-green-600">MWK {totalIncome.toLocaleString()}</h3><p className="text-sm text-gray-500">Total Income</p></Card>
+                <Card><h3 className="font-bold text-lg text-blue-600">MWK {totalExpected.toLocaleString()}</h3><p className="text-sm text-gray-500">Expected Income</p></Card>
+                <Card><h3 className="font-bold text-lg text-red-600">MWK {totalExpenses.toLocaleString()}</h3><p className="text-sm text-gray-500">Total Expenses</p></Card>
+                <Card><h3 className="font-bold text-lg text-purple-600">MWK {(totalIncome - totalExpenses).toLocaleString()}</h3><p className="text-sm text-gray-500">Net Profit</p></Card>
             </div>
+             <Card className="mt-4">
+                <h3 className="font-semibold mb-2">Upcoming Deadlines</h3>
+                <ul>{orders.filter(o => o.status !== 'Delivered' && o.status !== 'Completed').slice(0, 3).map(order => (<li key={order.id} className="text-sm border-b py-1">Order #{order.id.slice(-4)} due on {order.deliveryDate}</li>))}</ul>
+            </Card>
         </div>
     );
-  };
-  
-  // NEW: Product Modal Component - FIXED: Added safe default values
-  const ProductModal = ({ product, onClose, onSave, onDelete }) => {
-    const [isEditing, setIsEditing] = useState(product.isNew);
-    const [name, setName] = useState(product.name || '');
-    const [description, setDescription] = useState(product.description || '');
-    const [category, setCategory] = useState(product.category || '');
-    const [price, setPrice] = useState(product.price || 0);
-    const [requiredMeasurements, setRequiredMeasurements] = useState(product.requiredMeasurements || []);
-    const [imageFile, setImageFile] = useState(null);
-    const [imagePreview, setImagePreview] = useState(product.imageUrl || '');
-    const [errors, setErrors] = useState({});
-
-    const handleAddMeasurement = () => {
-        setRequiredMeasurements(prev => [...prev, '']);
-    };
-
-    const handleMeasurementChange = (index, value) => {
-        const newMeasurements = [...requiredMeasurements];
-        newMeasurements[index] = value;
-        setRequiredMeasurements(newMeasurements);
-    };
-
-    const handleRemoveMeasurement = (index) => {
-        setRequiredMeasurements(prev => prev.filter((_, i) => i !== index));
-    };
-
-    const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                setImagePreview(e.target.result);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // FIXED: Added safe default values and error handling
-    const handleSaveSubmit = (e) => {
-        e.preventDefault();
-        
-        // Ensure we have safe defaults for all fields
-        const productData = {
-            name: (name || '').trim(),
-            description: (description || '').trim(),
-            category: (category || '').trim(),
-            price: parseFloat(price) || 0,
-            requiredMeasurements: (requiredMeasurements || []).filter(m => (m || '').trim() !== ''),
-            imageUrl: imagePreview || ''
-        };
-        
-        const validationErrors = validateProduct(productData);
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
-        if (product.isNew) {
-            onSave(productData, imageFile);
-        } else {
-            onSave(product.id, productData, imageFile);
-        }
-        setErrors({});
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
-                        <Package className="mr-3 h-6 w-6" /> {isEditing ? (product.isNew ? 'Add New Design' : 'Edit Design') : 'Design Details'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                        <X className="h-6 w-6" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSaveSubmit} className="p-6 space-y-6">
-                    
-                    {/* Actions */}
-                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                        {!product.isNew && (
-                            <div className="space-x-2">
-                                {!isEditing ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsEditing(true)}
-                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition shadow-md"
-                                    >
-                                        <Pencil className="h-4 w-4 mr-2" /> Edit Design
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setIsEditing(false); setErrors({}); onClose(); }}
-                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition shadow-md"
-                                    >
-                                        <X className="h-4 w-4 mr-2" /> Cancel Edit
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Image Upload */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700 flex items-center">
-                            <Image className="h-4 w-4 mr-1" /> Design Image
-                        </label>
-                        {isEditing ? (
-                            <div className="space-y-3">
-                                {imagePreview && (
-                                    <img 
-                                        src={imagePreview} 
-                                        alt="Preview" 
-                                        className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-                                    />
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handleImageChange}
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                />
-                            </div>
-                        ) : product.imageUrl ? (
-                            <img 
-                                src={product.imageUrl} 
-                                alt={product.name}
-                                className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-                            />
-                        ) : (
-                            <div className="w-32 h-32 bg-gray-100 rounded-lg border border-dashed border-gray-300 flex items-center justify-center">
-                                <Image className="h-8 w-8 text-gray-400" />
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Product Details */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Name */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Design Name *</label>
-                            {isEditing ? (
-                                <>
-                                    <input
-                                        type="text" 
-                                        value={name} 
-                                        onChange={(e) => setName(e.target.value)}
-                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                            errors.name ? 'border-red-500' : ''
-                                        }`} 
-                                        placeholder="e.g., Classic Business Shirt"
-                                        required
-                                    />
-                                    {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
-                                </>
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900">{product.name}</p>
-                            )}
-                        </div>
-
-                        {/* Category */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Category *</label>
-                            {isEditing ? (
-                                <>
-                                    <select
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                            errors.category ? 'border-red-500' : ''
-                                        }`}
-                                        required
-                                    >
-                                        <option value="">Select Category</option>
-                                        {Object.keys(measurementTemplates).map(cat => (
-                                            <option key={cat} value={cat}>{cat}</option>
-                                        ))}
-                                    </select>
-                                    {errors.category && <p className="text-red-500 text-sm">{errors.category}</p>}
-                                </>
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900">{product.category}</p>
-                            )}
-                        </div>
-
-                        {/* Price */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Price ({CURRENCY_SYMBOL}) *</label>
-                            {isEditing ? (
-                                <>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={price}
-                                        onChange={(e) => setPrice(e.target.value)}
-                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 font-mono ${
-                                            errors.price ? 'border-red-500' : ''
-                                        }`}
-                                        placeholder="0.00"
-                                        required
-                                    />
-                                    {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
-                                </>
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900 font-mono">{CURRENCY_SYMBOL} {product.price?.toFixed(2)}</p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Description</label>
-                        {isEditing ? (
-                            <textarea
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                rows="3"
-                                className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Describe this design, fabric type, special features..."
-                            />
-                        ) : (
-                            <div className="bg-gray-100 p-3 rounded-xl border border-gray-200">
-                                <p className="text-gray-700 whitespace-pre-wrap text-sm">{product.description || 'No description provided.'}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Required Measurements */}
-                    <div className="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
-                        <h3 className="text-lg font-semibold text-indigo-700 flex items-center">
-                            <Ruler className="h-5 w-5 mr-2" /> Required Measurements ({MEASUREMENT_UNITS[measurementUnit]})
-                        </h3>
-                        
-                        {isEditing ? (
-                            <div className="space-y-3">
-                                {requiredMeasurements.map((measurement, index) => (
-                                    <div key={index} className="flex space-x-2 items-center">
-                                        <input
-                                            type="text" 
-                                            value={measurement}
-                                            onChange={(e) => handleMeasurementChange(index, e.target.value)}
-                                            className="flex-1 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="e.g., Chest, Waist, Length"
-                                        />
-                                        <button
-                                            type="button" 
-                                            onClick={() => handleRemoveMeasurement(index)}
-                                            className="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-100"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                ))}
-                                <button
-                                    type="button" 
-                                    onClick={handleAddMeasurement}
-                                    className="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" /> Add Measurement Field
-                                </button>
-                            </div>
-                        ) : (
-                            // View Mode Measurements Display
-                            product.requiredMeasurements?.length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {product.requiredMeasurements.map((measurement, index) => (
-                                        <div key={index} className="p-2 bg-white rounded-lg shadow-sm">
-                                            <span className="text-sm font-medium text-gray-900">{measurement}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 text-sm">No specific measurements required for this design.</p>
-                            )
-                        )}
-                    </div>
-                    
-                    {isEditing && (
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || uploadingImage}
-                            className="w-full flex items-center justify-center py-3 px-4 text-lg font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition transform hover:scale-[1.005]"
-                        >
-                            {(isSubmitting || uploadingImage) ? (
-                                <Loader className="h-5 w-5 mr-3 animate-spin" />
-                            ) : (
-                                <Save className="h-5 w-5 mr-3" />
-                            )}
-                            {uploadingImage ? 'Uploading Image...' : product.isNew ? 'Save Design' : 'Save Changes'}
-                        </button>
-                    )}
-                    
-                    {!product.isNew && (
-                        <button 
-                            type="button"
-                            onClick={() => { onDelete(product.id, product.name); onClose(); }}
-                            disabled={deletingId === product.id}
-                            className="w-full py-2 flex items-center justify-center text-sm font-semibold text-red-600 hover:bg-red-50 disabled:text-gray-400 disabled:hover:bg-transparent rounded-xl transition mt-4"
-                        >
-                            {deletingId === product.id ? (
-                                <Loader className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                                <Trash2 className="h-4 w-4 mr-2" />
-                            )}
-                            Delete Design
-                        </button>
-                    )}
-                </form>
-            </div>
-        </div>
-    );
-  };
-
-  // Client Profile Modal - FIXED: Added safe default values
-  const ClientProfileModal = ({ client, onClose, onSave, onDelete }) => {
-    const [isEditing, setIsEditing] = useState(client.isNew);
-    const [name, setName] = useState(client.name || '');
-    const [phone, setPhone] = useState(client.phone || '');
-    const [location, setLocation] = useState(client.location || '');
-    const [notes, setNotes] = useState(client.notes || '');
-    const [errors, setErrors] = useState({});
-    const [measurements, setMeasurements] = useState(objToArray(client.measurements));
-
-    const handleMeasurementChange = (index, field, value) => {
-        const newMeasurements = [...measurements];
-        newMeasurements[index][field] = value;
-        setMeasurements(newMeasurements);
-    };
-
-    const addMeasurementField = () => {
-        setMeasurements(prev => [...prev, { key: '', value: '' }]);
-    };
-
-    const removeMeasurementField = (index) => {
-        const newMeasurements = measurements.filter((_, i) => i !== index);
-        setMeasurements(newMeasurements);
-    };
-
-    // FIXED: Added safe default values and error handling
-    const handleSaveSubmit = (e) => {
-        e.preventDefault();
-        
-        // Ensure we have safe defaults for all fields
-        const clientData = { 
-            name: (name || '').trim(), 
-            phone: (phone || '').trim(), 
-            location: (location || '').trim(), 
-            notes: (notes || '').trim(), 
-            measurements: arrayToObj(measurements)
-        };
-        
-        const validationErrors = validateClient(clientData);
-        if (Object.keys(validationErrors).length > 0) {
-            setErrors(validationErrors);
-            return;
-        }
-
-        if (client.isNew) {
-            onSave(clientData);
-        } else {
-            onSave(client.id, clientData);
-            setIsEditing(false);
-        }
-        setErrors({});
-    };
-    
-    const associatedOrders = orders.filter(o => o.clientId === client.id).length;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto transform scale-100 transition-all duration-300">
-                
-                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-indigo-50 rounded-t-xl">
-                    <h2 className="text-2xl font-bold text-indigo-800 flex items-center">
-                        <User className="mr-3 h-6 w-6" /> {isEditing ? 'Editing Client Profile' : 'Client Profile Details'}
-                    </h2>
-                    <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition p-2 rounded-full hover:bg-red-50">
-                        <X className="h-6 w-6" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSaveSubmit} className="p-6 space-y-6">
-                    
-                    {/* Actions and Status */}
-                    <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-                        {!client.isNew && (
-                            <div className="space-x-2">
-                                {!isEditing ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsEditing(true)}
-                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition shadow-md"
-                                    >
-                                        <Pencil className="h-4 w-4 mr-2" /> Edit Profile
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setIsEditing(false); setErrors({}); onClose(); }}
-                                        className="py-2 px-4 flex items-center text-sm font-semibold rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition shadow-md"
-                                    >
-                                        <X className="h-4 w-4 mr-2" /> Cancel Edit
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                         <div className="text-sm font-semibold rounded-full bg-blue-100 text-blue-800 px-3 py-1 ml-auto">
-                            {associatedOrders} Order{associatedOrders !== 1 ? 's' : ''}
-                        </div>
-                    </div>
-
-                    {/* --- DETAILS SECTION --- */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Name */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Full Name *</label>
-                            {isEditing ? (
-                                <>
-                                    <input
-                                        type="text" value={name} onChange={(e) => setName(e.target.value)}
-                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                            errors.name ? 'border-red-500' : ''
-                                        }`} 
-                                        placeholder="Client Name" 
-                                        required
-                                    />
-                                    {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
-                                </>
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900">{client.name}</p>
-                            )}
-                        </div>
-                        {/* Phone */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">Phone Number *</label>
-                            {isEditing ? (
-                                <>
-                                    <input
-                                        type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
-                                        className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                            errors.phone ? 'border-red-500' : ''
-                                        }`} 
-                                        placeholder="555-123-4567"
-                                    />
-                                    {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
-                                </>
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900">{client.phone || 'N/A'}</p>
-                            )}
-                        </div>
-                        {/* Location */}
-                        <div className="space-y-2 md:col-span-2">
-                            <label className="text-sm font-medium text-gray-700 flex items-center"><MapPin className="h-4 w-4 mr-1"/> Location/Address</label>
-                            {isEditing ? (
-                                <input
-                                    type="text" value={location} onChange={(e) => setLocation(e.target.value)}
-                                    className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Area 12, Blantyre"
-                                />
-                            ) : (
-                                <p className="text-lg font-bold text-gray-900">{client.location || 'N/A'}</p>
-                            )}
-                        </div>
-                    </div>
-                    
-                    {/* Notes */}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Client Notes</label>
-                        {isEditing ? (
-                            <textarea
-                                value={notes} onChange={(e) => setNotes(e.target.value)}
-                                rows="2" className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500" placeholder="Any special requests or fitting notes."
-                            ></textarea>
-                        ) : (
-                            <div className="bg-gray-100 p-3 rounded-xl border border-gray-200">
-                                <p className="text-gray-700 whitespace-pre-wrap text-sm">{client.notes || 'No notes saved.'}</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Measurements Section */}
-                    <div className="border border-indigo-200 p-4 rounded-xl bg-indigo-50 space-y-4">
-                        <h3 className="text-lg font-semibold text-indigo-700 flex items-center">
-                            <Ruler className="h-5 w-5 mr-2" /> Measurements Profile ({MEASUREMENT_UNITS[measurementUnit]})
-                        </h3>
-                        
-                        {isEditing ? (
-                            <div className="space-y-3">
-                                {measurements.map((measurement, index) => (
-                                    <div key={index} className="flex space-x-2 items-center">
-                                        <input
-                                            type="text" value={measurement.key}
-                                            onChange={(e) => handleMeasurementChange(index, 'key', e.target.value)}
-                                            className="w-1/3 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Type (e.g., Hip)"
-                                        />
-                                        <input
-                                            type="number" step="0.1" value={measurement.value}
-                                            onChange={(e) => handleMeasurementChange(index, 'value', e.target.value)}
-                                            className="w-1/3 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Value (e.g., 31)"
-                                        />
-                                        <span className="text-sm font-medium text-gray-500 w-1/6">{MEASUREMENT_UNITS[measurementUnit]}</span>
-                                        <button
-                                            type="button" onClick={() => removeMeasurementField(index)}
-                                            className="text-red-500 hover:text-red-700 transition p-1 rounded-full hover:bg-red-100"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
-                                    </div>
-                                ))}
-                                <button
-                                    type="button" onClick={addMeasurementField}
-                                    className="w-full flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-lg text-indigo-600 border border-indigo-300 hover:bg-indigo-100 transition"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" /> Add Measurement Field
-                                </button>
-                            </div>
-                        ) : (
-                            Object.keys(client.measurements || {}).length > 0 ? (
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {Object.entries(client.measurements || {}).map(([key, value]) => (
-                                        <div key={key} className="p-2 bg-white rounded-lg shadow-sm">
-                                            <span className="text-xs font-medium text-gray-500 block">{key}:</span>
-                                            <span className="text-lg font-bold text-gray-900">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <p className="text-gray-500 text-sm">No measurements saved for this client profile.</p>
-                            )
-                        )}
-                    </div>
-                    
-                    {isEditing && (
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full flex items-center justify-center py-3 px-4 text-lg font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition transform hover:scale-[1.005]"
-                        >
-                            {isSubmitting ? (
-                                <Loader className="h-5 w-5 mr-3 animate-spin" />
-                            ) : (
-                                <Save className="h-5 w-5 mr-3" />
-                            )}
-                            {client.isNew ? 'Save New Client' : 'Save Changes'}
-                        </button>
-                    )}
-                    
-                    {!client.isNew && (
-                        <button 
-                            type="button"
-                            onClick={() => { onDelete(client.id, client.name); onClose(); }}
-                            disabled={deletingId === client.id}
-                            className="w-full py-2 flex items-center justify-center text-sm font-semibold text-red-600 hover:bg-red-50 disabled:text-gray-400 disabled:hover:bg-transparent rounded-xl transition mt-4"
-                        >
-                            {deletingId === client.id ? (
-                                <Loader className="h-4 w-4 mr-2 animate-spin" />
-                            ) : (
-                                <Trash2 className="h-4 w-4 mr-2" />
-                            )}
-                            Delete Client and all {associatedOrders} associated orders
-                        </button>
-                    )}
-                </form>
-            </div>
-        </div>
-    );
-  };
-  
-  // --- CLIENTS LIST COMPONENT ---
-  const ClientList = () => {
-    const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false);
-    
-    const handleOpenProfileModal = (client) => {
-        setSelectedClientForProfile(client);
-        setIsClientProfileModalOpen(true);
-    };
-    
-    const handleSaveNewClient = (clientData) => {
-        handleCreateClient({...clientData, isNew: true});
-        setIsAddClientModalOpen(false);
-    };
-
-    return (
-        <div className="p-4 bg-gray-50 min-h-screen">
-            <div className="max-w-5xl mx-auto space-y-6">
-                
-                {/* Search and Actions */}
-                <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-                    <div className="flex items-center w-full sm:w-2/3">
-                        <Search className="h-5 w-5 text-gray-500 mr-3" />
-                        <input
-                            type="text"
-                            placeholder="Search clients by name or phone..."
-                            className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    
-                    <div className="flex space-x-2 w-full sm:w-auto">
-                        <button
-                            onClick={exportClients}
-                            disabled={filteredClients.length === 0}
-                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
-                        >
-                            <Download className="h-4 w-4 mr-2" /> Export
-                        </button>
-                        
-                        <button
-                            onClick={() => setIsAddClientModalOpen(true)}
-                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
-                        >
-                            <Plus className="h-5 w-5 mr-2" /> Add Client
-                        </button>
-                    </div>
-                </div>
-
-                {/* Clients List */}
-                <div className="grid gap-4">
-                    {filteredClients.length === 0 ? (
-                        <p className="text-center text-gray-500 mt-10">
-                            {searchTerm ? 'No clients match your search.' : 'No clients added yet. Click "Add Client" above.'}
-                        </p>
-                    ) : (
-                        filteredClients
-                        .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0)) 
-                        .map((client) => {
-                            const clientOrders = orders.filter(o => o.clientId === client.id).length;
-                            const measurementCount = Object.keys(client.measurements || {}).length;
-
-                            return (
-                                <div 
-                                    key={client.id} 
-                                    className="bg-white p-5 rounded-xl shadow-lg border border-gray-200 flex justify-between items-center transition duration-300 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 cursor-pointer"
-                                    onClick={() => handleOpenProfileModal(client)}
-                                >
-                                    
-                                    <div className="flex flex-col space-y-2">
-                                        <div className="flex items-center space-x-3">
-                                            <User className="h-8 w-8 text-indigo-600 p-1.5 bg-indigo-50 rounded-full"/>
-                                            <div>
-                                                <h3 className="text-xl font-bold text-gray-800">{client.name}</h3>
-                                                <p className="text-sm text-gray-500 flex items-center">
-                                                    <MapPin className="h-4 w-4 mr-1"/> {client.location || 'N/A Location'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="text-sm space-y-1 ml-11">
-                                            <p className="text-gray-600 font-semibold">Phone: <span className="font-normal">{client.phone}</span></p>
-                                            <p className="text-gray-600 font-semibold flex items-center">
-                                                <Ruler className="h-4 w-4 mr-1 text-blue-500" /> Measurements: 
-                                                <span className={`ml-1 px-2 py-0.5 text-xs font-semibold rounded-full ${measurementCount > 0 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
-                                                    {measurementCount} Saved
-                                                </span>
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-1 truncate max-w-sm">Notes: {client.notes || 'None'}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex flex-col items-end space-y-3">
-                                        <span className="px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            {clientOrders} Order{clientOrders !== 1 ? 's' : ''}
-                                        </span>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteClient(client.id, client.name); }}
-                                            disabled={deletingId === client.id}
-                                            className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-2 rounded-full hover:bg-red-50"
-                                            aria-label={`Delete client ${client.name}`}
-                                        >
-                                            {deletingId === client.id ? (
-                                                <Loader className="h-5 w-5 animate-spin" />
-                                            ) : (
-                                                <Trash2 className="h-5 w-5" />
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            )
-                        })
-                    )}
-                </div>
-            </div>
-            
-            {/* Add New Client Modal */}
-            {isAddClientModalOpen && (
-                <ClientProfileModal 
-                    client={{ name: '', phone: '', location: '', notes: '', measurements: {}, isNew: true }}
-                    onClose={() => setIsAddClientModalOpen(false)} 
-                    onSave={handleSaveNewClient} 
-                    onDelete={handleDeleteClient}
-                />
-            )}
-            
-            {/* View/Edit Profile Modal */}
-            {isClientProfileModalOpen && selectedClientForProfile && (
-                <ClientProfileModal 
-                    client={selectedClientForProfile}
-                    onClose={() => { setSelectedClientForProfile(null); setIsClientProfileModalOpen(false); }} 
-                    onSave={handleUpdateClient} 
-                    onDelete={handleDeleteClient}
-                />
-            )}
-        </div>
-    );
-  };
-
-  // --- NEW: PRODUCTS LIST COMPONENT ---
-  const ProductsList = () => {
-    const handleOpenProductModal = (product) => {
-        setSelectedProduct(product);
-        setIsProductModalOpen(true);
-    };
-
-    const handleSaveNewProduct = (productData, imageFile) => {
-        handleCreateProduct(productData, imageFile);
-    };
-
-    return (
-        <div className="p-4 bg-gray-50 min-h-screen">
-            <div className="max-w-5xl mx-auto space-y-6">
-                
-                {/* Search and Actions */}
-                <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-                    <div className="flex items-center w-full sm:w-2/3">
-                        <Search className="h-5 w-5 text-gray-500 mr-3" />
-                        <input
-                            type="text"
-                            placeholder="Search designs by name or category..."
-                            className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    
-                    <div className="flex space-x-2 w-full sm:w-auto">
-                        <button
-                            onClick={exportProducts}
-                            disabled={filteredProducts.length === 0}
-                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
-                        >
-                            <Download className="h-4 w-4 mr-2" /> Export
-                        </button>
-                        
-                        <button
-                            onClick={() => setIsAddProductModalOpen(true)}
-                            className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
-                        >
-                            <Plus className="h-5 w-5 mr-2" /> Add Design
-                        </button>
-                    </div>
-                </div>
-
-                {/* Products Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredProducts.length === 0 ? (
-                        <div className="col-span-3 text-center text-gray-500 mt-10">
-                            {searchTerm ? 'No designs match your search.' : 'No designs added yet. Click "Add Design" above.'}
-                        </div>
-                    ) : (
-                        filteredProducts
-                        .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0))
-                        .map((product) => (
-                            <div 
-                                key={product.id} 
-                                className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden transition duration-300 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 cursor-pointer"
-                                onClick={() => handleOpenProductModal(product)}
-                            >
-                                {/* Product Image */}
-                                <div className="h-48 bg-gray-100 relative">
-                                    {product.imageUrl ? (
-                                        <img 
-                                            src={product.imageUrl} 
-                                            alt={product.name}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <Image className="h-12 w-12 text-gray-400" />
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                {/* Product Info */}
-                                <div className="p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="text-lg font-bold text-gray-800 truncate">{product.name}</h3>
-                                        <span className="text-lg font-bold text-green-600 font-mono">
-                                            {CURRENCY_SYMBOL} {product.price?.toFixed(2)}
-                                        </span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-gray-600 mb-2">{product.category}</p>
-                                    
-                                    {product.description && (
-                                        <p className="text-sm text-gray-500 mb-3 line-clamp-2">{product.description}</p>
-                                    )}
-                                    
-                                    {/* Required Measurements */}
-                                    <div className="mb-3">
-                                        <p className="text-xs font-semibold text-gray-500 mb-1">Required Measurements:</p>
-                                        <div className="flex flex-wrap gap-1">
-                                            {product.requiredMeasurements?.slice(0, 3).map((measurement, index) => (
-                                                <span key={index} className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs rounded-full">
-                                                    {measurement}
-                                                </span>
-                                            ))}
-                                            {product.requiredMeasurements?.length > 3 && (
-                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                                    +{product.requiredMeasurements.length - 3} more
-                                                </span>
-                                            )}
-                                            {(!product.requiredMeasurements || product.requiredMeasurements.length === 0) && (
-                                                <span className="text-xs text-gray-400">No specific measurements</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="flex justify-between items-center text-xs text-gray-400">
-                                        <span>Added: {product.createdAt ? new Date(product.createdAt.toDate()).toLocaleDateString() : 'N/A'}</span>
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteProduct(product.id, product.name); }}
-                                            disabled={deletingId === product.id}
-                                            className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-1 rounded-full hover:bg-red-50"
-                                        >
-                                            {deletingId === product.id ? (
-                                                <Loader className="h-4 w-4 animate-spin" />
-                                            ) : (
-                                                <Trash2 className="h-4 w-4" />
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-            
-            {/* Add New Product Modal */}
-            {isAddProductModalOpen && (
-                <ProductModal 
-                    product={{ name: '', description: '', category: '', price: 0, requiredMeasurements: [], imageUrl: '', isNew: true }}
-                    onClose={() => setIsAddProductModalOpen(false)} 
-                    onSave={handleSaveNewProduct} 
-                    onDelete={handleDeleteProduct}
-                />
-            )}
-            
-            {/* View/Edit Product Modal */}
-            {isProductModalOpen && selectedProduct && (
-                <ProductModal 
-                    product={selectedProduct}
-                    onClose={() => { setSelectedProduct(null); setIsProductModalOpen(false); }} 
-                    onSave={handleUpdateProduct} 
-                    onDelete={handleDeleteProduct}
-                />
-            )}
-        </div>
-    );
-  };
-  
-  // --- ORDERS LIST COMPONENT (UPDATED WITH PRODUCT INFO) ---
-  const OrderList = () => (
-    <div className="p-4 bg-gray-50 min-h-screen">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Search and Actions */}
-        <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-          <div className="flex items-center w-full sm:w-2/3">
-              <Search className="h-5 w-5 text-gray-500 mr-3" />
-              <input
-                type="text"
-                placeholder="Search orders by client name or phone..."
-                className="w-full p-3 border border-gray-300 rounded-xl shadow-inner focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-          </div>
-          
-          <div className="flex space-x-2 w-full sm:w-auto">
-            <button
-                onClick={exportOrders}
-                disabled={filteredOrders.length === 0}
-                className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed transition shadow-md"
-            >
-                <Download className="h-4 w-4 mr-2" /> Export
-            </button>
-            
-            <button
-                onClick={() => setActiveTab('new_order')}
-                className="flex-1 sm:flex-none flex items-center justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl shadow-lg text-white bg-green-600 hover:bg-green-700 transition transform hover:scale-[1.005] duration-200"
-            >
-                <Plus className="h-5 w-5 mr-2" /> New Order
-            </button>
-          </div>
-        </div>
-
-        {/* Enhanced Filters */}
-        <div className="bg-white p-4 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-gray-700 flex items-center">
-              <Filter className="h-5 w-5 mr-2" /> Filters
-            </h3>
-            <button
-              onClick={clearFilters}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-            >
-              Clear All
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Statuses</option>
-              {Object.keys(statusColors).map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-
-            <select
-              value={filters.orderType}
-              onChange={(e) => setFilters(prev => ({ ...prev, orderType: e.target.value }))}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">All Types</option>
-              {ORDER_TYPES.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-
-            <select
-              value={filters.dateRange}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="">Any Date</option>
-              <option value="today">Today</option>
-              <option value="week">Last 7 Days</option>
-              <option value="month">Last 30 Days</option>
-            </select>
-
-            <input
-              type="number"
-              placeholder="Min Price"
-              value={filters.minPrice}
-              onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-            />
-            <input
-              type="number"
-              placeholder="Max Price"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-              className="p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-            />
-          </div>
-        </div>
-
-        {/* Orders Grid */}
-        <div className="grid gap-4">
-          {filteredOrders.length === 0 ? (
-            <p className="text-center text-gray-500 mt-10">
-              {searchTerm || Object.values(filters).some(f => f) 
-                ? 'No orders match your search criteria.' 
-                : 'No orders added yet. Click "New Order" above.'}
-            </p>
-          ) : (
-            filteredOrders
-            .sort((a, b) => (b.createdAt?.toDate().getTime() || 0) - (a.createdAt?.toDate().getTime() || 0))
-            .map((order) => {
-              const { name: clientName } = getClientInfo(order.clientId);
-              const isAlteration = order.orderType === 'Alteration';
-              const product = order.productId ? getProductInfo(order.productId) : null;
-
-              return (
-                  <div 
-                      key={order.id} 
-                      className="bg-white p-5 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl hover:ring-2 hover:ring-indigo-200 transition duration-300 cursor-pointer"
-                      onClick={() => { setSelectedOrder(order); setIsModalOpen(true); }} 
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex flex-col">
-                          <h2 className="text-xl font-bold text-indigo-700 flex items-center">
-                              <User className="mr-2 h-5 w-5" /> {clientName}
-                          </h2>
-                          <p className="text-sm text-gray-600 mt-1">
-                              <span className="font-semibold">{order.orderType}:</span> {order.garment || 'N/A'}
-                          </p>
-                          {product && (
-                              <p className="text-sm text-blue-600 flex items-center mt-1">
-                                  <ShoppingBag className="h-4 w-4 mr-1" /> Design: {product.name}
-                              </p>
-                          )}
-                      </div>
-                      
-                      {/* Status and Price */}
-                      <div className="flex flex-col items-end space-y-2">
-                          <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${statusColors[order.status]}`}>
-                              {order.status}
-                          </span>
-                          <span className="text-lg font-bold text-green-700">{CURRENCY_SYMBOL} {order.price ? order.price.toFixed(2) : '0.00'}</span>
-                          <button 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id, clientName); }}
-                              disabled={deletingId === order.id}
-                              className="text-red-500 hover:text-red-700 disabled:text-gray-400 transition p-1 rounded-full hover:bg-red-50"
-                              aria-label={`Delete order for ${clientName}`}
-                          >
-                              {deletingId === order.id ? (
-                                <Loader className="h-5 w-5 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-5 w-5" />
-                              )}
-                          </button>
-                      </div>
-                    </div>
-                    
-                    {/* Measurements/Notes Area */}
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      {isAlteration ? (
-                          <p className="text-md font-semibold text-gray-700 flex items-center">
-                              <Hand className="h-4 w-4 mr-1.5 text-red-500" /> Alteration Notes:
-                              <span className="ml-2 font-normal truncate">{order.notes || 'No notes.'}</span>
-                          </p>
-                      ) : (
-                          <>
-                              <p className="text-md font-semibold text-gray-700 mb-2 flex items-center">
-                                  <Ruler className="h-4 w-4 mr-1.5 text-indigo-500" /> Key Measurements ({MEASUREMENT_UNITS[measurementUnit]}):
-                              </p>
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                                  {Object.entries(order.measurements || {}).slice(0, 4).map(([key, value]) => (
-                                      <div key={key} className="bg-indigo-50 p-2 rounded-lg text-gray-800 truncate">
-                                          <span className="font-medium block">{key}</span> 
-                                          <span className="font-bold">{value} {MEASUREMENT_UNITS[measurementUnit]}</span>
-                                      </div>
-                                  ))}
-                                  {Object.keys(order.measurements || {}).length > 4 && (
-                                      <div className="bg-indigo-50 p-2 rounded-lg text-gray-800 flex items-center justify-center">
-                                          <span className="font-medium text-xs text-indigo-600">+ {Object.keys(order.measurements || {}).length - 4} More</span>
-                                      </div>
-                                  )}
-                                  {Object.keys(order.measurements || {}).length === 0 && (
-                                      <span className="text-gray-500 col-span-4">No measurements recorded.</span>
-                                  )}
-                              </div>
-                          </>
-                      )}
-                    </div>
-                    
-                    <p className="text-xs text-gray-400 mt-3 text-right">Order Placed: {order.createdAt ? new Date(order.createdAt.toDate()).toLocaleDateString() : 'N/A'}</p>
-                  </div>
-            )})
-          )}
-        </div>
-      </div>
-      {isModalOpen && <OrderDetailModal 
-          order={selectedOrder} 
-          onClose={() => setIsModalOpen(false)} 
-          onUpdateStatus={handleUpdateStatus}
-      />}
-    </div>
-  );
-  
-  // --- ADD ORDER FORM COMPONENT (UPDATED WITH PRODUCT SELECTION) ---
-  const AddOrderForm = () => {
-    const [errors, setErrors] = useState({});
-    
-    // Get measurement fields based on selected product or garment type
-    const currentMeasurementKeys = useMemo(() => {
-      if (newOrder.selectedProductId) {
-        const selectedProduct = getProductInfo(newOrder.selectedProductId);
-        return selectedProduct?.requiredMeasurements || [];
-      }
-      return newOrder.orderType === 'Production Order' 
-             ? measurementTemplates[newOrder.garment] || [] 
-             : [];
-    }, [newOrder.selectedProductId, newOrder.orderType, newOrder.garment, getProductInfo]);
-
-    // Auto-fill measurements when client changes and product is selected
-    useEffect(() => {
-      if (newOrder.clientId && newOrder.selectedProductId) {
-        const clientMeasurements = getClientInfo(newOrder.clientId).measurements;
-        const selectedProduct = getProductInfo(newOrder.selectedProductId);
-        
-        if (selectedProduct) {
-          const autoFilledMeasurements = {};
-          selectedProduct.requiredMeasurements.forEach(measurement => {
-            if (clientMeasurements[measurement]) {
-              autoFilledMeasurements[measurement] = clientMeasurements[measurement];
-            }
-          });
-          
-          setNewOrder(prev => ({
-            ...prev,
-            measurements: autoFilledMeasurements
-          }));
-        }
-      }
-    }, [newOrder.clientId, newOrder.selectedProductId, getClientInfo, getProductInfo]);
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      const validationErrors = validateOrder(newOrder);
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-        showNotification("Please fix validation errors", "error");
-        return;
-      }
-      setErrors({});
-      handleAddOrder(e);
-    };
-
-    return (
-        <div className="p-4 bg-gray-50 min-h-screen">
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-2xl max-w-5xl mx-auto border border-indigo-100">
-                <h2 className="text-2xl font-bold mb-6 text-indigo-800 flex items-center">
-                    <Plus className="mr-2 h-6 w-6" /> New Client Order Entry
-                </h2>
-
-                {/* --- Section 1: Client Selection/Creation --- */}
-                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
-                    <User className="h-5 w-5 mr-2" /> 1. Select or Add Client
-                </h3>
-                
-                <div className="mb-8 p-4 bg-indigo-50 rounded-lg">
-                    <label className="flex items-center space-x-2 mb-4">
-                        <input
-                            type="checkbox"
-                            checked={newOrder.isNewClient}
-                            onChange={(e) => setNewOrder(prev => ({ 
-                                ...prev, 
-                                isNewClient: e.target.checked, 
-                                clientId: '', // Clear selection if switching to new client
-                                name: '', 
-                                phone: '' 
-                            }))}
-                            className="h-5 w-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                        />
-                        <span className="text-lg font-medium text-gray-700">Add a New Client for this order</span>
-                    </label>
-
-                    {newOrder.isNewClient ? (
-                        /* Input fields for new client */
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label htmlFor="new_name" className="text-sm font-medium text-gray-700">Full Name <span className="text-red-500">*</span></label>
-                                <input
-                                    type="text" id="new_name"
-                                    value={newOrder.name}
-                                    onChange={(e) => handleNewOrderChange('name', e.target.value)}
-                                    className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                      errors.name ? 'border-red-500' : ''
-                                    }`}
-                                    placeholder="John Doe" 
-                                    required={newOrder.isNewClient}
-                                />
-                                {errors.name && <p className="text-red-500 text-sm">{errors.name}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="new_phone" className="text-sm font-medium text-gray-700">Phone Number <span className="text-red-500">*</span></label>
-                                <input
-                                    type="tel" id="new_phone"
-                                    value={newOrder.phone}
-                                    onChange={(e) => handleNewOrderChange('phone', e.target.value)}
-                                    className={`w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 ${
-                                      errors.phone ? 'border-red-500' : ''
-                                    }`}
-                                    placeholder="555-123-4567"
-                                    required={newOrder.isNewClient}
-                                />
-                                {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
-                            </div>
-                            <p className="md:col-span-2 text-sm text-gray-500 mt-2">
-                                Tip: For full client details, including location and measurements, please use the "Clients" tab.
-                            </p>
-                        </div>
-                    ) : (
-                        /* Dropdown for existing client */
-                        <div className="space-y-2">
-                            <label htmlFor="client_id_select" className="text-sm font-medium text-gray-700">Select Existing Client <span className="text-red-500">*</span></label>
-                            <select
-                                id="client_id_select"
-                                value={newOrder.clientId}
-                                onChange={(e) => handleNewOrderChange('clientId', e.target.value)}
-                                className="w-full p-3 border rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                                required={!newOrder.isNewClient}
-                            >
-                                <option value="" disabled>-- Choose a Client --</option>
-                                {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.name} ({client.phone || 'N/A'})</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-                </div>
-
-                {/* --- NEW: Section 2: Design Selection --- */}
-                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
-                    <ShoppingBag className="h-5 w-5 mr-2" /> 2. Select Design (Optional)
-                </h3>
-
-                <div className="mb-8 p-4 bg-blue-50 rounded-lg">
-                    <div className="space-y-2">
-                        <label htmlFor="product_select" className="text-sm font-medium text-gray-700 flex items-center">
-                            <Package className="h-4 w-4 mr-1 text-blue-600"/> Choose from Existing Designs
-                        </label>
-                        <select
-                            id="product_select"
-                            value={newOrder.selectedProductId}
-                            onChange={(e) => handleProductSelection(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 transition bg-white"
-                        >
-                            <option value="">-- Custom Order (No Design) --</option>
-                            {products.map(product => (
-                                <option key={product.id} value={product.id}>
-                                    {product.name} - {product.category} ({CURRENCY_SYMBOL} {product.price?.toFixed(2)})
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-sm text-blue-600 mt-1">
-                            Selecting a design will auto-fill measurements from client profile and set the price.
-                        </p>
-                    </div>
-                </div>
-    
-                {/* --- Section 3: Order Type and Garment --- */}
-                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
-                    <Ruler className="h-5 w-5 mr-2" /> 3. Order Type and Garment
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8 p-4 bg-indigo-50 rounded-lg">
-                    {/* Order Type */}
-                    <div className="space-y-2">
-                        <label htmlFor="order_type" className="text-sm font-medium text-gray-700 flex items-center">
-                            <Factory className="h-4 w-4 mr-1 text-indigo-600"/> Order Type
-                        </label>
-                        <select
-                            id="order_type"
-                            value={newOrder.orderType}
-                            onChange={(e) => {
-                                handleNewOrderChange('orderType', e.target.value);
-                                // Reset measurements if switching away from Production
-                                if (e.target.value !== 'Production Order') {
-                                    setNewOrder(prev => ({ ...prev, measurements: {}, garment: 'Other' }));
-                                } else if (!newOrder.selectedProductId) {
-                                    setNewOrder(prev => ({ ...prev, garment: 'Shirt' }));
-                                }
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                        >
-                            {ORDER_TYPES.map(type => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                    </div>
-                    {/* Garment Type */}
-                    <div className="space-y-2">
-                        <label htmlFor="garment" className="text-sm font-medium text-gray-700 flex items-center">
-                            <Gauge className="h-4 w-4 mr-1 text-indigo-600"/> Garment / Item
-                        </label>
-                        <select
-                            id="garment"
-                            value={newOrder.garment}
-                            onChange={(e) => {
-                                handleNewOrderChange('garment', e.target.value);
-                                // Clear old measurements when garment type changes (only if no product selected)
-                                if (newOrder.orderType === 'Production Order' && !newOrder.selectedProductId) {
-                                    setNewOrder(prev => ({ ...prev, measurements: {} }));
-                                }
-                            }}
-                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                            disabled={!!newOrder.selectedProductId} // Disable if product is selected
-                        >
-                            {Object.keys(measurementTemplates).map(key => (
-                                <option key={key} value={key}>{key}</option>
-                            ))}
-                        </select>
-                        {newOrder.selectedProductId && (
-                            <p className="text-xs text-blue-600">Garment set by selected design</p>
-                        )}
-                    </div>
-                    
-                    {/* Price */}
-                    <div className="space-y-2">
-                        <label htmlFor="price" className="text-sm font-medium text-gray-700 flex items-center">
-                            <DollarSign className="h-4 w-4 mr-1 text-green-600"/> Order Price ({CURRENCY_SYMBOL}) <span className="text-red-500 ml-1">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            id="price"
-                            value={newOrder.price || ''}
-                            onChange={(e) => handleNewOrderChange('price', e.target.value)}
-                            className={`w-full p-3 border border-gray-300 rounded-xl focus:ring-green-500 focus:border-green-500 transition font-mono bg-white ${
-                              errors.price ? 'border-red-500' : ''
-                            }`}
-                            placeholder="0.00"
-                            required
-                        />
-                        {errors.price && <p className="text-red-500 text-sm">{errors.price}</p>}
-                    </div>
-                </div>
-
-                {/* --- Section 4: Measurements (Conditional) --- */}
-                {newOrder.orderType === 'Production Order' && currentMeasurementKeys.length > 0 && (
-                    <>
-                        <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
-                            <Ruler className="h-5 w-5 mr-2" /> 4. {newOrder.garment} Measurements ({MEASUREMENT_UNITS[measurementUnit]})
-                        </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
-                            {currentMeasurementKeys.map((key) => (
-                                <div className="space-y-2" key={key}>
-                                    <label htmlFor={key} className="text-sm font-medium text-gray-700 block">
-                                        {key}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.1"
-                                        id={key}
-                                        value={newOrder.measurements[key] || ''}
-                                        onChange={(e) => handleOrderMeasurementChange(key, parseFloat(e.target.value) || 0)}
-                                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                                        placeholder="0.0"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                )}
-
-                {/* --- Section 5: Notes and Status --- */}
-                <h3 className="text-xl font-semibold mb-4 text-indigo-600 border-b pb-2 border-indigo-100 flex items-center">
-                    <ClipboardList className="h-5 w-5 mr-2" /> {newOrder.orderType === 'Alteration' ? 'Alteration Description' : 'Design & Production Notes'}
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    
-                    <div className="space-y-2 md:col-span-1">
-                        <label htmlFor="status" className="text-sm font-medium text-gray-700 flex items-center">
-                            <History className="h-4 w-4 mr-1 text-indigo-600"/> Initial Job Status
-                        </label>
-                        <select
-                            id="status"
-                            value={newOrder.status}
-                            onChange={(e) => handleNewOrderChange('status', e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-                        >
-                            {Object.keys(statusColors).map(status => (
-                                <option key={status} value={status}>{status}</option>
-                            ))}
-                        </select>
-                    </div>
-                    
-                    <div className="space-y-2 md:col-span-3">
-                        <label htmlFor="notes" className="text-sm font-medium text-gray-700 flex items-center">
-                            <ClipboardList className="h-4 w-4 mr-1 text-indigo-600"/> Notes
-                        </label>
-                        <textarea
-                            id="notes"
-                            value={newOrder.notes}
-                            onChange={(e) => handleNewOrderChange('notes', e.target.value)}
-                            rows="3"
-                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-indigo-500 focus:border-indigo-500 transition"
-                            placeholder={newOrder.orderType === 'Alteration' 
-                                ? "E.g., Take in waist by 2 inches, hem length, replace zipper."
-                                : "E.g., High collar, double-stitched pockets, fabric type, Clo 3D file name: JD-001_jacket_v3.pdf"}
-                        ></textarea>
-                    </div>
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full flex items-center justify-center py-3 px-4 border border-transparent text-lg font-bold rounded-xl shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition transform hover:scale-[1.005] duration-200"
-                >
-                    {isSubmitting ? (
-                        <Loader className="h-5 w-5 mr-3 animate-spin" />
-                    ) : (
-                        <Save className="h-5 w-5 mr-3" />
-                    )}
-                    {isSubmitting ? 'Saving Order...' : 'Save Order'}
-                </button>
-            </form>
-        </div>
-    );
-  };
-  
-  // --- REVENUE DASHBOARD COMPONENT ---
-  const RevenueDashboard = () => {
-    const dashboardData = useMemo(() => {
-      const totalPotentialRevenue = orders.reduce((sum, order) => sum + (order.price || 0), 0);
-      const realizedRevenue = orders.reduce((sum, order) => order.status === 'Completed' ? sum + (order.price || 0) : sum, 0);
-      const pendingRevenue = totalPotentialRevenue - realizedRevenue;
-      const completedOrders = orders.filter(o => o.status === 'Completed').length;
-      const totalOrders = orders.length;
-      const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
-      const alterationOrders = orders.filter(o => o.orderType === 'Alteration').length;
-      const productionOrders = orders.filter(o => o.orderType === 'Production Order').length;
-
-      const statusBreakdown = Object.keys(statusColors).reduce((acc, status) => {
-        acc[status] = orders.filter(o => o.status === status).length;
-        return acc;
-      }, {});
-
-      // Product-based orders
-      const productOrders = orders.filter(o => o.productId).length;
-      const customOrders = orders.filter(o => !o.productId).length;
-
-      return {
-        totalPotentialRevenue,
-        realizedRevenue,
-        pendingRevenue,
-        completedOrders,
-        totalOrders,
-        completionRate,
-        alterationOrders,
-        productionOrders,
-        statusBreakdown,
-        productOrders,
-        customOrders
-      };
-    }, [orders]);
-
-    const RevenueCard = ({ title, value, icon, color }) => (
-        <div className={`bg-white p-6 rounded-xl shadow-xl border-t-4 ${color} transform transition duration-300 hover:scale-[1.02]`}>
-            <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
-                {icon}
-            </div>
-            <p className="text-3xl font-extrabold text-gray-900 mt-2 font-mono">
-                {CURRENCY_SYMBOL} {value.toFixed(2)}
-            </p>
-        </div>
-    );
-    
-    const MetricCard = ({ title, value, unit, icon, color }) => (
-        <div className="bg-white p-6 rounded-xl shadow-xl border border-gray-200">
-            <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-full ${color}`}>{icon}</div>
-                <div>
-                    <p className="text-sm font-semibold text-gray-500 uppercase">{title}</p>
-                    <p className="text-2xl font-bold text-gray-900">{value} <span className="text-base font-normal text-gray-600">{unit}</span></p>
-                </div>
-            </div>
-        </div>
-    );
-
-    const exportFinancialReport = () => {
-      const reportData = [
-        {
-          'Metric': 'Total Potential Revenue',
-          'Value': `${CURRENCY_SYMBOL} ${dashboardData.totalPotentialRevenue.toFixed(2)}`
-        },
-        {
-          'Metric': 'Realized Revenue',
-          'Value': `${CURRENCY_SYMBOL} ${dashboardData.realizedRevenue.toFixed(2)}`
-        },
-        {
-          'Metric': 'Pending Revenue',
-          'Value': `${CURRENCY_SYMBOL} ${dashboardData.pendingRevenue.toFixed(2)}`
-        },
-        {
-          'Metric': 'Completion Rate',
-          'Value': `${dashboardData.completionRate.toFixed(1)}%`
-        },
-        {
-          'Metric': 'Total Orders',
-          'Value': dashboardData.totalOrders
-        },
-        {
-          'Metric': 'Design-based Orders',
-          'Value': dashboardData.productOrders
-        },
-        {
-          'Metric': 'Custom Orders',
-          'Value': dashboardData.customOrders
-        }
-      ];
-      exportToCSV(reportData, 'financial_report');
-      showNotification("Financial report exported successfully");
-    };
-
-    return (
-        <div className="p-4 bg-gray-50 min-h-screen">
-            <div className="max-w-5xl mx-auto space-y-8">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-3xl font-extrabold text-indigo-800 flex items-center border-b pb-2">
-                      <BarChart3 className="mr-3 h-7 w-7" /> Financial Overview
-                  </h2>
-                  <button
-                    onClick={exportFinancialReport}
-                    className="flex items-center justify-center py-2 px-4 text-sm font-semibold rounded-xl text-indigo-600 border border-indigo-300 hover:bg-indigo-50 transition shadow-md"
-                  >
-                    <Download className="h-4 w-4 mr-2" /> Export Report
-                  </button>
-                </div>
-
-                {/* Revenue Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <RevenueCard 
-                        title="Realized Revenue" 
-                        value={dashboardData.realizedRevenue} 
-                        icon={<DollarSign className="h-6 w-6 text-green-500" />}
-                        color="border-green-500"
-                    />
-                    <RevenueCard 
-                        title="Pending Revenue" 
-                        value={dashboardData.pendingRevenue} 
-                        icon={<DollarSign className="h-6 w-6 text-yellow-500" />}
-                        color="border-yellow-500"
-                    />
-                    <RevenueCard 
-                        title="Total Potential Revenue" 
-                        value={dashboardData.totalPotentialRevenue} 
-                        icon={<TrendingUp className="h-6 w-6 text-indigo-500" />}
-                        color="border-indigo-500"
-                    />
-                </div>
-                
-                {/* Order Metrics */}
-                <h3 className="text-2xl font-semibold text-indigo-700 pt-6">Order Metrics</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
-                     <MetricCard 
-                        title="Total Orders" 
-                        value={dashboardData.totalOrders} 
-                        unit="Orders" 
-                        icon={<ClipboardList className="h-5 w-5 text-white" />}
-                        color="bg-indigo-500"
-                    />
-                     <MetricCard 
-                        title="Completed Orders" 
-                        value={dashboardData.completedOrders} 
-                        unit="Orders" 
-                        icon={<Ruler className="h-5 w-5 text-white" />}
-                        color="bg-green-500"
-                    />
-                     <MetricCard 
-                        title="Design Orders" 
-                        value={dashboardData.productOrders} 
-                        unit="Orders" 
-                        icon={<ShoppingBag className="h-5 w-5 text-white" />}
-                        color="bg-purple-500"
-                    />
-                     <MetricCard 
-                        title="Custom Orders" 
-                        value={dashboardData.customOrders} 
-                        unit="Orders" 
-                        icon={<Factory className="h-5 w-5 text-white" />}
-                        color="bg-blue-500"
-                    />
-                </div>
-                
-                {/* Quick Status Breakdown */}
-                <h3 className="text-2xl font-semibold text-indigo-700 pt-6">Status Breakdown</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Object.entries(dashboardData.statusBreakdown).map(([status, count]) => (
-                        <div key={status} className={`p-4 rounded-xl shadow-lg text-center ${statusColors[status]}`}>
-                            <p className="text-3xl font-bold">
-                                {count}
-                            </p>
-                            <p className="text-sm font-medium mt-1">{status} Orders</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </div>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-xl font-semibold text-indigo-600 flex items-center">
-          <Loader className="h-6 w-6 mr-3 animate-spin" />
-          Loading Secure Tailor App...
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100 font-sans antialiased">
-      <script src="https://cdn.tailwindcss.com"></script>
-      <Header />
-      <Notification />
-      
-      {/* Tab Navigation - UPDATED WITH PRODUCTS TAB */}
-      <nav className="bg-white shadow-lg sticky top-[68px] sm:top-16 z-10">
-        <div className="max-w-5xl mx-auto flex flex-wrap sm:flex-nowrap">
-          
-          <button
-            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
-              activeTab === 'clients'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-            onClick={() => { setActiveTab('clients'); setSearchTerm(''); }}
-          >
-            <span className="flex items-center justify-center"><User className="h-5 w-5 mr-2" /> Clients ({clients.length})</span>
-          </button>
-          
-          <button
-            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
-              activeTab === 'orders' || activeTab === 'new_order'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-            onClick={() => { setActiveTab('orders'); setSearchTerm(''); }}
-          >
-            <span className="flex items-center justify-center"><ClipboardList className="h-5 w-5 mr-2" /> Orders ({orders.length})</span>
-          </button>
-
-          {/* NEW: Products Tab */}
-          <button
-            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
-              activeTab === 'products'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-            onClick={() => { setActiveTab('products'); setSearchTerm(''); }}
-          >
-            <span className="flex items-center justify-center"><ShoppingBag className="h-5 w-5 mr-2" /> Designs ({products.length})</span>
-          </button>
-                    
-          <button
-            className={`flex-1 py-3 text-center text-md font-semibold border-b-4 transition duration-300 ${
-              activeTab === 'revenue'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-            onClick={() => { setActiveTab('revenue'); setSearchTerm(''); }}
-          >
-            <span className="flex items-center justify-center"><BarChart3 className="h-5 w-5 mr-2" /> Revenue</span>
-          </button>
-
-        </div>
-      </nav>
-
-      <main>
-        {activeTab === 'clients' && <ClientList />}
-        {activeTab === 'orders' && <OrderList />}
-        {activeTab === 'products' && <ProductsList />}
-        {activeTab === 'new_order' && <AddOrderForm />}
-        {activeTab === 'revenue' && <RevenueDashboard />}
-      </main>
-    </div>
-  );
 };
 
-export default App;
+// --- Customer Management ---
+const CustomersView = ({ customers, setCustomers }) => {
+    const [editingCustomer, setEditingCustomer] = useState(null);
+    const handleSave = (customer) => {
+        if (customer.id) { setCustomers(customers.map(c => c.id === customer.id ? customer : c)); } 
+        else { setCustomers([...customers, { ...customer, id: generateId() }]); }
+        setEditingCustomer(null);
+    };
+    const handleDelete = (id) => setCustomers(customers.filter(c => c.id !== id));
+
+    if (editingCustomer) return <CustomerForm customer={editingCustomer} onSave={handleSave} onCancel={() => setEditingCustomer(null)} />;
+    return (
+        <div>
+            <ViewHeader title="Customers" onAdd={() => setEditingCustomer({ name: '', phone: '', email: '', location: '' })} />
+            {customers.map(customer => (
+                <Card key={customer.id}>
+                    <CrudListItem onEdit={() => setEditingCustomer(customer)} onDelete={() => handleDelete(customer.id)}>
+                        <p className="font-semibold">{customer.name}</p>
+                        <p className="text-sm text-gray-500">{customer.phone} | {customer.location}</p>
+                    </CrudListItem>
+                </Card>
+            ))}
+        </div>
+    );
+};
+const CustomerForm = ({ customer, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(customer);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card>
+            <h3 className="text-lg font-semibold mb-4">{customer.id ? 'Edit Customer' : 'New Customer'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Name" className="w-full p-2 border rounded" required />
+                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Phone" className="w-full p-2 border rounded" required />
+                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="Email" className="w-full p-2 border rounded" />
+                <input type="text" name="location" value={formData.location} onChange={handleChange} placeholder="Location" className="w-full p-2 border rounded" />
+                <FormButtons onCancel={onCancel} />
+            </form>
+        </Card>
+    );
+};
+
+// --- Order Management ---
+const OrdersView = ({ orders, setOrders, customers, garments, unit }) => {
+    const [editingOrder, setEditingOrder] = useState(null);
+    const getCustomerName = (id) => customers.find(c => c.id === id)?.name || 'Unknown';
+    const handleSave = (order) => {
+        if (order.id) { setOrders(orders.map(o => o.id === order.id ? order : o)); } 
+        else { setOrders([...orders, { ...order, id: generateId(), creationDate: new Date().toISOString().split('T')[0] }]); }
+        setEditingOrder(null);
+    };
+    const handleDelete = (id) => setOrders(orders.filter(o => o.id !== id));
+
+    if (editingOrder) return <OrderForm order={editingOrder} onSave={handleSave} onCancel={() => setEditingOrder(null)} customers={customers} garments={garments} unit={unit} />;
+    return (
+        <div>
+            <ViewHeader title="Orders" onAdd={() => setEditingOrder({ customerId: '', garmentId: '', status: 'Pending', measurements: {}, price: 0, paid: 0 })} />
+            {orders.map(order => (
+                 <Card key={order.id}>
+                    <div className="flex justify-between items-start">
+                        <div><p className="font-bold">Order #{order.id.slice(-4)}</p><p className="text-sm">{getCustomerName(order.customerId)}</p></div>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${order.status === 'Completed' || order.status === 'Delivered' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>{order.status}</span>
+                    </div>
+                    <div className="text-sm mt-2"><p>Due: {order.deliveryDate}</p><p className="font-semibold">MWK {order.paid.toLocaleString()} / MWK {order.price.toLocaleString()}</p></div>
+                    <div className="mt-2 text-right"><button onClick={() => setEditingOrder(order)} className="text-blue-500">View/Edit</button><button onClick={() => handleDelete(order.id)} className="text-red-500 ml-2">Delete</button></div>
+                </Card>
+            ))}
+        </div>
+    );
+};
+const OrderForm = ({ order, onSave, onCancel, customers, garments, unit }) => {
+    const [formData, setFormData] = useState(order);
+    const selectedGarment = garments.find(g => g.id === formData.garmentId);
+    const handleChange = (e) => {
+        const { name, value, type } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'number' ? parseFloat(value) : value }));
+        if (name === 'garmentId') {
+            const garment = garments.find(g => g.id === value);
+            if(garment) setFormData(prev => ({ ...prev, price: garment.price, measurements: {} }));
+        }
+    };
+    const handleMeasurementChange = (name, value) => setFormData(prev => ({...prev, measurements: { ...prev.measurements, [name]: value }}));
+    const handleSubmit = e => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card>
+            <h3 className="font-semibold text-lg mb-4">{order.id ? 'Edit Order' : 'New Order'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4 text-sm">
+                <select name="customerId" value={formData.customerId} onChange={handleChange} className="w-full p-2 border rounded" required><option value="">Select Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                <select name="garmentId" value={formData.garmentId} onChange={handleChange} className="w-full p-2 border rounded" required><option value="">Select Garment</option>{garments.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+                {selectedGarment && (<div className="p-2 border rounded"><h4 className="font-semibold mb-2">Measurements ({unit})</h4>{selectedGarment.measurements.map(m => (<div key={m} className="flex items-center justify-between mb-1"><label>{m}:</label><input type="number" step="0.1" value={formData.measurements[m] || ''} onChange={(e) => handleMeasurementChange(m, e.target.value)} className="w-1/2 p-1 border rounded" /></div>))}</div>)}
+                <div className="grid grid-cols-2 gap-4"><div><label>Fabric Picture</label><input type="file" className="w-full text-xs" /></div><div><label>Style Image</label><input type="file" className="w-full text-xs" /></div></div>
+                <div className="grid grid-cols-2 gap-4"><div><label>Trial Date</label><input type="datetime-local" name="trialDate" value={formData.trialDate || ''} onChange={handleChange} className="w-full p-2 border rounded" /></div><div><label>Delivery Date</label><input type="date" name="deliveryDate" value={formData.deliveryDate || ''} onChange={handleChange} className="w-full p-2 border rounded" /></div></div>
+                <select name="status" value={formData.status} onChange={handleChange} className="w-full p-2 border rounded"><option>Pending</option><option>In Progress</option><option>Ready for Trial</option><option>Completed</option><option>Delivered</option></select>
+                <div className="grid grid-cols-2 gap-4"><div><label>Total Price (MWK)</label><input type="number" step="1" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" /></div><div><label>Amount Paid (MWK)</label><input type="number" step="1" name="paid" value={formData.paid} onChange={handleChange} className="w-full p-2 border rounded" /></div></div>
+                <FormButtons onCancel={onCancel} />
+            </form>
+        </Card>
+    );
+};
+
+// --- Garment Catalogue Management ---
+const GarmentCatalogueView = ({ garments, setGarments }) => {
+    const [editingGarment, setEditingGarment] = useState(null);
+    const handleSave = (garment) => {
+        if (garment.id) { setGarments(garments.map(g => g.id === garment.id ? garment : g)); } 
+        else { setGarments([...garments, { ...garment, id: generateId() }]); }
+        setEditingGarment(null);
+    };
+    const handleDelete = (id) => setGarments(garments.filter(g => g.id !== id));
+
+    if (editingGarment) return <GarmentForm garment={editingGarment} onSave={handleSave} onCancel={() => setEditingGarment(null)} />;
+    return (
+        <div>
+            <ViewHeader title="Garment Catalogue" onAdd={() => setEditingGarment({ name: '', price: 0, measurements: [] })} />
+            {garments.map(garment => (
+                <Card key={garment.id}>
+                    <CrudListItem onEdit={() => setEditingGarment(garment)} onDelete={() => handleDelete(garment.id)}>
+                        <p className="font-semibold">{garment.name}</p>
+                        <p className="text-sm text-purple-600 font-bold">MWK {garment.price.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 mt-1">{garment.measurements.join(', ')}</p>
+                    </CrudListItem>
+                </Card>
+            ))}
+        </div>
+    );
+};
+const GarmentForm = ({ garment, onSave, onCancel }) => {
+    const [formData, setFormData] = useState({...garment, measurements: Array.isArray(garment.measurements) ? garment.measurements.join(', ') : ''});
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave({ ...formData, measurements: formData.measurements.split(',').map(m => m.trim()).filter(Boolean) });
+    };
+    return (
+        <Card>
+            <h3 className="text-lg font-semibold mb-4">{garment.id ? 'Edit Garment' : 'New Garment'}</h3>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Garment Name" className="w-full p-2 border rounded" required />
+                <div><label className="text-sm">Price (MWK)</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+                <div><label className="text-sm">Measurements (comma separated)</label><textarea name="measurements" value={formData.measurements} onChange={handleChange} placeholder="e.g. Bust, Waist, Hips" className="w-full p-2 border rounded" /></div>
+                <FormButtons onCancel={onCancel} />
+            </form>
+        </Card>
+    );
+};
+
+// --- Expenses CRUD Components ---
+const ExpenseForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Expense' : 'New Expense'}</h3><form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" name="category" value={formData.category} onChange={handleChange} placeholder="Category (e.g., Rent, Utilities)" className="w-full p-2 border rounded" required />
+            <div><label className="text-sm">Amount (MWK)</label><input type="number" step="1" name="amount" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            <div><label className="text-sm">Date</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            <FormButtons onCancel={onCancel} /></form>
+        </Card>
+    );
+};
+
+const ExpensesView = ({ expenses, setExpenses }) => {
+    const [editingExpense, setEditingExpense] = useState(null);
+    const handleSave = (expense) => {
+        if (expense.id) { setExpenses(expenses.map(e => e.id === expense.id ? expense : e)); } 
+        else { setExpenses([...expenses, { ...expense, id: generateId() }]); }
+        setEditingExpense(null);
+    };
+    const handleDelete = (id) => setExpenses(expenses.filter(e => e.id !== id));
+
+    if (editingExpense) return <ExpenseForm item={editingExpense} onSave={handleSave} onCancel={() => setEditingExpense(null)} />;
+    return (
+        <div className="mt-4">
+            <ViewHeader title="Expense Log" onAdd={() => setEditingExpense({ category: '', amount: 0, date: new Date().toISOString().split('T')[0] })} />
+            {expenses.map(expense => (
+                <Card key={expense.id}>
+                    <CrudListItem onEdit={() => setEditingExpense(expense)} onDelete={() => handleDelete(expense.id)}>
+                        <p className="font-semibold">{expense.category}</p>
+                        <p className="text-sm text-red-600 font-bold">MWK {expense.amount.toLocaleString()}</p>
+                        <p className="text-xs text-gray-500 mt-1">Date: {expense.date}</p>
+                    </CrudListItem>
+                </Card>
+            ))}
+        </div>
+    );
+};
+
+// --- Finances View (Container) ---
+const FinancesView = ({ orders, expenses, setExpenses }) => {
+    const totalIncome = orders.reduce((sum, order) => sum + order.paid, 0);
+    const totalBalance = orders.reduce((sum, order) => sum + (order.price - order.paid), 0);
+    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    return (
+        <div>
+            <h2 className="text-xl font-semibold mb-4">Finances</h2>
+            <Card>
+                <h3 className="font-bold text-lg">Income Overview</h3>
+                <p>Total Paid: <span className="text-green-600">MWK {totalIncome.toLocaleString()}</span></p>
+                <p>Outstanding Balance: <span className="text-yellow-600">MWK {totalBalance.toLocaleString()}</span></p>
+            </Card>
+            <Card>
+                <h3 className="font-bold text-lg">Expenses Summary</h3>
+                <p>Total This Month: <span className="text-red-600">MWK {totalExpenses.toLocaleString()}</span></p>
+            </Card>
+            
+            {/* Expense CRUD list is now embedded here */}
+            <ExpensesView expenses={expenses} setExpenses={setExpenses} />
+
+            <Card><h3 className="font-bold text-lg mb-2">Export Data</h3><p className="text-sm text-gray-600 mb-2">You can export your data as a CSV file, which opens perfectly in Excel.</p><Button onClick={() => alert("CSV export functionality would be implemented here.")}>Export All Data (CSV)</Button></Card>
+        </div>
+    );
+};
+
+// --- Generic CRUD Views ---
+const createCrudView = (title, initialEntity, FormComponent) => ({ items, setItems }) => {
+    const [editingItem, setEditingItem] = useState(null);
+    const handleSave = (item) => {
+        if (item.id) { setItems(items.map(i => i.id === item.id ? item : i)); } 
+        else { setItems([...items, { ...item, id: generateId() }]); }
+        setEditingItem(null);
+    };
+    const handleDelete = (id) => setItems(items.filter(i => i.id !== id));
+
+    if (editingItem) return <FormComponent item={editingItem} onSave={handleSave} onCancel={() => setEditingItem(null)} />;
+    return (
+        <div>
+            <ViewHeader title={title} onAdd={() => setEditingItem(initialEntity)} />
+            {/* The generic view items must now be passed as 'items' prop */}
+            {items.map(item => (
+                <Card key={item.id}>
+                    <CrudListItem onEdit={() => setEditingItem(item)} onDelete={() => handleDelete(item.id)}>
+                        {/* Generic title logic */}
+                        <p className="font-semibold">{item.name || item.lender}</p>
+                        {/* Generic details logic (updated for clarity) */}
+                        <p className="text-sm text-gray-500">
+                            {item.price && `Price: MWK ${item.price.toLocaleString()}`}
+                            {item.quantity && `Quantity: ${item.quantity}`}
+                            {item.role && `Role: ${item.role}`}
+                            {item.lender && `Paid: MWK ${item.paid.toLocaleString()} / Total: MWK ${item.amount.toLocaleString()}`}
+                        </p>
+                    </CrudListItem>
+                </Card>
+            ))}
+        </div>
+    );
+};
+
+// --- Fabric Management ---
+const FabricForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Fabric' : 'New Fabric'}</h3><form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Fabric Name" className="w-full p-2 border rounded" required />
+            <div><label className="text-sm">Price per unit (MWK)</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            <FormButtons onCancel={onCancel} /></form>
+        </Card>
+    );
+};
+const FabricsView = createCrudView('Fabrics', { name: '', price: 0 }, FabricForm);
+
+// --- Equipment Management ---
+const EquipmentForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseInt(e.target.value) : e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Equipment' : 'New Equipment'}</h3><form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
+            <div><label className="text-sm">Quantity</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            <FormButtons onCancel={onCancel} /></form>
+        </Card>
+    );
+};
+const EquipmentView = createCrudView('Equipment', { name: '', quantity: 1 }, EquipmentForm);
+
+// --- Worker Management ---
+const WorkerForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Worker' : 'New Worker'}</h3><form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Worker Name" className="w-full p-2 border rounded" required />
+            <input type="text" name="role" value={formData.role} onChange={handleChange} placeholder="Role" className="w-full p-2 border rounded" required />
+            <FormButtons onCancel={onCancel} /></form>
+        </Card>
+    );
+};
+const WorkersView = createCrudView('Workers', { name: '', role: '' }, WorkerForm);
+
+// --- Loan Management ---
+const LoanForm = ({ item, onSave, onCancel }) => {
+    const [formData, setFormData] = useState(item);
+    const handleChange = (e) => setFormData(prev => ({ ...prev, [e.target.name]: e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value }));
+    const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+    return (
+        <Card><h3 className="text-lg font-semibold mb-4">{item.id ? 'Edit Loan' : 'New Loan'}</h3><form onSubmit={handleSubmit} className="space-y-4">
+            <input type="text" name="lender" value={formData.lender} onChange={handleChange} placeholder="Lender Name" className="w-full p-2 border rounded" required />
+            <div className="grid grid-cols-2 gap-4">
+                <div><label className="text-sm">Amount (MWK)</label><input type="number" step="1" name="amount" value={formData.amount} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+                <div><label className="text-sm">Paid (MWK)</label><input type="number" step="1" name="paid" value={formData.paid} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            </div>
+            <div><label className="text-sm">Date</label><input type="date" name="date" value={formData.date} onChange={handleChange} className="w-full p-2 border rounded" required /></div>
+            <FormButtons onCancel={onCancel} /></form>
+        </Card>
+    );
+};
+const LoansView = createCrudView('Loans', { lender: '', amount: 0, paid: 0, date: new Date().toISOString().split('T')[0] }, LoanForm);
