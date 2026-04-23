@@ -51,9 +51,32 @@
         .progress-fill {
             @apply h-full bg-white rounded-full transition-all duration-500;
         }
+        .modal {
+            @apply fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 hidden;
+        }
+        .modal.active {
+            @apply flex;
+        }
+        .modal-content {
+            @apply bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl;
+        }
     </style>
 </head>
 <body class="antialiased">
+
+<!-- Edit Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <h3 class="text-xl font-bold mb-4" id="modalTitle">Edit Item</h3>
+        <form id="editForm" class="space-y-4">
+            <div id="editFields"></div>
+            <div class="flex gap-3">
+                <button type="submit" class="btn-premium flex-1">Save Changes</button>
+                <button type="button" onclick="closeModal()" class="px-6 py-3 bg-slate-200 text-slate-700 font-semibold rounded-xl hover:bg-slate-300 transition flex-1">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Header -->
@@ -181,6 +204,10 @@
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-700">Net Loan Position</span>
                             <span id="netLoanPosition" class="text-2xl font-bold">--</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="font-bold text-slate-700">Available Working Capital</span>
+                            <span id="workingCapital" class="text-2xl font-bold">--</span>
                         </div>
                         <div class="flex justify-between items-center mt-2">
                             <span class="font-bold text-slate-700">Profit/Loss vs Capital</span>
@@ -321,6 +348,53 @@
 
     <!-- LOANS TAB -->
     <div id="loans-tab" class="tab-content">
+        <!-- Loan Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="metric-card stat-gradient-1">
+                <div class="relative z-10">
+                    <p class="text-white/80 text-sm font-medium mb-1">Total Loans Given</p>
+                    <p id="totalLoansGivenTop" class="text-3xl font-bold">--</p>
+                </div>
+            </div>
+            <div class="metric-card stat-gradient-4">
+                <div class="relative z-10">
+                    <p class="text-white/80 text-sm font-medium mb-1">Total Loans Expected</p>
+                    <p id="totalLoansExpectedTop" class="text-3xl font-bold">--</p>
+                </div>
+            </div>
+            <div class="metric-card stat-gradient-2">
+                <div class="relative z-10">
+                    <p class="text-white/80 text-sm font-medium mb-1">Net Loan Position</p>
+                    <p id="netLoanPositionTop" class="text-3xl font-bold">--</p>
+                </div>
+            </div>
+            <div class="metric-card stat-gradient-6">
+                <div class="relative z-10">
+                    <p class="text-white/80 text-sm font-medium mb-1">Active Loans Count</p>
+                    <p id="activeLoansCount" class="text-3xl font-bold">--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loan Status Breakdown -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass-card">
+                <h4 class="font-semibold text-slate-700 mb-2">Active Loans</h4>
+                <p id="activeLoansAmount" class="text-2xl font-bold text-yellow-600">--</p>
+                <p id="activeLoansCountDetail" class="text-sm text-slate-500">0 loans</p>
+            </div>
+            <div class="glass-card">
+                <h4 class="font-semibold text-slate-700 mb-2">Paid Loans</h4>
+                <p id="paidLoansAmount" class="text-2xl font-bold text-green-600">--</p>
+                <p id="paidLoansCountDetail" class="text-sm text-slate-500">0 loans</p>
+            </div>
+            <div class="glass-card">
+                <h4 class="font-semibold text-slate-700 mb-2">Overdue Loans</h4>
+                <p id="overdueLoansAmount" class="text-2xl font-bold text-red-600">--</p>
+                <p id="overdueLoansCountDetail" class="text-sm text-slate-500">0 loans</p>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="glass-card lg:col-span-1">
                 <h3 class="font-bold text-lg mb-4">🏦 New Loan Record</h3>
@@ -336,7 +410,7 @@
                 </form>
             </div>
             <div class="glass-card lg:col-span-2">
-                <h3 class="font-bold text-lg mb-4">📋 Active Loans</h3>
+                <h3 class="font-bold text-lg mb-4">📋 All Loans</h3>
                 <div id="loansList" class="divide-y max-h-96 overflow-y-auto"></div>
             </div>
         </div>
@@ -406,6 +480,7 @@
     // ---------- GLOBAL STATE ----------
     let db, auth;
     let transactionChart, commissionChart, volumeAnalysisChart;
+    let currentEditItem = null;
     const todayId = new Date().toISOString().split('T')[0];
     document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -419,12 +494,6 @@
         return new Intl.NumberFormat('en-MW', { style: 'currency', currency: 'MWK', minimumFractionDigits: 2 }).format(v || 0); 
     }
     
-    function formatCompact(v) {
-        if (v >= 1000000) return (v/1000000).toFixed(1) + 'M';
-        if (v >= 1000) return (v/1000).toFixed(1) + 'K';
-        return v.toString();
-    }
-
     function toast(msg, type = 'info') {
         const el = document.getElementById('toast-message');
         const colors = {
@@ -452,23 +521,144 @@
         else if (tabId === 'reconciliation') loadReconciliationData();
     };
 
+    // Modal functions
+    window.closeModal = () => {
+        document.getElementById('editModal').classList.remove('active');
+        currentEditItem = null;
+    };
+
+    window.openEditModal = (type, id, data) => {
+        currentEditItem = { type, id, data };
+        const modal = document.getElementById('editModal');
+        const title = document.getElementById('modalTitle');
+        const fields = document.getElementById('editFields');
+        
+        if (type === 'transaction') {
+            title.textContent = 'Edit Transaction';
+            fields.innerHTML = `
+                <select id="editTransactionType" class="input-premium">
+                    <option value="deposit" ${data.type === 'deposit' ? 'selected' : ''}>Deposit</option>
+                    <option value="withdrawal" ${data.type === 'withdrawal' ? 'selected' : ''}>Withdrawal</option>
+                    <option value="bill_payment" ${data.type === 'bill_payment' ? 'selected' : ''}>Bill Payment</option>
+                    <option value="credit_purchase" ${data.type === 'credit_purchase' ? 'selected' : ''}>Credit Purchase</option>
+                    <option value="send_to_dealer" ${data.type === 'send_to_dealer' ? 'selected' : ''}>Send to Dealer</option>
+                </select>
+                <select id="editTransactionPlatform" class="input-premium">
+                    <option value="Airtel Money" ${data.platform === 'Airtel Money' ? 'selected' : ''}>Airtel Money</option>
+                    <option value="TNM Mpamba" ${data.platform === 'TNM Mpamba' ? 'selected' : ''}>TNM Mpamba</option>
+                </select>
+                <input type="number" id="editTransactionAmount" class="input-premium" placeholder="Amount" value="${data.amount || ''}">
+                <input type="number" id="editTransactionCommission" class="input-premium" placeholder="Commission" value="${data.commission || ''}">
+                <input type="text" id="editTransactionCustomerRef" class="input-premium" placeholder="Customer Reference" value="${data.customerRef || ''}">
+                <textarea id="editTransactionNotes" class="input-premium" placeholder="Notes" rows="2">${data.notes || ''}</textarea>
+            `;
+        } else if (type === 'loan') {
+            title.textContent = 'Edit Loan';
+            fields.innerHTML = `
+                <select id="editLoanType" class="input-premium">
+                    <option value="given" ${data.type === 'given' ? 'selected' : ''}>Given to Customer</option>
+                    <option value="expected" ${data.type === 'expected' ? 'selected' : ''}>Expected from Customer</option>
+                </select>
+                <input type="number" id="editLoanAmount" class="input-premium" placeholder="Amount" value="${data.amount || ''}">
+                <input type="text" id="editClientName" class="input-premium" placeholder="Client Name" value="${data.clientName || ''}">
+                <input type="text" id="editClientPhone" class="input-premium" placeholder="Phone" value="${data.phone || ''}">
+                <input type="date" id="editDueDate" class="input-premium" value="${data.dueDate || ''}">
+                <select id="editLoanStatus" class="input-premium">
+                    <option value="active" ${data.status === 'active' ? 'selected' : ''}>Active</option>
+                    <option value="paid" ${data.status === 'paid' ? 'selected' : ''}>Paid</option>
+                    <option value="overdue" ${data.status === 'overdue' ? 'selected' : ''}>Overdue</option>
+                </select>
+                <textarea id="editLoanNotes" class="input-premium" placeholder="Notes" rows="2">${data.notes || ''}</textarea>
+            `;
+        } else if (type === 'expense') {
+            title.textContent = 'Edit Expense';
+            fields.innerHTML = `
+                <select id="editExpenseCategory" class="input-premium">
+                    <option ${data.category === 'Transport' ? 'selected' : ''}>Transport</option>
+                    <option ${data.category === 'Airtime/Data' ? 'selected' : ''}>Airtime/Data</option>
+                    <option ${data.category === 'Food' ? 'selected' : ''}>Food</option>
+                    <option ${data.category === 'Rent' ? 'selected' : ''}>Rent</option>
+                    <option ${data.category === 'Utilities' ? 'selected' : ''}>Utilities</option>
+                    <option ${data.category === 'Supplies' ? 'selected' : ''}>Supplies</option>
+                    <option ${data.category === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+                <input type="number" id="editExpenseAmount" class="input-premium" placeholder="Amount" value="${data.amount || ''}">
+                <textarea id="editExpenseDescription" class="input-premium" placeholder="Description" rows="3">${data.description || ''}</textarea>
+            `;
+        }
+        
+        modal.classList.add('active');
+    };
+
+    // Edit form submit
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!currentEditItem) return;
+        
+        const { type, id } = currentEditItem;
+        let updateData = {};
+        
+        try {
+            if (type === 'transaction') {
+                updateData = {
+                    type: document.getElementById('editTransactionType').value,
+                    platform: document.getElementById('editTransactionPlatform').value,
+                    amount: parseFloat(document.getElementById('editTransactionAmount').value) || 0,
+                    commission: parseFloat(document.getElementById('editTransactionCommission').value) || 0,
+                    customerRef: document.getElementById('editTransactionCustomerRef').value,
+                    notes: document.getElementById('editTransactionNotes').value,
+                    updatedAt: new Date()
+                };
+            } else if (type === 'loan') {
+                updateData = {
+                    type: document.getElementById('editLoanType').value,
+                    amount: parseFloat(document.getElementById('editLoanAmount').value) || 0,
+                    clientName: document.getElementById('editClientName').value,
+                    phone: document.getElementById('editClientPhone').value,
+                    dueDate: document.getElementById('editDueDate').value,
+                    status: document.getElementById('editLoanStatus').value,
+                    notes: document.getElementById('editLoanNotes').value,
+                    updatedAt: new Date()
+                };
+            } else if (type === 'expense') {
+                updateData = {
+                    category: document.getElementById('editExpenseCategory').value,
+                    amount: parseFloat(document.getElementById('editExpenseAmount').value) || 0,
+                    description: document.getElementById('editExpenseDescription').value,
+                    updatedAt: new Date()
+                };
+            }
+            
+            const docRef = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, type + 's', id);
+            await updateDoc(docRef, updateData);
+            
+            toast('Updated successfully', 'success');
+            closeModal();
+            
+            // Reload appropriate list
+            if (type === 'transaction') loadTransactions();
+            else if (type === 'loan') loadLoans();
+            else if (type === 'expense') loadExpenses();
+            
+            loadDashboard();
+        } catch (error) {
+            console.error('Update error:', error);
+            toast('Update failed', 'error');
+        }
+    });
+
     // ---------- DASHBOARD CALCULATIONS ----------
     async function loadDashboard() {
         try {
-            // Get all data
             const dailySnap = await getDoc(getDailyDoc());
             const dailyData = dailySnap.exists() ? dailySnap.data() : {};
             const capitalSnap = await getDoc(getCapitalDoc());
             const capital = capitalSnap.exists() ? capitalSnap.data().totalCapital || 0 : 0;
             
-            // Get today's transactions
             const transQ = query(colRef('transactions'), where('date', '==', todayId));
             const transSnap = await getDocs(transQ);
-            
-            // Get all loans
             const loansSnap = await getDocs(colRef('loans'));
             
-            // Calculate values
             let totalDeposits = 0, totalWithdrawals = 0, totalCommission = 0;
             let airtelCommission = 0, mpambaCommission = 0;
             
@@ -483,17 +673,24 @@
                 else if (t.platform === 'TNM Mpamba') mpambaCommission += comm;
             });
             
-            // Calculate loan totals
+            // Calculate loan totals with status consideration
             let loansGiven = 0, loansExpected = 0;
+            let activeGiven = 0, activeExpected = 0;
+            
             loansSnap.forEach(doc => {
                 const l = doc.data();
+                // Only count active loans for position calculations
                 if (l.status === 'active') {
-                    if (l.type === 'given') loansGiven += l.amount || 0;
-                    else if (l.type === 'expected') loansExpected += l.amount || 0;
+                    if (l.type === 'given') {
+                        loansGiven += l.amount || 0;
+                        activeGiven += l.amount || 0;
+                    } else if (l.type === 'expected') {
+                        loansExpected += l.amount || 0;
+                        activeExpected += l.amount || 0;
+                    }
                 }
             });
             
-            // Current balances
             const cashClose = dailyData.cashClose || 0;
             const airtelClose = dailyData.airtelClose || 0;
             const mpambaClose = dailyData.mpambaClose || 0;
@@ -501,15 +698,23 @@
             const airtelOpen = dailyData.airtelOpen || 0;
             const mpambaOpen = dailyData.mpambaOpen || 0;
             
-            // Opening balances for display
             const currentCash = cashClose || cashOpen;
             const currentAirtel = airtelClose || airtelOpen;
             const currentMpamba = mpambaClose || mpambaOpen;
             
             const totalLiquid = currentCash + currentAirtel + currentMpamba;
-            const totalPortfolio = totalLiquid + loansExpected;
-            const netPosition = totalPortfolio - loansGiven;
-            const profitLoss = netPosition - capital;
+            
+            // IMPORTANT: Portfolio calculation - only include expected loans that are ACTIVE
+            const totalPortfolio = totalLiquid + activeExpected;
+            
+            // Net position = Liquid assets + Expected loans - Given loans
+            const netPosition = totalLiquid + activeExpected - activeGiven;
+            
+            // Working capital = Net position - Capital
+            const workingCapital = netPosition - capital;
+            
+            // Profit/Loss = Working capital (this shows if you've grown or shrunk your capital)
+            const profitLoss = workingCapital;
             
             // Float movements
             const airtelNet = airtelClose - airtelOpen;
@@ -528,14 +733,18 @@
             document.getElementById('airtelEValue').textContent = formatCurrency(currentAirtel);
             document.getElementById('mpambaEValue').textContent = formatCurrency(currentMpamba);
             document.getElementById('totalLiquidAssets').textContent = formatCurrency(totalLiquid);
-            document.getElementById('loansGiven').textContent = formatCurrency(loansGiven);
-            document.getElementById('loansExpected').textContent = formatCurrency(loansExpected);
+            document.getElementById('loansGiven').textContent = formatCurrency(activeGiven);
+            document.getElementById('loansExpected').textContent = formatCurrency(activeExpected);
             document.getElementById('investedCapital').textContent = formatCurrency(capital);
             
-            const netLoanPos = loansExpected - loansGiven;
+            const netLoanPos = activeExpected - activeGiven;
             const netLoanEl = document.getElementById('netLoanPosition');
             netLoanEl.textContent = formatCurrency(netLoanPos);
             netLoanEl.className = `text-2xl font-bold ${netLoanPos >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+            
+            const workingCapEl = document.getElementById('workingCapital');
+            workingCapEl.textContent = formatCurrency(workingCapital);
+            workingCapEl.className = `text-2xl font-bold ${workingCapital >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
             
             const plEl = document.getElementById('profitLossVsCapital');
             plEl.textContent = formatCurrency(profitLoss);
@@ -564,11 +773,11 @@
             // Business insight
             const insight = document.getElementById('businessInsight');
             if (profitLoss > 0) {
-                insight.textContent = `📈 Great job! You're profitable by ${formatCurrency(profitLoss)}. Consider reinvesting or saving.`;
+                insight.textContent = `📈 Great job! You've grown your capital by ${formatCurrency(profitLoss)}. Consider reinvesting or saving.`;
             } else if (profitLoss < 0) {
-                insight.textContent = `📉 You're down ${formatCurrency(Math.abs(profitLoss))}. Review expenses and commission rates.`;
+                insight.textContent = `📉 Capital decreased by ${formatCurrency(Math.abs(profitLoss))}. Review expenses and increase transaction volume.`;
             } else {
-                insight.textContent = `🎯 Breaking even. Focus on increasing transaction volume to grow profits.`;
+                insight.textContent = `🎯 Breaking even. Focus on increasing transaction volume and collecting expected loans.`;
             }
             
             // Recent transactions
@@ -589,7 +798,6 @@
             });
             document.getElementById('recentTransactions').innerHTML = recentHtml.length ? recentHtml.join('') : '<div class="text-slate-400 text-center py-4">No transactions yet</div>';
             
-            // Update charts
             updateDashboardCharts(airtelCommission, mpambaCommission);
             
         } catch (error) {
@@ -599,7 +807,6 @@
     }
 
     function updateDashboardCharts(airtelComm, mpambaComm) {
-        // Commission chart
         const ctx1 = document.getElementById('commissionChart').getContext('2d');
         if (commissionChart) commissionChart.destroy();
         commissionChart = new Chart(ctx1, {
@@ -619,7 +826,6 @@
             }
         });
         
-        // Transaction chart (placeholder with sample data)
         const ctx2 = document.getElementById('transactionChart').getContext('2d');
         if (transactionChart) transactionChart.destroy();
         transactionChart = new Chart(ctx2, {
@@ -664,8 +870,8 @@
                     <span class="font-semibold ${t.type === 'deposit' ? 'text-emerald-600' : 'text-rose-600'}">${formatCurrency(t.amount)}</span>
                     <div class="text-xs text-emerald-600">Comm: ${formatCurrency(t.commission || 0)}</div>
                     <div class="flex justify-end gap-2 mt-1">
-                        <span class="cursor-pointer hover:text-indigo-600" onclick="editTransaction('${doc.id}')">✏️</span>
-                        <span class="cursor-pointer hover:text-rose-600" onclick="deleteItem('transactions', '${doc.id}')">🗑️</span>
+                        <span class="cursor-pointer hover:text-indigo-600 text-sm" onclick='openEditModal("transaction", "${doc.id}", ${JSON.stringify(t)})'>✏️ Edit</span>
+                        <span class="cursor-pointer hover:text-rose-600 text-sm" onclick="deleteItem('transactions', '${doc.id}')">🗑️ Delete</span>
                     </div>
                 </div>
             `;
@@ -678,8 +884,30 @@
         const snap = await getDocs(query(colRef('loans'), orderBy('timestamp', 'desc')));
         const list = document.getElementById('loansList');
         list.innerHTML = '';
+        
+        // Calculate totals
+        let totalGiven = 0, totalExpected = 0;
+        let activeGiven = 0, activeExpected = 0;
+        let paidGiven = 0, paidExpected = 0;
+        let overdueGiven = 0, overdueExpected = 0;
+        let activeCount = 0, paidCount = 0, overdueCount = 0;
+        
         snap.forEach(doc => {
             const l = doc.data();
+            const amount = l.amount || 0;
+            
+            if (l.type === 'given') {
+                totalGiven += amount;
+                if (l.status === 'active') { activeGiven += amount; activeCount++; }
+                else if (l.status === 'paid') { paidGiven += amount; paidCount++; }
+                else if (l.status === 'overdue') { overdueGiven += amount; overdueCount++; }
+            } else {
+                totalExpected += amount;
+                if (l.status === 'active') { activeExpected += amount; activeCount++; }
+                else if (l.status === 'paid') { paidExpected += amount; paidCount++; }
+                else if (l.status === 'overdue') { overdueExpected += amount; overdueCount++; }
+            }
+            
             const div = document.createElement('div');
             div.className = 'py-3 flex justify-between';
             const statusColor = l.status === 'active' ? 'bg-yellow-100 text-yellow-800' : 
@@ -693,16 +921,34 @@
                     <div class="text-xs text-slate-400">${l.notes || ''}</div>
                 </div>
                 <div class="text-right">
-                    <span class="font-semibold">${formatCurrency(l.amount)}</span>
+                    <span class="font-semibold">${formatCurrency(amount)}</span>
                     <div class="flex justify-end gap-2 mt-1">
-                        <span class="cursor-pointer hover:text-indigo-600" onclick="editLoan('${doc.id}')">✏️</span>
-                        <span class="cursor-pointer hover:text-rose-600" onclick="deleteItem('loans', '${doc.id}')">🗑️</span>
+                        <span class="cursor-pointer hover:text-indigo-600 text-sm" onclick='openEditModal("loan", "${doc.id}", ${JSON.stringify(l)})'>✏️ Edit</span>
+                        <span class="cursor-pointer hover:text-rose-600 text-sm" onclick="deleteItem('loans', '${doc.id}')">🗑️ Delete</span>
                     </div>
                 </div>
             `;
             list.appendChild(div);
         });
+        
         if (snap.empty) list.innerHTML = '<div class="text-slate-400 py-8 text-center">No loans recorded</div>';
+        
+        // Update top summary cards
+        document.getElementById('totalLoansGivenTop').textContent = formatCurrency(totalGiven);
+        document.getElementById('totalLoansExpectedTop').textContent = formatCurrency(totalExpected);
+        const netPosition = totalExpected - totalGiven;
+        const netPosEl = document.getElementById('netLoanPositionTop');
+        netPosEl.textContent = formatCurrency(netPosition);
+        netPosEl.className = `text-3xl font-bold ${netPosition >= 0 ? '' : 'text-rose-200'}`;
+        document.getElementById('activeLoansCount').textContent = activeCount;
+        
+        // Update status breakdown
+        document.getElementById('activeLoansAmount').textContent = formatCurrency(activeGiven + activeExpected);
+        document.getElementById('activeLoansCountDetail').textContent = `${activeCount} active loans`;
+        document.getElementById('paidLoansAmount').textContent = formatCurrency(paidGiven + paidExpected);
+        document.getElementById('paidLoansCountDetail').textContent = `${paidCount} paid loans`;
+        document.getElementById('overdueLoansAmount').textContent = formatCurrency(overdueGiven + overdueExpected);
+        document.getElementById('overdueLoansCountDetail').textContent = `${overdueCount} overdue loans`;
     }
 
     async function loadExpenses() {
@@ -722,8 +968,8 @@
                 <div class="text-right">
                     <span class="font-semibold text-rose-600">${formatCurrency(e.amount)}</span>
                     <div class="flex justify-end gap-2 mt-1">
-                        <span class="cursor-pointer hover:text-indigo-600" onclick="editExpense('${doc.id}')">✏️</span>
-                        <span class="cursor-pointer hover:text-rose-600" onclick="deleteItem('expenses', '${doc.id}')">🗑️</span>
+                        <span class="cursor-pointer hover:text-indigo-600 text-sm" onclick='openEditModal("expense", "${doc.id}", ${JSON.stringify(e)})'>✏️ Edit</span>
+                        <span class="cursor-pointer hover:text-rose-600 text-sm" onclick="deleteItem('expenses', '${doc.id}')">🗑️ Delete</span>
                     </div>
                 </div>
             `;
@@ -781,7 +1027,6 @@
         document.getElementById('monthlyCommission').textContent = formatCurrency(monthly);
         document.getElementById('yearlyCommission').textContent = formatCurrency(yearly);
         
-        // Performance metrics
         document.getElementById('performanceMetrics').innerHTML = `
             <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
                 <span>Today's Transactions</span>
@@ -801,7 +1046,6 @@
             </div>
         `;
         
-        // Volume analysis chart
         const ctx = document.getElementById('volumeAnalysisChart').getContext('2d');
         if (volumeAnalysisChart) volumeAnalysisChart.destroy();
         volumeAnalysisChart = new Chart(ctx, {
@@ -824,7 +1068,7 @@
 
     // ---------- DELETE & RESET ----------
     window.deleteItem = async (collection, id) => {
-        if (!confirm('Delete this item?')) return;
+        if (!confirm('Delete this item permanently?')) return;
         try {
             await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, collection, id));
             toast('Deleted successfully', 'success');
@@ -989,13 +1233,11 @@
         auth = getAuth(app);
         await signInAnonymously(auth);
         
-        // Set default target if not exists
         const targetSnap = await getDoc(getTargetDoc());
         if (!targetSnap.exists()) {
             await setDoc(getTargetDoc(), { amount: 10000, type: 'daily_commission', period: 'daily' });
         }
         
-        // Bind buttons
         document.getElementById('addTransactionBtn').onclick = addTransaction;
         document.getElementById('addExpenseBtn').onclick = addExpense;
         document.getElementById('addLoanBtn').onclick = addLoan;
@@ -1007,11 +1249,9 @@
         document.getElementById('refreshDashboard').onclick = () => loadDashboard();
         
         // Make functions globally available
-        window.editTransaction = (id) => toast('Edit feature coming soon', 'info');
-        window.editLoan = (id) => toast('Edit feature coming soon', 'info');
-        window.editExpense = (id) => toast('Edit feature coming soon', 'info');
+        window.openEditModal = openEditModal;
+        window.deleteItem = deleteItem;
         
-        // Load initial data
         await loadDashboard();
         toast('Connected successfully', 'success');
     }
