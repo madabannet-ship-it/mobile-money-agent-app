@@ -7,11 +7,9 @@
     <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { @apply bg-gradient-to-br from-slate-50 via-white to-slate-100; }
+        body { @apply bg-gradient-to-br from-slate-50 via-white to-slate-100; overflow-x-hidden; }
         .glass-card {
             @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transition-all duration-300 hover:shadow-2xl;
         }
@@ -25,10 +23,7 @@
             @apply w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 outline-none transition-all bg-white;
         }
         .btn-premium {
-            @apply px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50;
-        }
-        .btn-success {
-            @apply px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all;
+            @apply px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer;
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -49,13 +44,22 @@
             @apply absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16;
         }
         .progress-bar {
-            @apply h-2 bg-white/30 rounded-full overflow-hidden;
+            @apply h-3 bg-white/30 rounded-full overflow-hidden;
         }
         .progress-fill {
             @apply h-full bg-white rounded-full transition-all duration-500;
         }
         .edit-row {
             @apply bg-indigo-50 p-4 rounded-xl mt-2 border border-indigo-200;
+        }
+        .stat-box {
+            @apply bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200;
+        }
+        .percentage-bar {
+            @apply h-2 bg-slate-200 rounded-full overflow-hidden;
+        }
+        .percentage-fill {
+            @apply h-full rounded-full transition-all duration-500;
         }
     </style>
 </head>
@@ -74,10 +78,10 @@
             </p>
         </div>
         <div class="flex gap-3 mt-4 md:mt-0">
-            <button id="refreshDashboard" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition">
+            <button id="refreshDashboard" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer">
                 🔄 Refresh
             </button>
-            <button id="resetDataBtn" class="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl hover:shadow-lg transition">
+            <button id="resetDataBtn" class="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl hover:shadow-lg transition cursor-pointer">
                 🗑️ Reset Data
             </button>
         </div>
@@ -98,6 +102,7 @@
 
     <!-- DASHBOARD TAB -->
     <div id="dashboard-tab" class="tab-content active">
+        <!-- Key Metrics -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div class="metric-card stat-gradient-1">
                 <div class="relative z-10">
@@ -132,24 +137,61 @@
             </div>
         </div>
 
+        <!-- Asset & Credit Breakdown -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Asset Breakdown -->
             <div class="glass-card">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="text-2xl">💎</span> Asset Breakdown
                 </h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center p-3 bg-indigo-50 rounded-xl">
-                        <span class="font-medium text-indigo-700">💰 Physical Cash</span>
-                        <span id="physicalCash" class="text-2xl font-bold text-indigo-700">--</span>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-amber-50 rounded-xl border border-amber-200">
+                        <span class="font-medium text-amber-700">💰 Physical Cash</span>
+                        <span id="physicalCash" class="text-2xl font-bold text-amber-700">--</span>
                     </div>
-                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl">
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-200">
                         <span class="font-medium text-blue-700">📱 Airtel Money E-Value</span>
                         <span id="airtelEValue" class="text-2xl font-bold text-blue-700">--</span>
                     </div>
-                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl">
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200">
                         <span class="font-medium text-green-700">📲 TNM Mpamba E-Value</span>
                         <span id="mpambaEValue" class="text-2xl font-bold text-green-700">--</span>
                     </div>
+                    
+                    <!-- Simple Distribution Bars -->
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <p class="text-sm font-medium text-slate-600 mb-3">Distribution</p>
+                        <div class="space-y-2">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-amber-600">Cash</span>
+                                    <span id="cashPercent">0%</span>
+                                </div>
+                                <div class="percentage-bar">
+                                    <div id="cashBar" class="percentage-fill bg-amber-400" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-blue-600">Airtel</span>
+                                    <span id="airtelPercent">0%</span>
+                                </div>
+                                <div class="percentage-bar">
+                                    <div id="airtelBar" class="percentage-fill bg-blue-400" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1">
+                                    <span class="text-green-600">Mpamba</span>
+                                    <span id="mpambaPercent">0%</span>
+                                </div>
+                                <div class="percentage-bar">
+                                    <div id="mpambaBar" class="percentage-fill bg-green-400" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="border-t-2 border-slate-200 pt-3 mt-2">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-700">Total Liquid Assets</span>
@@ -159,33 +201,34 @@
                 </div>
             </div>
 
+            <!-- Credit & Capital Position -->
             <div class="glass-card">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="text-2xl">🏦</span> Credit & Capital Position
                 </h3>
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center p-3 bg-rose-50 rounded-xl">
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-rose-50 rounded-xl border border-rose-200">
                         <span class="font-medium text-rose-700">📤 Credit Extended to Clients</span>
                         <span id="loansGiven" class="text-2xl font-bold text-rose-700">--</span>
                     </div>
-                    <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl">
+                    <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-200">
                         <span class="font-medium text-emerald-700">📥 Expected from Customers</span>
                         <span id="loansExpected" class="text-2xl font-bold text-emerald-700">--</span>
                     </div>
-                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-xl">
+                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-xl border border-purple-200">
                         <span class="font-medium text-purple-700">💼 Invested Capital</span>
                         <span id="investedCapital" class="text-2xl font-bold text-purple-700">--</span>
                     </div>
-                    <div class="border-t-2 border-slate-200 pt-3 mt-2">
+                    <div class="border-t-2 border-slate-200 pt-3 mt-2 space-y-2">
                         <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-700">Net Credit Position</span>
                             <span id="netLoanPosition" class="text-2xl font-bold">--</span>
                         </div>
-                        <div class="flex justify-between items-center mt-2">
+                        <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-700">Available Working Capital</span>
                             <span id="workingCapital" class="text-2xl font-bold">--</span>
                         </div>
-                        <div class="flex justify-between items-center mt-2">
+                        <div class="flex justify-between items-center">
                             <span class="font-bold text-slate-700">Profit/Loss vs Capital</span>
                             <span id="profitLossVsCapital" class="text-2xl font-bold">--</span>
                         </div>
@@ -194,16 +237,19 @@
             </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">💸 Commission by Platform</h3>
-                <canvas id="commissionChart" height="200"></canvas>
+        <!-- Commission & Platform Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="stat-box text-center">
+                <p class="text-sm text-slate-500 mb-1">Airtel Commission Today</p>
+                <p id="airtelCommissionDisplay" class="text-3xl font-bold text-blue-600">--</p>
             </div>
-            
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">📊 Asset Distribution</h3>
-                <canvas id="assetDistributionChart" height="200"></canvas>
+            <div class="stat-box text-center">
+                <p class="text-sm text-slate-500 mb-1">Mpamba Commission Today</p>
+                <p id="mpambaCommissionDisplay" class="text-3xl font-bold text-green-600">--</p>
+            </div>
+            <div class="stat-box text-center">
+                <p class="text-sm text-slate-500 mb-1">Total Commission Today</p>
+                <p id="totalCommissionDisplay" class="text-3xl font-bold text-indigo-600">--</p>
             </div>
         </div>
 
@@ -216,9 +262,9 @@
             <div class="glass-card">
                 <h3 class="text-lg font-bold text-slate-800 mb-4">⚡ Quick Actions</h3>
                 <div class="space-y-3">
-                    <button onclick="switchTab('transactions')" class="w-full btn-premium">➕ New Transaction</button>
-                    <button onclick="switchTab('loans')" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition">🏦 Manage Credit</button>
-                    <button onclick="switchTab('reconciliation')" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition">💰 Daily Reconciliation</button>
+                    <button onclick="switchTab('transactions')" class="w-full btn-premium cursor-pointer">➕ New Transaction</button>
+                    <button onclick="switchTab('loans')" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">🏦 Manage Credit</button>
+                    <button onclick="switchTab('reconciliation')" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">💰 Daily Reconciliation</button>
                 </div>
                 <div class="mt-6 p-4 bg-indigo-50 rounded-xl">
                     <h4 class="font-semibold text-indigo-800 mb-2">💡 Business Insight</h4>
@@ -237,7 +283,7 @@
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Opening</label><input type="number" id="airtelOpen" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Opening</label><input type="number" id="mpambaOpen" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Opening</label><input type="number" id="cashOpen" class="input-premium" placeholder="0.00"></div>
-                    <button id="saveOpenBtn" class="btn-premium w-full mt-4">Save Opening Balances</button>
+                    <button id="saveOpenBtn" class="btn-premium w-full mt-4 cursor-pointer">Save Opening Balances</button>
                 </div>
             </div>
             <div class="glass-card">
@@ -248,8 +294,8 @@
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Closing</label><input type="number" id="cashClose" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Commission Earned Today</label><input type="number" id="commissionEarned" class="input-premium" placeholder="0.00"></div>
                     <div class="flex gap-3 mt-4">
-                        <button id="saveCloseBtn" class="btn-premium flex-1">Save Closing</button>
-                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1">Calculate</button>
+                        <button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing</button>
+                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate</button>
                     </div>
                 </div>
             </div>
@@ -300,7 +346,7 @@
                         <p class="font-semibold mb-1">Transaction Effects:</p>
                         <p id="transactionEffectDesc">Select a transaction type</p>
                     </div>
-                    <button type="button" id="addTransactionBtn" class="btn-premium w-full">Add Transaction</button>
+                    <button type="button" id="addTransactionBtn" class="btn-premium w-full cursor-pointer">Add Transaction</button>
                 </form>
             </div>
             <div class="glass-card lg:col-span-2">
@@ -380,7 +426,7 @@
                         <p class="font-semibold">Note:</p>
                         <p>Credit amount will be deducted from selected source (Cash/E-Value)</p>
                     </div>
-                    <button type="button" id="addLoanBtn" class="btn-premium w-full">Record Credit</button>
+                    <button type="button" id="addLoanBtn" class="btn-premium w-full cursor-pointer">Record Credit</button>
                 </form>
             </div>
             <div class="glass-card lg:col-span-2">
@@ -407,7 +453,7 @@
                     </select>
                     <input type="number" id="expenseAmount" placeholder="Amount" class="input-premium">
                     <textarea id="expenseDescription" placeholder="Description" class="input-premium" rows="3"></textarea>
-                    <button type="button" id="addExpenseBtn" class="btn-premium w-full">Add Expense</button>
+                    <button type="button" id="addExpenseBtn" class="btn-premium w-full cursor-pointer">Add Expense</button>
                 </form>
             </div>
             <div class="glass-card lg:col-span-2">
@@ -422,16 +468,18 @@
         <div class="glass-card mb-6">
             <h3 class="font-bold text-lg mb-4">📈 Commission Analysis</h3>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl"><span class="text-sm text-indigo-600">Daily Avg</span><div id="dailyCommission" class="text-2xl font-bold text-indigo-800">--</div></div>
-                <div class="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl"><span class="text-sm text-purple-600">Weekly Total</span><div id="weeklyCommission" class="text-2xl font-bold text-purple-800">--</div></div>
-                <div class="p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl"><span class="text-sm text-pink-600">Monthly Total</span><div id="monthlyCommission" class="text-2xl font-bold text-pink-800">--</div></div>
-                <div class="p-4 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl"><span class="text-sm text-rose-600">Yearly Total</span><div id="yearlyCommission" class="text-2xl font-bold text-rose-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl"><span class="text-sm text-indigo-600">Daily</span><div id="dailyCommission" class="text-2xl font-bold text-indigo-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl"><span class="text-sm text-purple-600">Weekly</span><div id="weeklyCommission" class="text-2xl font-bold text-purple-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl"><span class="text-sm text-pink-600">Monthly</span><div id="monthlyCommission" class="text-2xl font-bold text-pink-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl"><span class="text-sm text-rose-600">Yearly</span><div id="yearlyCommission" class="text-2xl font-bold text-rose-800">--</div></div>
             </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Transaction Summary Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="glass-card">
-                <h3 class="font-bold text-lg mb-4">🥧 Transaction Type Distribution</h3>
-                <canvas id="transactionTypeChart" height="200"></canvas>
+                <h3 class="font-bold text-lg mb-4">💹 Today's Transaction Summary</h3>
+                <div id="transactionSummary" class="space-y-3"></div>
             </div>
             <div class="glass-card">
                 <h3 class="font-bold text-lg mb-4">🎯 Performance Metrics</h3>
@@ -445,7 +493,7 @@
     // ---------- FIREBASE IMPORTS ----------
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ---------- CONFIGURATION ----------
     const AGENT_ID = "Accolado";
@@ -461,7 +509,6 @@
 
     // ---------- GLOBAL STATE ----------
     let db, auth;
-    let commissionChart, assetDistributionChart, transactionTypeChart;
     const todayId = new Date().toISOString().split('T')[0];
     document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
@@ -605,7 +652,7 @@
             // Add repayment transaction
             await addDoc(colRef('transactions'), {
                 type: 'deposit',
-                platform: 'Airtel Money', // Default, can be modified
+                platform: 'Airtel Money',
                 amount: amt,
                 commission: 0,
                 customerRef: `Loan Repayment - ${loan.clientName}`,
@@ -645,19 +692,13 @@
                 else if (t.platform === 'TNM Mpamba') mpambaCommission += comm;
             });
             
-            let loansGiven = 0, loansExpected = 0;
             let activeGiven = 0, activeExpected = 0;
             
             loansSnap.forEach(doc => {
                 const l = doc.data();
                 if (l.status === 'active') {
-                    if (l.type === 'given') {
-                        loansGiven += l.amount || 0;
-                        activeGiven += l.amount || 0;
-                    } else if (l.type === 'expected') {
-                        loansExpected += l.amount || 0;
-                        activeExpected += l.amount || 0;
-                    }
+                    if (l.type === 'given') activeGiven += l.amount || 0;
+                    else if (l.type === 'expected') activeExpected += l.amount || 0;
                 }
             });
             
@@ -665,12 +706,10 @@
             const airtelClose = dailyData.airtelClose || 0;
             const mpambaClose = dailyData.mpambaClose || 0;
             const cashOpen = dailyData.cashOpen || 0;
-            const airtelOpen = dailyData.airtelOpen || 0;
-            const mpambaOpen = dailyData.mpambaOpen || 0;
             
             const currentCash = cashClose || cashOpen;
-            const currentAirtel = airtelClose || airtelOpen;
-            const currentMpamba = mpambaClose || mpambaOpen;
+            const currentAirtel = airtelClose || dailyData.airtelOpen || 0;
+            const currentMpamba = mpambaClose || dailyData.mpambaOpen || 0;
             
             const totalLiquid = currentCash + currentAirtel + currentMpamba;
             const totalPortfolio = totalLiquid + activeExpected;
@@ -678,15 +717,32 @@
             const workingCapital = netPosition - capital;
             const profitLoss = workingCapital;
             
-            // Update UI
+            // Update main metrics
             document.getElementById('totalPortfolioValue').textContent = formatCurrency(totalPortfolio);
             document.getElementById('netBusinessPosition').textContent = formatCurrency(netPosition);
             document.getElementById('positionChange').textContent = `Today's change: ${formatCurrency(cashClose - cashOpen)}`;
             document.getElementById('dashboardCommission').textContent = formatCurrency(totalCommission);
+            
+            // Asset breakdown
             document.getElementById('physicalCash').textContent = formatCurrency(currentCash);
             document.getElementById('airtelEValue').textContent = formatCurrency(currentAirtel);
             document.getElementById('mpambaEValue').textContent = formatCurrency(currentMpamba);
             document.getElementById('totalLiquidAssets').textContent = formatCurrency(totalLiquid);
+            
+            // Distribution percentages
+            const totalForPercent = totalLiquid || 1;
+            const cashPct = ((currentCash / totalForPercent) * 100).toFixed(0);
+            const airtelPct = ((currentAirtel / totalForPercent) * 100).toFixed(0);
+            const mpambaPct = ((currentMpamba / totalForPercent) * 100).toFixed(0);
+            
+            document.getElementById('cashPercent').textContent = cashPct + '%';
+            document.getElementById('airtelPercent').textContent = airtelPct + '%';
+            document.getElementById('mpambaPercent').textContent = mpambaPct + '%';
+            document.getElementById('cashBar').style.width = cashPct + '%';
+            document.getElementById('airtelBar').style.width = airtelPct + '%';
+            document.getElementById('mpambaBar').style.width = mpambaPct + '%';
+            
+            // Credit & Capital
             document.getElementById('loansGiven').textContent = formatCurrency(activeGiven);
             document.getElementById('loansExpected').textContent = formatCurrency(activeExpected);
             document.getElementById('investedCapital').textContent = formatCurrency(capital);
@@ -703,6 +759,11 @@
             const plEl = document.getElementById('profitLossVsCapital');
             plEl.textContent = formatCurrency(profitLoss);
             plEl.className = `text-2xl font-bold ${profitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+            
+            // Commission summary
+            document.getElementById('airtelCommissionDisplay').textContent = formatCurrency(airtelCommission);
+            document.getElementById('mpambaCommissionDisplay').textContent = formatCurrency(mpambaCommission);
+            document.getElementById('totalCommissionDisplay').textContent = formatCurrency(totalCommission);
             
             // Target progress
             const targetSnap = await getDoc(getTargetDoc());
@@ -739,54 +800,10 @@
             });
             document.getElementById('recentTransactions').innerHTML = recentHtml.length ? recentHtml.join('') : '<div class="text-slate-400 text-center py-4">No transactions yet</div>';
             
-            updateCharts(airtelCommission, mpambaCommission, currentCash, currentAirtel, currentMpamba);
-            
         } catch (error) {
             console.error('Dashboard error:', error);
             toast('Error loading dashboard', 'error');
         }
-    }
-
-    function updateCharts(airtelComm, mpambaComm, cash, airtel, mpamba) {
-        // Commission pie chart
-        const ctx1 = document.getElementById('commissionChart').getContext('2d');
-        if (commissionChart) commissionChart.destroy();
-        commissionChart = new Chart(ctx1, {
-            type: 'doughnut',
-            data: {
-                labels: ['Airtel Money', 'TNM Mpamba'],
-                datasets: [{
-                    data: [airtelComm, mpambaComm],
-                    backgroundColor: ['#667eea', '#4facfe'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-            }
-        });
-        
-        // Asset distribution pie chart
-        const ctx2 = document.getElementById('assetDistributionChart').getContext('2d');
-        if (assetDistributionChart) assetDistributionChart.destroy();
-        assetDistributionChart = new Chart(ctx2, {
-            type: 'doughnut',
-            data: {
-                labels: ['Cash', 'Airtel E-Value', 'Mpamba E-Value'],
-                datasets: [{
-                    data: [cash, airtel, mpamba],
-                    backgroundColor: ['#f59e0b', '#667eea', '#10b981'],
-                    borderWidth: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-            }
-        });
     }
 
     // ---------- CRUD OPERATIONS ----------
@@ -835,8 +852,8 @@
                     <input type="text" id="edit-ref-${doc.id}" value="${t.customerRef || ''}" placeholder="Reference" class="input-premium mb-2 text-sm">
                     <textarea id="edit-notes-${doc.id}" placeholder="Notes" class="input-premium mb-2 text-sm" rows="2">${t.notes || ''}</textarea>
                     <div class="flex gap-2">
-                        <button onclick="saveEdit('${doc.id}', 'transaction')" class="btn-premium text-sm py-2">Save</button>
-                        <button onclick="toggleEditRow('${doc.id}', 'transaction')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button>
+                        <button onclick="saveEdit('${doc.id}', 'transaction')" class="btn-premium text-sm py-2 cursor-pointer">Save</button>
+                        <button onclick="toggleEditRow('${doc.id}', 'transaction')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Cancel</button>
                     </div>
                 </div>
             `;
@@ -917,8 +934,8 @@
                     </select>
                     <textarea id="edit-loan-notes-${doc.id}" placeholder="Notes" class="input-premium mb-2 text-sm" rows="2">${l.notes || ''}</textarea>
                     <div class="flex gap-2">
-                        <button onclick="saveEdit('${doc.id}', 'loan')" class="btn-premium text-sm py-2">Save</button>
-                        <button onclick="toggleEditRow('${doc.id}', 'loan')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button>
+                        <button onclick="saveEdit('${doc.id}', 'loan')" class="btn-premium text-sm py-2 cursor-pointer">Save</button>
+                        <button onclick="toggleEditRow('${doc.id}', 'loan')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Cancel</button>
                     </div>
                 </div>
             `;
@@ -981,8 +998,8 @@
                     <input type="number" id="edit-expense-amount-${doc.id}" value="${e.amount || ''}" class="input-premium mb-2 text-sm">
                     <textarea id="edit-expense-desc-${doc.id}" placeholder="Description" class="input-premium mb-2 text-sm" rows="2">${e.description || ''}</textarea>
                     <div class="flex gap-2">
-                        <button onclick="saveEdit('${doc.id}', 'expense')" class="btn-premium text-sm py-2">Save</button>
-                        <button onclick="toggleEditRow('${doc.id}', 'expense')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button>
+                        <button onclick="saveEdit('${doc.id}', 'expense')" class="btn-premium text-sm py-2 cursor-pointer">Save</button>
+                        <button onclick="toggleEditRow('${doc.id}', 'expense')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm cursor-pointer">Cancel</button>
                     </div>
                 </div>
             `;
@@ -1014,8 +1031,8 @@
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const yearStart = new Date(now.getFullYear(), 0, 1);
         
-        let totalTrans = 0, airtelVol = 0, mpambaVol = 0;
-        const typeCount = { deposit: 0, withdrawal: 0, bill_payment: 0, credit_purchase: 0, send_to_dealer: 0 };
+        let totalTransToday = 0, airtelVolToday = 0, mpambaVolToday = 0;
+        let depositCount = 0, withdrawalCount = 0, billCount = 0, creditCount = 0, dealerCount = 0;
         
         snap.forEach(doc => {
             const t = doc.data();
@@ -1031,10 +1048,15 @@
             if (date >= yearStart) yearly += comm;
             
             if (date.toDateString() === now.toDateString()) {
-                totalTrans++;
-                typeCount[t.type] = (typeCount[t.type] || 0) + 1;
-                if (t.platform === 'Airtel Money') airtelVol += amount;
-                else if (t.platform === 'TNM Mpamba') mpambaVol += amount;
+                totalTransToday++;
+                if (t.platform === 'Airtel Money') airtelVolToday += amount;
+                else if (t.platform === 'TNM Mpamba') mpambaVolToday += amount;
+                
+                if (t.type === 'deposit') depositCount++;
+                else if (t.type === 'withdrawal') withdrawalCount++;
+                else if (t.type === 'bill_payment') billCount++;
+                else if (t.type === 'credit_purchase') creditCount++;
+                else if (t.type === 'send_to_dealer') dealerCount++;
             }
         });
         
@@ -1043,43 +1065,52 @@
         document.getElementById('monthlyCommission').textContent = formatCurrency(monthly);
         document.getElementById('yearlyCommission').textContent = formatCurrency(yearly);
         
-        document.getElementById('performanceMetrics').innerHTML = `
+        // Transaction summary
+        document.getElementById('transactionSummary').innerHTML = `
             <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span>Today's Transactions</span>
-                <span class="font-bold">${totalTrans}</span>
+                <span>Total Transactions Today</span>
+                <span class="font-bold text-indigo-600">${totalTransToday}</span>
             </div>
-            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span>Airtel Volume Today</span>
-                <span class="font-bold">${formatCurrency(airtelVol)}</span>
+            <div class="flex justify-between p-3 bg-blue-50 rounded-lg">
+                <span>💰 Deposits</span>
+                <span class="font-bold text-emerald-600">${depositCount}</span>
             </div>
-            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
-                <span>Mpamba Volume Today</span>
-                <span class="font-bold">${formatCurrency(mpambaVol)}</span>
+            <div class="flex justify-between p-3 bg-rose-50 rounded-lg">
+                <span>💳 Withdrawals</span>
+                <span class="font-bold text-rose-600">${withdrawalCount}</span>
+            </div>
+            <div class="flex justify-between p-3 bg-purple-50 rounded-lg">
+                <span>🧾 Bill Payments</span>
+                <span class="font-bold text-purple-600">${billCount}</span>
+            </div>
+            <div class="flex justify-between p-3 bg-amber-50 rounded-lg">
+                <span>🛒 Credit Purchases</span>
+                <span class="font-bold text-amber-600">${creditCount}</span>
             </div>
             <div class="flex justify-between p-3 bg-indigo-50 rounded-lg">
-                <span>Avg Commission per Transaction</span>
-                <span class="font-bold">${totalTrans > 0 ? formatCurrency(daily / totalTrans) : '--'}</span>
+                <span>🤝 Send to Dealer</span>
+                <span class="font-bold text-indigo-600">${dealerCount}</span>
             </div>
         `;
         
-        // Transaction type pie chart
-        const ctx = document.getElementById('transactionTypeChart').getContext('2d');
-        if (transactionTypeChart) transactionTypeChart.destroy();
-        transactionTypeChart = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: ['Deposit', 'Withdrawal', 'Bill Payment', 'Credit Purchase', 'Send to Dealer'],
-                datasets: [{
-                    data: [typeCount.deposit, typeCount.withdrawal, typeCount.bill_payment, typeCount.credit_purchase, typeCount.send_to_dealer],
-                    backgroundColor: ['#10b981', '#ef4444', '#8b5cf6', '#f59e0b', '#3b82f6']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-            }
-        });
+        document.getElementById('performanceMetrics').innerHTML = `
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span>Airtel Volume Today</span>
+                <span class="font-bold">${formatCurrency(airtelVolToday)}</span>
+            </div>
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span>Mpamba Volume Today</span>
+                <span class="font-bold">${formatCurrency(mpambaVolToday)}</span>
+            </div>
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
+                <span>Total Volume Today</span>
+                <span class="font-bold">${formatCurrency(airtelVolToday + mpambaVolToday)}</span>
+            </div>
+            <div class="flex justify-between p-3 bg-indigo-50 rounded-lg">
+                <span>Avg Commission per Transaction</span>
+                <span class="font-bold">${totalTransToday > 0 ? formatCurrency(daily / totalTransToday) : '--'}</span>
+            </div>
+        `;
     }
 
     // ---------- DELETE & RESET ----------
@@ -1138,8 +1169,6 @@
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
         // Update balances based on transaction type
-        // Withdrawal: Customer gets cash, E-Value increases (agent gives cash, receives E-Value)
-        // Deposit: Customer deposits cash, E-Value decreases (agent receives cash, gives E-Value)
         if (type === 'withdrawal') {
             await updateBalance(platform, amount, true); // E-Value increases
         } else if (type === 'deposit' || type === 'bill_payment' || type === 'credit_purchase' || type === 'send_to_dealer') {
@@ -1167,13 +1196,11 @@
         
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
-        // Update balance based on source
         if (source === 'airtel') {
             await updateBalance('Airtel Money', amount, false);
         } else if (source === 'mpamba') {
             await updateBalance('TNM Mpamba', amount, false);
         }
-        // Cash expenses don't affect E-Value
         
         await addDoc(colRef('expenses'), {
             category, source, amount,
@@ -1195,7 +1222,6 @@
         
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
-        // Deduct from source if giving loan
         if (type === 'given') {
             if (source === 'airtel') {
                 await updateBalance('Airtel Money', amount, false);
