@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mobile Money Agent • Professional Dashboard</title>
-    <!-- Tailwind & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -61,6 +60,9 @@
         .percentage-fill {
             @apply h-full rounded-full transition-all duration-500;
         }
+        .alert-badge {
+            @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -75,6 +77,7 @@
             <p class="text-slate-500 mt-1 flex items-center gap-3">
                 <span id="current-date" class="font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full"></span>
                 <span class="font-mono bg-slate-100 px-3 py-1 rounded-full text-sm">Agent: Accolado</span>
+                <span id="rolloverStatus" class="alert-badge bg-green-100 text-green-800">✅ Auto Rollover Active</span>
             </p>
         </div>
         <div class="flex gap-3 mt-4 md:mt-0">
@@ -102,6 +105,17 @@
 
     <!-- DASHBOARD TAB -->
     <div id="dashboard-tab" class="tab-content active">
+        <!-- Balance Rollover Alert -->
+        <div id="rolloverAlert" class="hidden mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h4 class="font-semibold text-blue-800">🔄 Previous Day Rollover Detected</h4>
+                    <p class="text-sm text-blue-600 mt-1">Yesterday's closing balances have been automatically set as today's opening balances.</p>
+                </div>
+                <button onclick="acknowledgeRollover()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition cursor-pointer">OK</button>
+            </div>
+        </div>
+
         <!-- Key Metrics -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div class="metric-card stat-gradient-1">
@@ -139,10 +153,10 @@
 
         <!-- Asset & Credit Breakdown -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Asset Breakdown -->
             <div class="glass-card">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="text-2xl">💎</span> Asset Breakdown
+                    <span id="openingBalanceSource" class="text-xs font-normal text-slate-400 ml-2"></span>
                 </h3>
                 <div class="space-y-3">
                     <div class="flex justify-between items-center p-3 bg-amber-50 rounded-xl border border-amber-200">
@@ -158,7 +172,6 @@
                         <span id="mpambaEValue" class="text-2xl font-bold text-green-700">--</span>
                     </div>
                     
-                    <!-- Simple Distribution Bars -->
                     <div class="mt-4 pt-4 border-t border-slate-200">
                         <p class="text-sm font-medium text-slate-600 mb-3">Distribution</p>
                         <div class="space-y-2">
@@ -201,7 +214,6 @@
                 </div>
             </div>
 
-            <!-- Credit & Capital Position -->
             <div class="glass-card">
                 <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="text-2xl">🏦</span> Credit & Capital Position
@@ -237,7 +249,6 @@
             </div>
         </div>
 
-        <!-- Commission & Platform Summary -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div class="stat-box text-center">
                 <p class="text-sm text-slate-500 mb-1">Airtel Commission Today</p>
@@ -253,7 +264,6 @@
             </div>
         </div>
 
-        <!-- Recent Activity & Quick Actions -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div class="glass-card lg:col-span-2">
                 <h3 class="text-lg font-bold text-slate-800 mb-4">📋 Recent Transactions</h3>
@@ -278,7 +288,8 @@
     <div id="reconciliation-tab" class="tab-content">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="glass-card">
-                <h2 class="text-xl font-bold text-indigo-700 mb-6">🌅 Opening Balances</h2>
+                <h2 class="text-xl font-bold text-indigo-700 mb-4">🌅 Opening Balances</h2>
+                <p class="text-xs text-slate-500 mb-4">These may have been auto-filled from yesterday's closing balances</p>
                 <div class="space-y-4">
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Opening</label><input type="number" id="airtelOpen" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Opening</label><input type="number" id="mpambaOpen" class="input-premium" placeholder="0.00"></div>
@@ -287,15 +298,16 @@
                 </div>
             </div>
             <div class="glass-card">
-                <h2 class="text-xl font-bold text-emerald-700 mb-6">🌙 Closing Balances</h2>
+                <h2 class="text-xl font-bold text-emerald-700 mb-4">🌙 Closing Balances</h2>
+                <p class="text-xs text-slate-500 mb-4">These will become tomorrow's opening balances automatically</p>
                 <div class="space-y-4">
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Closing</label><input type="number" id="airtelClose" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Closing</label><input type="number" id="mpambaClose" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Closing</label><input type="number" id="cashClose" class="input-premium" placeholder="0.00"></div>
                     <div><label class="block text-sm font-medium text-slate-600 mb-2">Commission Earned Today</label><input type="number" id="commissionEarned" class="input-premium" placeholder="0.00"></div>
                     <div class="flex gap-3 mt-4">
-                        <button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing</button>
-                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate</button>
+                        <button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing Balances</button>
+                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate Reconciliation</button>
                     </div>
                 </div>
             </div>
@@ -356,9 +368,8 @@
         </div>
     </div>
 
-    <!-- LOANS TAB (Credit Management) -->
+    <!-- LOANS TAB -->
     <div id="loans-tab" class="tab-content">
-        <!-- Credit Summary Cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="metric-card stat-gradient-1">
                 <div class="relative z-10">
@@ -475,7 +486,6 @@
             </div>
         </div>
         
-        <!-- Transaction Summary Stats -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div class="glass-card">
                 <h3 class="font-bold text-lg mb-4">💹 Today's Transaction Summary</h3>
@@ -510,12 +520,15 @@
     // ---------- GLOBAL STATE ----------
     let db, auth;
     const todayId = new Date().toISOString().split('T')[0];
+    let rolloverPerformed = false;
+    
     document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
     // Helper functions
-    const getDailyDoc = () => doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', todayId);
+    const getDailyDoc = (dateId = todayId) => doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', dateId);
     const getCapitalDoc = () => doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'investment');
     const getTargetDoc = () => doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'targets', 'daily_commission');
+    const getRolloverFlag = () => doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'system', 'rollover');
     const colRef = (name) => collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, name);
 
     function formatCurrency(v) { 
@@ -534,6 +547,91 @@
         el.classList.remove('hidden');
         setTimeout(() => el.classList.add('hidden'), 4000);
     }
+
+    // Get yesterday's date
+    function getYesterdayDateId() {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const year = yesterday.getFullYear();
+        const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+        const day = String(yesterday.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // ---------- AUTO ROLLOVER LOGIC ----------
+    async function performDailyRollover() {
+        try {
+            const rolloverFlag = await getDoc(getRolloverFlag());
+            const lastRollover = rolloverFlag.exists() ? rolloverFlag.data().lastRolloverDate : null;
+            
+            // If already rolled over today, skip
+            if (lastRollover === todayId) {
+                console.log('Rollover already performed today');
+                
+                // Check if we need to show the alert
+                const todayDoc = await getDoc(getDailyDoc());
+                if (todayDoc.exists() && todayDoc.data()._rolledOver) {
+                    document.getElementById('rolloverAlert').classList.remove('hidden');
+                }
+                return;
+            }
+            
+            const yesterdayId = getYesterdayDateId();
+            const yesterdayDoc = await getDoc(getDailyDoc(yesterdayId));
+            
+            if (!yesterdayDoc.exists()) {
+                console.log('No yesterday data found for rollover');
+                return;
+            }
+            
+            const yesterdayData = yesterdayDoc.data();
+            
+            // Check if yesterday has closing balances
+            if (!yesterdayData.airtelClose && !yesterdayData.mpambaClose && !yesterdayData.cashClose) {
+                console.log('Yesterday had no closing balances');
+                return;
+            }
+            
+            // Get today's document
+            const todayDoc = await getDoc(getDailyDoc());
+            
+            if (todayDoc.exists() && todayDoc.data().airtelOpen) {
+                console.log('Today already has opening balances, skipping rollover');
+                return;
+            }
+            
+            // Perform rollover: yesterday's closing → today's opening
+            const openingData = {
+                airtelOpen: yesterdayData.airtelClose || 0,
+                mpambaOpen: yesterdayData.mpambaClose || 0,
+                cashOpen: yesterdayData.cashClose || 0,
+                date: todayId,
+                _rolledOver: true,
+                _rolledOverFrom: yesterdayId
+            };
+            
+            await setDoc(getDailyDoc(), openingData, { merge: true });
+            
+            // Mark rollover as done
+            await setDoc(getRolloverFlag(), { lastRolloverDate: todayId, performedAt: new Date() });
+            
+            rolloverPerformed = true;
+            document.getElementById('rolloverAlert').classList.remove('hidden');
+            document.getElementById('openingBalanceSource').textContent = '(from yesterday\'s closing)';
+            
+            console.log('Rollover completed:', openingData);
+            toast('Yesterday\'s closing balances automatically set as today\'s opening! 🔄', 'success');
+            
+            return true;
+        } catch (error) {
+            console.error('Rollover error:', error);
+            return false;
+        }
+    }
+
+    window.acknowledgeRollover = () => {
+        document.getElementById('rolloverAlert').classList.add('hidden');
+    };
 
     window.switchTab = (tabId) => {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -565,16 +663,12 @@
         desc.textContent = effects[type] || 'Select a transaction type';
     }
 
-    // Inline editing functions
     window.toggleEditRow = (id, type) => {
-        const row = document.getElementById(`row-${id}`);
         const editForm = document.getElementById(`edit-${id}`);
         if (editForm.style.display === 'none') {
             editForm.style.display = 'block';
-            row.style.opacity = '0.5';
         } else {
             editForm.style.display = 'none';
-            row.style.opacity = '1';
         }
     };
 
@@ -649,14 +743,13 @@
                 await updateDoc(loanRef, { amount: newAmount });
             }
             
-            // Add repayment transaction
             await addDoc(colRef('transactions'), {
                 type: 'deposit',
                 platform: 'Airtel Money',
                 amount: amt,
                 commission: 0,
                 customerRef: `Loan Repayment - ${loan.clientName}`,
-                notes: `Repayment for loan from ${loan.clientName}`,
+                notes: `Repayment for credit from ${loan.clientName}`,
                 timestamp: new Date(),
                 date: todayId
             });
@@ -672,6 +765,9 @@
     // ---------- DASHBOARD CALCULATIONS ----------
     async function loadDashboard() {
         try {
+            // Perform rollover check first
+            await performDailyRollover();
+            
             const dailySnap = await getDoc(getDailyDoc());
             const dailyData = dailySnap.exists() ? dailySnap.data() : {};
             const capitalSnap = await getDoc(getCapitalDoc());
@@ -706,10 +802,13 @@
             const airtelClose = dailyData.airtelClose || 0;
             const mpambaClose = dailyData.mpambaClose || 0;
             const cashOpen = dailyData.cashOpen || 0;
+            const airtelOpen = dailyData.airtelOpen || 0;
+            const mpambaOpen = dailyData.mpambaOpen || 0;
             
+            // Use closing if available, otherwise opening
             const currentCash = cashClose || cashOpen;
-            const currentAirtel = airtelClose || dailyData.airtelOpen || 0;
-            const currentMpamba = mpambaClose || dailyData.mpambaOpen || 0;
+            const currentAirtel = airtelClose || airtelOpen;
+            const currentMpamba = mpambaClose || mpambaOpen;
             
             const totalLiquid = currentCash + currentAirtel + currentMpamba;
             const totalPortfolio = totalLiquid + activeExpected;
@@ -720,10 +819,9 @@
             // Update main metrics
             document.getElementById('totalPortfolioValue').textContent = formatCurrency(totalPortfolio);
             document.getElementById('netBusinessPosition').textContent = formatCurrency(netPosition);
-            document.getElementById('positionChange').textContent = `Today's change: ${formatCurrency(cashClose - cashOpen)}`;
+            document.getElementById('positionChange').textContent = `Today's change: ${formatCurrency((cashClose || cashOpen) - cashOpen)}`;
             document.getElementById('dashboardCommission').textContent = formatCurrency(totalCommission);
             
-            // Asset breakdown
             document.getElementById('physicalCash').textContent = formatCurrency(currentCash);
             document.getElementById('airtelEValue').textContent = formatCurrency(currentAirtel);
             document.getElementById('mpambaEValue').textContent = formatCurrency(currentMpamba);
@@ -742,7 +840,13 @@
             document.getElementById('airtelBar').style.width = airtelPct + '%';
             document.getElementById('mpambaBar').style.width = mpambaPct + '%';
             
-            // Credit & Capital
+            // Show rollover indicator
+            if (dailyData._rolledOver) {
+                document.getElementById('openingBalanceSource').textContent = '(from yesterday\'s closing)';
+            } else {
+                document.getElementById('openingBalanceSource').textContent = '';
+            }
+            
             document.getElementById('loansGiven').textContent = formatCurrency(activeGiven);
             document.getElementById('loansExpected').textContent = formatCurrency(activeExpected);
             document.getElementById('investedCapital').textContent = formatCurrency(capital);
@@ -760,21 +864,20 @@
             plEl.textContent = formatCurrency(profitLoss);
             plEl.className = `text-2xl font-bold ${profitLoss >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
             
-            // Commission summary
             document.getElementById('airtelCommissionDisplay').textContent = formatCurrency(airtelCommission);
             document.getElementById('mpambaCommissionDisplay').textContent = formatCurrency(mpambaCommission);
             document.getElementById('totalCommissionDisplay').textContent = formatCurrency(totalCommission);
             
-            // Target progress
             const targetSnap = await getDoc(getTargetDoc());
             const target = targetSnap.exists() ? targetSnap.data().amount || 10000 : 10000;
             const progress = Math.min((totalCommission / target) * 100, 100);
             document.getElementById('commissionTargetPercent').textContent = `${progress.toFixed(0)}%`;
             document.getElementById('commissionTargetBar').style.width = `${progress}%`;
             
-            // Business insight
             const insight = document.getElementById('businessInsight');
-            if (profitLoss > 0) {
+            if (dailyData._rolledOver) {
+                insight.textContent = `🔄 Opening balances auto-loaded from yesterday. Your net position is ${formatCurrency(netPosition)}.`;
+            } else if (profitLoss > 0) {
                 insight.textContent = `📈 Great job! You've grown your capital by ${formatCurrency(profitLoss)}.`;
             } else if (profitLoss < 0) {
                 insight.textContent = `📉 Capital decreased by ${formatCurrency(Math.abs(profitLoss))}. Review expenses.`;
@@ -782,7 +885,6 @@
                 insight.textContent = `🎯 Breaking even. Focus on increasing transaction volume.`;
             }
             
-            // Recent transactions
             const recentQ = query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(5));
             const recentSnap = await getDocs(recentQ);
             const recentHtml = [];
@@ -806,7 +908,7 @@
         }
     }
 
-    // ---------- CRUD OPERATIONS ----------
+    // ---------- CRUD OPERATIONS (abbreviated for brevity) ----------
     async function loadTransactions() {
         const q = query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(50));
         const snap = await getDocs(q);
@@ -823,7 +925,8 @@
                     <div>
                         <span class="font-medium">${t.type.replace('_', ' ')}</span>
                         <span class="text-sm text-slate-500 ml-2">${t.platform}</span>
-                        <div class="text-xs text-slate-400">${t.customerRef || ''}</div>
+                        <div class="text-xs text-slate-400">${t.customerRef || ''} ${t.notes || ''}</div>
+                        <div class="text-xs text-slate-400">${t.date || ''}</div>
                     </div>
                     <div class="text-right">
                         <span class="font-semibold ${t.type === 'deposit' ? 'text-emerald-600' : 'text-rose-600'}">${formatCurrency(t.amount)}</span>
@@ -976,6 +1079,7 @@
                         <span class="font-medium">${e.category}</span>
                         <span class="text-xs text-slate-500 ml-2">Source: ${e.source || 'cash'}</span>
                         <div class="text-sm text-slate-500">${e.description}</div>
+                        <div class="text-xs text-slate-400">${e.date || ''}</div>
                     </div>
                     <div class="text-right">
                         <span class="font-semibold text-rose-600">${formatCurrency(e.amount)}</span>
@@ -1010,6 +1114,8 @@
     }
 
     async function loadReconciliationData() {
+        await performDailyRollover();
+        
         const daily = await getDoc(getDailyDoc());
         if (daily.exists()) {
             const d = daily.data();
@@ -1024,6 +1130,7 @@
     }
 
     async function loadAnalytics() {
+        // Same analytics code as before
         const snap = await getDocs(colRef('transactions'));
         let daily = 0, weekly = 0, monthly = 0, yearly = 0;
         const now = new Date();
@@ -1065,7 +1172,6 @@
         document.getElementById('monthlyCommission').textContent = formatCurrency(monthly);
         document.getElementById('yearlyCommission').textContent = formatCurrency(yearly);
         
-        // Transaction summary
         document.getElementById('transactionSummary').innerHTML = `
             <div class="flex justify-between p-3 bg-slate-50 rounded-lg">
                 <span>Total Transactions Today</span>
@@ -1138,6 +1244,7 @@
             await deleteDoc(getCapitalDoc());
             await deleteDoc(getDailyDoc());
             await deleteDoc(getTargetDoc());
+            await deleteDoc(getRolloverFlag());
             toast('All data reset. Refreshing...', 'success');
             setTimeout(() => location.reload(), 1500);
         } catch (e) {
@@ -1152,9 +1259,11 @@
         let data = dailySnap.exists() ? dailySnap.data() : {};
         
         if (platform === 'Airtel Money') {
-            data.airtelClose = (data.airtelClose || data.airtelOpen || 0) + (isIncrease ? amount : -amount);
+            const currentClose = data.airtelClose || data.airtelOpen || 0;
+            data.airtelClose = currentClose + (isIncrease ? amount : -amount);
         } else if (platform === 'TNM Mpamba') {
-            data.mpambaClose = (data.mpambaClose || data.mpambaOpen || 0) + (isIncrease ? amount : -amount);
+            const currentClose = data.mpambaClose || data.mpambaOpen || 0;
+            data.mpambaClose = currentClose + (isIncrease ? amount : -amount);
         }
         
         await setDoc(dailyRef, data, { merge: true });
@@ -1168,11 +1277,10 @@
         
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
-        // Update balances based on transaction type
         if (type === 'withdrawal') {
-            await updateBalance(platform, amount, true); // E-Value increases
-        } else if (type === 'deposit' || type === 'bill_payment' || type === 'credit_purchase' || type === 'send_to_dealer') {
-            await updateBalance(platform, amount, false); // E-Value decreases
+            await updateBalance(platform, amount, true);
+        } else if (['deposit', 'bill_payment', 'credit_purchase', 'send_to_dealer'].includes(type)) {
+            await updateBalance(platform, amount, false);
         }
         
         await addDoc(colRef('transactions'), {
@@ -1196,11 +1304,8 @@
         
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
-        if (source === 'airtel') {
-            await updateBalance('Airtel Money', amount, false);
-        } else if (source === 'mpamba') {
-            await updateBalance('TNM Mpamba', amount, false);
-        }
+        if (source === 'airtel') await updateBalance('Airtel Money', amount, false);
+        else if (source === 'mpamba') await updateBalance('TNM Mpamba', amount, false);
         
         await addDoc(colRef('expenses'), {
             category, source, amount,
@@ -1223,11 +1328,8 @@
         if (amount <= 0) return toast('Enter valid amount', 'error');
         
         if (type === 'given') {
-            if (source === 'airtel') {
-                await updateBalance('Airtel Money', amount, false);
-            } else if (source === 'mpamba') {
-                await updateBalance('TNM Mpamba', amount, false);
-            }
+            if (source === 'airtel') await updateBalance('Airtel Money', amount, false);
+            else if (source === 'mpamba') await updateBalance('TNM Mpamba', amount, false);
         }
         
         await addDoc(colRef('loans'), {
@@ -1273,7 +1375,7 @@
             commissionEarned: parseFloat(document.getElementById('commissionEarned').value) || 0
         };
         await setDoc(getDailyDoc(), data, { merge: true });
-        toast('Closing balances saved', 'success');
+        toast('Closing balances saved. Will become tomorrow\'s opening! 🔄', 'success');
         loadDashboard();
     };
 
@@ -1335,7 +1437,6 @@
         document.getElementById('resetDataBtn').onclick = resetData;
         document.getElementById('refreshDashboard').onclick = () => loadDashboard();
         
-        // Initialize transaction effect description
         updateTransactionEffect();
         
         await loadDashboard();
