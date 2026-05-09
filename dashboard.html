@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyAgent Pro • Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        body { @apply bg-gradient-to-br from-slate-50 via-white to-slate-100; overflow-x-hidden; }
+        .glass-card {
+            @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transition-all duration-300 hover:shadow-2xl;
+        }
+        .stat-gradient-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stat-gradient-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-gradient-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-gradient-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .stat-gradient-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .stat-gradient-6 { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+        .input-premium {
+            @apply w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 outline-none transition-all bg-white;
+        }
+        .btn-premium {
+            @apply px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-tab {
+            @apply px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer select-none;
+        }
+        .nav-tab.active {
+            @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg;
+        }
+        .nav-tab:not(.active) {
+            @apply bg-white text-slate-600 border border-slate-200 hover:bg-slate-50;
+        }
+        .metric-card {
+            @apply relative overflow-hidden rounded-2xl p-6 text-white;
+        }
+        .metric-card::before {
+            content: '';
+            @apply absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16;
+        }
+        .progress-bar { @apply h-3 bg-white/30 rounded-full overflow-hidden; }
+        .progress-fill { @apply h-full bg-white rounded-full transition-all duration-500; }
+        .edit-row { @apply bg-indigo-50 p-4 rounded-xl mt-2 border border-indigo-200; }
+        .stat-box { @apply bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200; }
+        .percentage-bar { @apply h-2 bg-slate-200 rounded-full overflow-hidden; }
+        .percentage-fill { @apply h-full rounded-full transition-all duration-500; }
+        .alert-badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    </style>
+</head>
+<body class="antialiased">
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">💼 MoneyAgent Pro</h1>
+            <p class="text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+                <span id="current-date" class="font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full"></span>
+                <span id="agentNameDisplay" class="font-mono bg-slate-100 px-3 py-1 rounded-full text-sm">Agent: --</span>
+                <span id="rolloverStatus" class="alert-badge bg-green-100 text-green-800">✅ Auto Rollover</span>
+            </p>
+        </div>
+        <div class="flex gap-3 mt-4 md:mt-0">
+            <button id="refreshDashboard" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer">🔄 Refresh</button>
+            <button id="logoutBtn" class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:shadow-lg transition cursor-pointer">🚪 Logout</button>
+        </div>
+    </div>
+
+    <div id="toast-message" class="hidden mb-4 p-4 rounded-xl text-sm font-medium"></div>
+
+    <!-- Navigation -->
+    <div class="flex flex-wrap gap-3 mb-8">
+        <div onclick="switchTab('dashboard')" class="nav-tab active" data-tab="dashboard">📊 Dashboard</div>
+        <div onclick="switchTab('reconciliation')" class="nav-tab" data-tab="reconciliation">💰 Reconciliation</div>
+        <div onclick="switchTab('transactions')" class="nav-tab" data-tab="transactions">💳 Transactions</div>
+        <div onclick="switchTab('loans')" class="nav-tab" data-tab="loans">🏦 Credit Management</div>
+        <div onclick="switchTab('expenses')" class="nav-tab" data-tab="expenses">📋 Expenses</div>
+        <div onclick="switchTab('analytics')" class="nav-tab" data-tab="analytics">📈 Analytics</div>
+    </div>
+
+    <!-- DASHBOARD TAB -->
+    <div id="dashboard-tab" class="tab-content active">
+        <div id="rolloverAlert" class="hidden mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
+            <div class="flex items-center justify-between">
+                <div><h4 class="font-semibold text-blue-800">🔄 Previous Day Rollover Detected</h4><p class="text-sm text-blue-600 mt-1">Yesterday's closing balances have been automatically set as today's opening balances.</p></div>
+                <button onclick="acknowledgeRollover()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition cursor-pointer">OK</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="metric-card stat-gradient-1"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Total Portfolio Value</p><p id="totalPortfolioValue" class="text-4xl font-bold">--</p><p class="text-white/70 text-xs mt-2">Cash + E-Value + Receivables</p></div></div>
+            <div class="metric-card stat-gradient-2"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Net Business Position</p><p id="netBusinessPosition" class="text-4xl font-bold">--</p><p id="positionChange" class="text-white/70 text-xs mt-2">Today's change: --</p></div></div>
+            <div class="metric-card stat-gradient-3"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Today's Commission</p><p id="dashboardCommission" class="text-4xl font-bold">--</p><div class="mt-2"><div class="flex justify-between text-xs text-white/70 mb-1"><span>Target Progress</span><span id="commissionTargetPercent">0%</span></div><div class="progress-bar"><div id="commissionTargetBar" class="progress-fill" style="width:0%"></div></div></div></div></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="glass-card">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="text-2xl">💎</span> Asset Breakdown<span id="openingBalanceSource" class="text-xs font-normal text-slate-400 ml-2"></span></h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-amber-50 rounded-xl border border-amber-200"><span class="font-medium text-amber-700">💰 Physical Cash</span><span id="physicalCash" class="text-2xl font-bold text-amber-700">--</span></div>
+                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-200"><span class="font-medium text-blue-700">📱 Airtel Money E-Value</span><span id="airtelEValue" class="text-2xl font-bold text-blue-700">--</span></div>
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200"><span class="font-medium text-green-700">📲 TNM Mpamba E-Value</span><span id="mpambaEValue" class="text-2xl font-bold text-green-700">--</span></div>
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <p class="text-sm font-medium text-slate-600 mb-3">Distribution</p>
+                        <div class="space-y-2">
+                            <div><div class="flex justify-between text-xs mb-1"><span class="text-amber-600">Cash</span><span id="cashPercent">0%</span></div><div class="percentage-bar"><div id="cashBar" class="percentage-fill bg-amber-400" style="width:0%"></div></div></div>
+                            <div><div class="flex justify-between text-xs mb-1"><span class="text-blue-600">Airtel</span><span id="airtelPercent">0%</span></div><div class="percentage-bar"><div id="airtelBar" class="percentage-fill bg-blue-400" style="width:0%"></div></div></div>
+                            <div><div class="flex justify-between text-xs mb-1"><span class="text-green-600">Mpamba</span><span id="mpambaPercent">0%</span></div><div class="percentage-bar"><div id="mpambaBar" class="percentage-fill bg-green-400" style="width:0%"></div></div></div>
+                        </div>
+                    </div>
+                    <div class="border-t-2 border-slate-200 pt-3 mt-2"><div class="flex justify-between items-center"><span class="font-bold text-slate-700">Total Liquid Assets</span><span id="totalLiquidAssets" class="text-2xl font-bold text-slate-800">--</span></div></div>
+                </div>
+            </div>
+            <div class="glass-card">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><span class="text-2xl">🏦</span> Credit & Capital Position</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center p-3 bg-rose-50 rounded-xl border border-rose-200"><span class="font-medium text-rose-700">📤 Credit Extended to Clients</span><span id="loansGiven" class="text-2xl font-bold text-rose-700">--</span></div>
+                    <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-200"><span class="font-medium text-emerald-700">📥 Expected from Customers</span><span id="loansExpected" class="text-2xl font-bold text-emerald-700">--</span></div>
+                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-xl border border-purple-200"><span class="font-medium text-purple-700">💼 Invested Capital</span><span id="investedCapital" class="text-2xl font-bold text-purple-700">--</span></div>
+                    <div class="border-t-2 border-slate-200 pt-3 mt-2 space-y-2">
+                        <div class="flex justify-between items-center"><span class="font-bold text-slate-700">Net Credit Position</span><span id="netLoanPosition" class="text-2xl font-bold">--</span></div>
+                        <div class="flex justify-between items-center"><span class="font-bold text-slate-700">Available Working Capital</span><span id="workingCapital" class="text-2xl font-bold">--</span></div>
+                        <div class="flex justify-between items-center"><span class="font-bold text-slate-700">Profit/Loss vs Capital</span><span id="profitLossVsCapital" class="text-2xl font-bold">--</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            <div class="stat-box text-center"><p class="text-sm text-slate-500 mb-1">Airtel Commission Today</p><p id="airtelCommissionDisplay" class="text-3xl font-bold text-blue-600">--</p></div>
+            <div class="stat-box text-center"><p class="text-sm text-slate-500 mb-1">Mpamba Commission Today</p><p id="mpambaCommissionDisplay" class="text-3xl font-bold text-green-600">--</p></div>
+            <div class="stat-box text-center"><p class="text-sm text-slate-500 mb-1">Total Commission Today</p><p id="totalCommissionDisplay" class="text-3xl font-bold text-indigo-600">--</p></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card lg:col-span-2"><h3 class="text-lg font-bold text-slate-800 mb-4">📋 Recent Transactions</h3><div id="recentTransactions" class="space-y-2 max-h-64 overflow-y-auto"></div></div>
+            <div class="glass-card">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">⚡ Quick Actions</h3>
+                <div class="space-y-3">
+                    <button onclick="switchTab('transactions')" class="w-full btn-premium">➕ New Transaction</button>
+                    <button onclick="switchTab('loans')" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">🏦 Manage Credit</button>
+                    <button onclick="switchTab('reconciliation')" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">💰 Daily Reconciliation</button>
+                </div>
+                <div class="mt-6 p-4 bg-indigo-50 rounded-xl"><h4 class="font-semibold text-indigo-800 mb-2">💡 Business Insight</h4><p id="businessInsight" class="text-sm text-indigo-700">Loading insights...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RECONCILIATION TAB -->
+    <div id="reconciliation-tab" class="tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-card"><h2 class="text-xl font-bold text-indigo-700 mb-4">🌅 Opening Balances</h2><p class="text-xs text-slate-500 mb-4">Auto-filled from yesterday's closing balances</p>
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Opening</label><input type="number" id="airtelOpen" class="input-premium" placeholder="0.00"></div>
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Opening</label><input type="number" id="mpambaOpen" class="input-premium" placeholder="0.00"></div>
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Opening</label><input type="number" id="cashOpen" class="input-premium" placeholder="0.00"></div>
+                    <button id="saveOpenBtn" class="btn-premium w-full mt-4 cursor-pointer">Save Opening Balances</button>
+                </div>
+            </div>
+            <div class="glass-card"><h2 class="text-xl font-bold text-emerald-700 mb-4">🌙 Closing Balances</h2><p class="text-xs text-slate-500 mb-4">These become tomorrow's opening balances</p>
+                <div class="space-y-4">
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Closing</label><input type="number" id="airtelClose" class="input-premium" placeholder="0.00"></div>
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Closing</label><input type="number" id="mpambaClose" class="input-premium" placeholder="0.00"></div>
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Closing</label><input type="number" id="cashClose" class="input-premium" placeholder="0.00"></div>
+                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Commission Earned Today</label><input type="number" id="commissionEarned" class="input-premium" placeholder="0.00"></div>
+                    <div class="flex gap-3 mt-4"><button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing Balances</button><button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate</button></div>
+                </div>
+            </div>
+        </div>
+        <div id="reconciliation-results" class="hidden mt-8 glass-card">
+            <h3 class="font-bold text-lg mb-6">📊 Reconciliation Results</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Airtel Δ</span><div id="airtel-net-change" class="text-2xl font-bold">--</div></div>
+                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Mpamba Δ</span><div id="mpamba-net-change" class="text-2xl font-bold">--</div></div>
+                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Cash Δ</span><div id="cash-net-change" class="text-2xl font-bold">--</div></div>
+                <div class="p-4 bg-indigo-50 rounded-xl"><span class="text-xs text-indigo-600">Final Status</span><div id="reconciliation-status" class="text-2xl font-bold">--</div></div>
+            </div>
+            <div class="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
+                <div class="flex justify-between items-center"><span class="font-semibold text-indigo-800">Expected Cash from Float:</span><span id="expectedCashFromFloat" class="text-xl font-bold text-indigo-800">--</span></div>
+                <div class="flex justify-between items-center mt-2"><span class="font-semibold text-indigo-800">Discrepancy:</span><span id="reconciliationDiscrepancy" class="text-xl font-bold">--</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSACTIONS TAB -->
+    <div id="transactions-tab" class="tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card lg:col-span-1"><h3 class="font-bold text-lg mb-4">➕ Record Transaction</h3>
+                <form id="transactionForm" class="space-y-3">
+                    <select id="transactionType" class="input-premium"><option value="deposit">💰 Cash Deposit (Cash ↑, E-Value ↓)</option><option value="withdrawal">💳 Cash Withdrawal (Cash ↓, E-Value ↑)</option><option value="bill_payment">🧾 Bill Payment (E-Value ↓)</option><option value="credit_purchase">🛒 Credit Purchase (E-Value ↓)</option><option value="send_to_dealer">🤝 Send to Dealer (E-Value ↓)</option></select>
+                    <select id="transactionPlatform" class="input-premium"><option value="Airtel Money">Airtel Money</option><option value="TNM Mpamba">TNM Mpamba</option></select>
+                    <input type="number" id="transactionAmount" placeholder="Amount" class="input-premium">
+                    <input type="number" id="transactionCommission" placeholder="Commission" class="input-premium">
+                    <input type="text" id="transactionCustomerRef" placeholder="Customer Reference" class="input-premium">
+                    <textarea id="transactionNotes" placeholder="Notes" class="input-premium" rows="2"></textarea>
+                    <div class="bg-blue-50 p-3 rounded-lg text-xs text-blue-800"><p class="font-semibold mb-1">Transaction Effects:</p><p id="transactionEffectDesc">Select a transaction type</p></div>
+                    <button type="button" id="addTransactionBtn" class="btn-premium w-full cursor-pointer">Add Transaction</button>
+                </form>
+            </div>
+            <div class="glass-card lg:col-span-2"><h3 class="font-bold text-lg mb-4">📜 Transaction History</h3><div id="transactionsList" class="divide-y max-h-96 overflow-y-auto"></div></div>
+        </div>
+    </div>
+
+    <!-- LOANS TAB -->
+    <div id="loans-tab" class="tab-content">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="metric-card stat-gradient-1"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Credit Extended</p><p id="totalLoansGivenTop" class="text-3xl font-bold">--</p></div></div>
+            <div class="metric-card stat-gradient-4"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Expected from Customers</p><p id="totalLoansExpectedTop" class="text-3xl font-bold">--</p></div></div>
+            <div class="metric-card stat-gradient-2"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Net Credit Position</p><p id="netLoanPositionTop" class="text-3xl font-bold">--</p></div></div>
+            <div class="metric-card stat-gradient-6"><div class="relative z-10"><p class="text-white/80 text-sm font-medium mb-1">Active Credits</p><p id="activeLoansCount" class="text-3xl font-bold">--</p></div></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass-card"><h4 class="font-semibold text-slate-700 mb-2">Active Credits</h4><p id="activeLoansAmount" class="text-2xl font-bold text-yellow-600">--</p><p id="activeLoansCountDetail" class="text-sm text-slate-500">0 credits</p></div>
+            <div class="glass-card"><h4 class="font-semibold text-slate-700 mb-2">Repaid Credits</h4><p id="paidLoansAmount" class="text-2xl font-bold text-green-600">--</p><p id="paidLoansCountDetail" class="text-sm text-slate-500">0 credits</p></div>
+            <div class="glass-card"><h4 class="font-semibold text-slate-700 mb-2">Overdue Credits</h4><p id="overdueLoansAmount" class="text-2xl font-bold text-red-600">--</p><p id="overdueLoansCountDetail" class="text-sm text-slate-500">0 credits</p></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card lg:col-span-1"><h3 class="font-bold text-lg mb-4">🏦 New Credit Record</h3>
+                <form id="loanForm" class="space-y-3">
+                    <select id="loanType" class="input-premium"><option value="given">📤 Credit Extended to Client</option><option value="expected">📥 Expected from Customer</option></select>
+                    <select id="loanSource" class="input-premium"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel Money</option><option value="mpamba">📲 TNM Mpamba</option></select>
+                    <input type="number" id="loanAmount" placeholder="Amount" class="input-premium">
+                    <input type="text" id="clientName" placeholder="Client Name" class="input-premium">
+                    <input type="text" id="clientPhone" placeholder="Phone" class="input-premium">
+                    <input type="date" id="dueDate" class="input-premium">
+                    <textarea id="loanNotes" placeholder="Notes" class="input-premium" rows="2"></textarea>
+                    <div class="bg-amber-50 p-3 rounded-lg text-xs text-amber-800"><p class="font-semibold">Note:</p><p>Credit amount deducted from selected source</p></div>
+                    <button type="button" id="addLoanBtn" class="btn-premium w-full cursor-pointer">Record Credit</button>
+                </form>
+            </div>
+            <div class="glass-card lg:col-span-2"><h3 class="font-bold text-lg mb-4">📋 All Credits</h3><div id="loansList" class="divide-y max-h-96 overflow-y-auto"></div></div>
+        </div>
+    </div>
+
+    <!-- EXPENSES TAB -->
+    <div id="expenses-tab" class="tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-card lg:col-span-1"><h3 class="font-bold text-lg mb-4">📝 Add Expense</h3>
+                <form id="expenseForm" class="space-y-3">
+                    <select id="expenseCategory" class="input-premium"><option>Transport</option><option>Airtime/Data</option><option>Food</option><option>Rent</option><option>Utilities</option><option>Supplies</option><option>Other</option></select>
+                    <select id="expenseSource" class="input-premium"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel Money</option><option value="mpamba">📲 TNM Mpamba</option></select>
+                    <input type="number" id="expenseAmount" placeholder="Amount" class="input-premium">
+                    <textarea id="expenseDescription" placeholder="Description" class="input-premium" rows="3"></textarea>
+                    <button type="button" id="addExpenseBtn" class="btn-premium w-full cursor-pointer">Add Expense</button>
+                </form>
+            </div>
+            <div class="glass-card lg:col-span-2"><h3 class="font-bold text-lg mb-4">📊 Expense History</h3><div id="expensesList" class="divide-y max-h-96 overflow-y-auto"></div></div>
+        </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div id="analytics-tab" class="tab-content">
+        <div class="glass-card mb-6"><h3 class="font-bold text-lg mb-4">📈 Commission Analysis</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl"><span class="text-sm text-indigo-600">Daily</span><div id="dailyCommission" class="text-2xl font-bold text-indigo-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl"><span class="text-sm text-purple-600">Weekly</span><div id="weeklyCommission" class="text-2xl font-bold text-purple-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl"><span class="text-sm text-pink-600">Monthly</span><div id="monthlyCommission" class="text-2xl font-bold text-pink-800">--</div></div>
+                <div class="p-4 bg-gradient-to-br from-rose-50 to-rose-100 rounded-xl"><span class="text-sm text-rose-600">Yearly</span><div id="yearlyCommission" class="text-2xl font-bold text-rose-800">--</div></div>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-card"><h3 class="font-bold text-lg mb-4">💹 Transaction Summary</h3><div id="transactionSummary" class="space-y-3"></div></div>
+            <div class="glass-card"><h3 class="font-bold text-lg mb-4">🎯 Performance Metrics</h3><div id="performanceMetrics" class="space-y-4"></div></div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const APP_ID = "mobile-money-agent";
+    const FIREBASE_CONFIG = {
+        apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+        authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+        projectId: "mobile-money-app-4cf66",
+        storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+        messagingSenderId: "822891731705",
+        appId: "1:822891731705:web:e666599c76ce413f0a6028"
+    };
+
+    const app = initializeApp(FIREBASE_CONFIG);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    let AGENT_ID = null;
+    const todayId = new Date().toISOString().split('T')[0];
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    function getDailyDoc(dateId = todayId) { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', dateId); }
+    function getCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'investment'); }
+    function getTargetDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'targets', 'daily_commission'); }
+    function getRolloverFlag() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'system', 'rollover'); }
+    function colRef(name) { return collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, name); }
+
+    function formatCurrency(v) { return new Intl.NumberFormat('en-MW', { style: 'currency', currency: 'MWK', minimumFractionDigits: 2 }).format(v || 0); }
+    
+    function toast(msg, type = 'info') {
+        const el = document.getElementById('toast-message');
+        const colors = { success: 'bg-emerald-100 text-emerald-800 border border-emerald-300', error: 'bg-rose-100 text-rose-800 border border-rose-300', info: 'bg-blue-100 text-blue-800 border border-blue-300' };
+        el.className = `mb-4 p-4 rounded-xl text-sm font-medium ${colors[type]}`;
+        el.textContent = msg; el.classList.remove('hidden');
+        setTimeout(() => el.classList.add('hidden'), 4000);
+    }
+
+    function getYesterdayDateId() {
+        const y = new Date(); y.setDate(y.getDate() - 1);
+        return `${y.getFullYear()}-${String(y.getMonth()+1).padStart(2,'0')}-${String(y.getDate()).padStart(2,'0')}`;
+    }
+
+    // Auth Check
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) { window.location.href = 'index.html'; return; }
+        AGENT_ID = user.uid;
+        const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
+        if (profileSnap.exists()) document.getElementById('agentNameDisplay').textContent = `Agent: ${profileSnap.data().name}`;
+        initApp();
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async () => { await signOut(auth); window.location.href = 'index.html'; });
+
+    // Rollover
+    async function performDailyRollover() {
+        try {
+            const flag = await getDoc(getRolloverFlag());
+            if (flag.exists() && flag.data().lastRolloverDate === todayId) {
+                const todayDoc = await getDoc(getDailyDoc());
+                if (todayDoc.exists() && todayDoc.data()._rolledOver) document.getElementById('rolloverAlert').classList.remove('hidden');
+                return;
+            }
+            const yesterdayId = getYesterdayDateId();
+            const yesterdayDoc = await getDoc(getDailyDoc(yesterdayId));
+            if (!yesterdayDoc.exists()) return;
+            const yd = yesterdayDoc.data();
+            if (!yd.airtelClose && !yd.mpambaClose && !yd.cashClose) return;
+            const todayDoc = await getDoc(getDailyDoc());
+            if (todayDoc.exists() && todayDoc.data().airtelOpen) return;
+            await setDoc(getDailyDoc(), { airtelOpen: yd.airtelClose||0, mpambaOpen: yd.mpambaClose||0, cashOpen: yd.cashClose||0, date: todayId, _rolledOver: true, _rolledOverFrom: yesterdayId }, { merge: true });
+            await setDoc(getRolloverFlag(), { lastRolloverDate: todayId, performedAt: new Date() });
+            document.getElementById('rolloverAlert').classList.remove('hidden');
+            document.getElementById('openingBalanceSource').textContent = '(from yesterday\'s closing)';
+            toast('Yesterday\'s closing set as today\'s opening! 🔄', 'success');
+            return true;
+        } catch(e) { console.error('Rollover error:', e); }
+    }
+
+    window.acknowledgeRollover = () => document.getElementById('rolloverAlert').classList.add('hidden');
+
+    window.switchTab = (tabId) => {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(`${tabId}-tab`).classList.add('active');
+        document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+        if (tabId === 'dashboard') loadDashboard();
+        else if (tabId === 'transactions') loadTransactions();
+        else if (tabId === 'loans') loadLoans();
+        else if (tabId === 'expenses') loadExpenses();
+        else if (tabId === 'analytics') loadAnalytics();
+        else if (tabId === 'reconciliation') loadReconciliationData();
+    };
+
+    document.getElementById('transactionType')?.addEventListener('change', () => {
+        const effects = { deposit: 'Customer gives cash → E-Value decreases, Cash increases', withdrawal: 'Customer withdraws cash → E-Value increases, Cash decreases', bill_payment: 'Bill paid via E-Value → E-Value decreases, Commission earned', credit_purchase: 'Credit purchase → E-Value decreases', send_to_dealer: 'Send to dealer → E-Value decreases' };
+        document.getElementById('transactionEffectDesc').textContent = effects[document.getElementById('transactionType').value] || 'Select a transaction type';
+    });
+
+    window.toggleEditRow = (id) => { const f = document.getElementById(`edit-${id}`); f.style.display = f.style.display === 'none' ? 'block' : 'none'; };
+
+    window.saveEdit = async (id, type) => {
+        let data = {};
+        if (type === 'transaction') data = { type: document.getElementById(`edit-type-${id}`).value, platform: document.getElementById(`edit-platform-${id}`).value, amount: parseFloat(document.getElementById(`edit-amount-${id}`).value)||0, commission: parseFloat(document.getElementById(`edit-commission-${id}`).value)||0, customerRef: document.getElementById(`edit-ref-${id}`).value, notes: document.getElementById(`edit-notes-${id}`).value, updatedAt: new Date() };
+        else if (type === 'loan') data = { type: document.getElementById(`edit-loan-type-${id}`).value, amount: parseFloat(document.getElementById(`edit-loan-amount-${id}`).value)||0, clientName: document.getElementById(`edit-client-${id}`).value, phone: document.getElementById(`edit-phone-${id}`).value, dueDate: document.getElementById(`edit-due-${id}`).value, status: document.getElementById(`edit-status-${id}`).value, notes: document.getElementById(`edit-loan-notes-${id}`).value, updatedAt: new Date() };
+        else if (type === 'expense') data = { category: document.getElementById(`edit-expense-cat-${id}`).value, amount: parseFloat(document.getElementById(`edit-expense-amount-${id}`).value)||0, description: document.getElementById(`edit-expense-desc-${id}`).value, updatedAt: new Date() };
+        try {
+            await updateDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, type+'s', id), data);
+            toast('Updated!', 'success');
+            if (type==='transaction') loadTransactions(); else if (type==='loan') loadLoans(); else loadExpenses();
+            loadDashboard();
+        } catch(e) { toast('Update failed', 'error'); }
+    };
+
+    window.repayLoan = async (loanId, amount) => {
+        const amt = parseFloat(prompt(`Enter repayment amount (Max: ${formatCurrency(amount)}):`, amount));
+        if (!amt || amt <= 0 || amt > amount) return toast('Invalid amount', 'error');
+        try {
+            const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'loans', loanId);
+            const snap = await getDoc(ref);
+            const loan = snap.data();
+            const newAmt = loan.amount - amt;
+            await updateDoc(ref, newAmt <= 0 ? { amount: 0, status: 'paid', repaidAt: new Date() } : { amount: newAmt });
+            await addDoc(colRef('transactions'), { type: 'deposit', platform: 'Airtel Money', amount: amt, commission: 0, customerRef: `Loan Repayment - ${loan.clientName}`, notes: `Repayment from ${loan.clientName}`, timestamp: new Date(), date: todayId });
+            toast('Repayment recorded!', 'success');
+            loadLoans(); loadDashboard();
+        } catch(e) { toast('Repayment failed', 'error'); }
+    };
+
+    async function loadDashboard() {
+        await performDailyRollover();
+        const dailySnap = await getDoc(getDailyDoc());
+        const dailyData = dailySnap.exists() ? dailySnap.data() : {};
+        const capitalSnap = await getDoc(getCapitalDoc());
+        const capital = capitalSnap.exists() ? capitalSnap.data().totalCapital || 0 : 0;
+        const transSnap = await getDocs(query(colRef('transactions'), where('date','==',todayId)));
+        const loansSnap = await getDocs(colRef('loans'));
+        let totalComm = 0, airtelComm = 0, mpambaComm = 0;
+        transSnap.forEach(d => { const c = d.data().commission||0; totalComm += c; if (d.data().platform==='Airtel Money') airtelComm += c; else mpambaComm += c; });
+        let activeGiven = 0, activeExpected = 0;
+        loansSnap.forEach(d => { const l = d.data(); if (l.status==='active') { if (l.type==='given') activeGiven += l.amount||0; else activeExpected += l.amount||0; } });
+        const cCash = dailyData.cashClose || dailyData.cashOpen || 0;
+        const cAirtel = dailyData.airtelClose || dailyData.airtelOpen || 0;
+        const cMpamba = dailyData.mpambaClose || dailyData.mpambaOpen || 0;
+        const totalLiq = cCash + cAirtel + cMpamba;
+        const portfolio = totalLiq + activeExpected;
+        const netPos = totalLiq + activeExpected - activeGiven;
+        const workCap = netPos - capital;
+        document.getElementById('totalPortfolioValue').textContent = formatCurrency(portfolio);
+        document.getElementById('netBusinessPosition').textContent = formatCurrency(netPos);
+        document.getElementById('positionChange').textContent = `Change: ${formatCurrency((dailyData.cashClose||dailyData.cashOpen||0) - (dailyData.cashOpen||0))}`;
+        document.getElementById('dashboardCommission').textContent = formatCurrency(totalComm);
+        document.getElementById('physicalCash').textContent = formatCurrency(cCash);
+        document.getElementById('airtelEValue').textContent = formatCurrency(cAirtel);
+        document.getElementById('mpambaEValue').textContent = formatCurrency(cMpamba);
+        document.getElementById('totalLiquidAssets').textContent = formatCurrency(totalLiq);
+        const t = totalLiq||1;
+        document.getElementById('cashPercent').textContent = ((cCash/t)*100).toFixed(0)+'%';
+        document.getElementById('airtelPercent').textContent = ((cAirtel/t)*100).toFixed(0)+'%';
+        document.getElementById('mpambaPercent').textContent = ((cMpamba/t)*100).toFixed(0)+'%';
+        document.getElementById('cashBar').style.width = ((cCash/t)*100)+'%';
+        document.getElementById('airtelBar').style.width = ((cAirtel/t)*100)+'%';
+        document.getElementById('mpambaBar').style.width = ((cMpamba/t)*100)+'%';
+        if (dailyData._rolledOver) document.getElementById('openingBalanceSource').textContent = '(from yesterday)';
+        document.getElementById('loansGiven').textContent = formatCurrency(activeGiven);
+        document.getElementById('loansExpected').textContent = formatCurrency(activeExpected);
+        document.getElementById('investedCapital').textContent = formatCurrency(capital);
+        const nl = activeExpected-activeGiven;
+        const nlEl = document.getElementById('netLoanPosition'); nlEl.textContent = formatCurrency(nl); nlEl.className = `text-2xl font-bold ${nl>=0?'text-emerald-600':'text-rose-600'}`;
+        const wcEl = document.getElementById('workingCapital'); wcEl.textContent = formatCurrency(workCap); wcEl.className = `text-2xl font-bold ${workCap>=0?'text-emerald-600':'text-rose-600'}`;
+        const plEl = document.getElementById('profitLossVsCapital'); plEl.textContent = formatCurrency(workCap); plEl.className = `text-2xl font-bold ${workCap>=0?'text-emerald-600':'text-rose-600'}`;
+        document.getElementById('airtelCommissionDisplay').textContent = formatCurrency(airtelComm);
+        document.getElementById('mpambaCommissionDisplay').textContent = formatCurrency(mpambaComm);
+        document.getElementById('totalCommissionDisplay').textContent = formatCurrency(totalComm);
+        const targetSnap = await getDoc(getTargetDoc());
+        const target = targetSnap.exists() ? targetSnap.data().amount||10000 : 10000;
+        const prog = Math.min((totalComm/target)*100, 100);
+        document.getElementById('commissionTargetPercent').textContent = `${prog.toFixed(0)}%`;
+        document.getElementById('commissionTargetBar').style.width = `${prog}%`;
+        document.getElementById('businessInsight').textContent = workCap>0 ? `📈 Capital grown by ${formatCurrency(workCap)}!` : workCap<0 ? `📉 Capital down ${formatCurrency(Math.abs(workCap))}.` : `🎯 Breaking even.`;
+        const recentSnap = await getDocs(query(colRef('transactions'), orderBy('timestamp','desc'), limit(5)));
+        const html = []; recentSnap.forEach(d => { const t=d.data(); html.push(`<div class="flex justify-between p-3 bg-slate-50 rounded-lg"><div><span class="font-medium">${t.type.replace('_',' ')}</span><span class="text-sm text-slate-500 ml-2">${t.platform}</span></div><span class="font-semibold ${t.type==='deposit'?'text-emerald-600':'text-rose-600'}">${formatCurrency(t.amount)}</span></div>`); });
+        document.getElementById('recentTransactions').innerHTML = html.length ? html.join('') : '<div class="text-slate-400 text-center py-4">No transactions</div>';
+    }
+
+    async function loadTransactions() {
+        const snap = await getDocs(query(colRef('transactions'), orderBy('timestamp','desc'), limit(50)));
+        const list = document.getElementById('transactionsList'); list.innerHTML = '';
+        snap.forEach(d => {
+            const t = d.data();
+            const div = document.createElement('div'); div.id = `row-${d.id}`; div.className = 'py-3';
+            div.innerHTML = `<div class="flex justify-between items-start"><div><span class="font-medium">${t.type.replace('_',' ')}</span><span class="text-sm text-slate-500 ml-2">${t.platform}</span><div class="text-xs text-slate-400">${t.customerRef||''} ${t.notes||''}</div></div><div class="text-right"><span class="font-semibold ${t.type==='deposit'?'text-emerald-600':'text-rose-600'}">${formatCurrency(t.amount)}</span><div class="text-xs text-emerald-600">Comm: ${formatCurrency(t.commission||0)}</div><div class="flex justify-end gap-2 mt-1"><span class="cursor-pointer text-indigo-600 text-sm" onclick="toggleEditRow('${d.id}')">✏️</span><span class="cursor-pointer text-rose-600 text-sm" onclick="deleteItem('transactions','${d.id}')">🗑️</span></div></div></div>
+            <div id="edit-${d.id}" class="edit-row" style="display:none"><h4 class="font-medium mb-2">Edit</h4>
+            <select id="edit-type-${d.id}" class="input-premium mb-2 text-sm"><option value="deposit" ${t.type==='deposit'?'selected':''}>Deposit</option><option value="withdrawal" ${t.type==='withdrawal'?'selected':''}>Withdrawal</option><option value="bill_payment" ${t.type==='bill_payment'?'selected':''}>Bill Payment</option><option value="credit_purchase" ${t.type==='credit_purchase'?'selected':''}>Credit Purchase</option><option value="send_to_dealer" ${t.type==='send_to_dealer'?'selected':''}>Send to Dealer</option></select>
+            <select id="edit-platform-${d.id}" class="input-premium mb-2 text-sm"><option value="Airtel Money" ${t.platform==='Airtel Money'?'selected':''}>Airtel</option><option value="TNM Mpamba" ${t.platform==='TNM Mpamba'?'selected':''}>Mpamba</option></select>
+            <input type="number" id="edit-amount-${d.id}" value="${t.amount||''}" class="input-premium mb-2 text-sm">
+            <input type="number" id="edit-commission-${d.id}" value="${t.commission||''}" class="input-premium mb-2 text-sm">
+            <input type="text" id="edit-ref-${d.id}" value="${t.customerRef||''}" class="input-premium mb-2 text-sm">
+            <textarea id="edit-notes-${d.id}" class="input-premium mb-2 text-sm" rows="2">${t.notes||''}</textarea>
+            <div class="flex gap-2"><button onclick="saveEdit('${d.id}','transaction')" class="btn-premium text-sm py-2">Save</button><button onclick="toggleEditRow('${d.id}')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button></div></div>`;
+            list.appendChild(div);
+        });
+        if (snap.empty) list.innerHTML = '<div class="text-slate-400 py-8 text-center">No transactions</div>';
+    }
+
+    async function loadLoans() {
+        const snap = await getDocs(query(colRef('loans'), orderBy('timestamp','desc')));
+        const list = document.getElementById('loansList'); list.innerHTML = '';
+        let tg=0, te=0, ag=0, ae=0, pg=0, pe=0, og=0, oe=0, ac=0, pc=0, oc=0;
+        snap.forEach(d => {
+            const l = d.data(); const a = l.amount||0;
+            if (l.type==='given') { tg+=a; if(l.status==='active'){ag+=a;ac++;} else if(l.status==='paid'){pg+=a;pc++;} else{og+=a;oc++;} }
+            else { te+=a; if(l.status==='active'){ae+=a;ac++;} else if(l.status==='paid'){pe+=a;pc++;} else{oe+=a;oc++;} }
+            const sc = l.status==='active'?'bg-yellow-100 text-yellow-800':l.status==='paid'?'bg-green-100 text-green-800':'bg-red-100 text-red-800';
+            const div = document.createElement('div'); div.id = `row-${d.id}`; div.className = 'py-3';
+            div.innerHTML = `<div class="flex justify-between"><div><span class="font-medium">${l.clientName}</span><span class="text-xs ${l.type==='given'?'text-rose-600':'text-emerald-600'} ml-2">${l.type==='given'?'📤 Extended':'📥 Expected'}</span><span class="text-xs px-2 py-0.5 rounded ml-2 ${sc}">${l.status}</span><div class="text-sm text-slate-500">Due: ${l.dueDate||'N/A'} | ${l.phone||''}</div></div><div class="text-right"><span class="font-semibold">${formatCurrency(a)}</span><div class="flex justify-end gap-2 mt-1">${l.status==='active'&&l.type==='given'?`<span class="cursor-pointer text-green-600 text-sm" onclick="repayLoan('${d.id}',${a})">💵 Repay</span>`:''}<span class="cursor-pointer text-indigo-600 text-sm" onclick="toggleEditRow('${d.id}')">✏️</span><span class="cursor-pointer text-rose-600 text-sm" onclick="deleteItem('loans','${d.id}')">🗑️</span></div></div></div>
+            <div id="edit-${d.id}" class="edit-row" style="display:none"><h4 class="font-medium mb-2">Edit</h4>
+            <select id="edit-loan-type-${d.id}" class="input-premium mb-2 text-sm"><option value="given" ${l.type==='given'?'selected':''}>Extended</option><option value="expected" ${l.type==='expected'?'selected':''}>Expected</option></select>
+            <input type="number" id="edit-loan-amount-${d.id}" value="${a}" class="input-premium mb-2 text-sm">
+            <input type="text" id="edit-client-${d.id}" value="${l.clientName||''}" class="input-premium mb-2 text-sm">
+            <input type="text" id="edit-phone-${d.id}" value="${l.phone||''}" class="input-premium mb-2 text-sm">
+            <input type="date" id="edit-due-${d.id}" value="${l.dueDate||''}" class="input-premium mb-2 text-sm">
+            <select id="edit-status-${d.id}" class="input-premium mb-2 text-sm"><option value="active" ${l.status==='active'?'selected':''}>Active</option><option value="paid" ${l.status==='paid'?'selected':''}>Paid</option><option value="overdue" ${l.status==='overdue'?'selected':''}>Overdue</option></select>
+            <textarea id="edit-loan-notes-${d.id}" class="input-premium mb-2 text-sm" rows="2">${l.notes||''}</textarea>
+            <div class="flex gap-2"><button onclick="saveEdit('${d.id}','loan')" class="btn-premium text-sm py-2">Save</button><button onclick="toggleEditRow('${d.id}')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button></div></div>`;
+            list.appendChild(div);
+        });
+        if (snap.empty) list.innerHTML = '<div class="text-slate-400 py-8 text-center">No credits</div>';
+        document.getElementById('totalLoansGivenTop').textContent = formatCurrency(tg);
+        document.getElementById('totalLoansExpectedTop').textContent = formatCurrency(te);
+        const np = te-tg; const npEl = document.getElementById('netLoanPositionTop'); npEl.textContent = formatCurrency(np); npEl.className = `text-3xl font-bold ${np>=0?'':'text-rose-200'}`;
+        document.getElementById('activeLoansCount').textContent = ac;
+        document.getElementById('activeLoansAmount').textContent = formatCurrency(ag+ae);
+        document.getElementById('activeLoansCountDetail').textContent = `${ac} active`;
+        document.getElementById('paidLoansAmount').textContent = formatCurrency(pg+pe);
+        document.getElementById('paidLoansCountDetail').textContent = `${pc} repaid`;
+        document.getElementById('overdueLoansAmount').textContent = formatCurrency(og+oe);
+        document.getElementById('overdueLoansCountDetail').textContent = `${oc} overdue`;
+    }
+
+    async function loadExpenses() {
+        const snap = await getDocs(query(colRef('expenses'), orderBy('timestamp','desc'), limit(50)));
+        const list = document.getElementById('expensesList'); list.innerHTML = '';
+        snap.forEach(d => {
+            const e = d.data();
+            const div = document.createElement('div'); div.id = `row-${d.id}`; div.className = 'py-3';
+            div.innerHTML = `<div class="flex justify-between"><div><span class="font-medium">${e.category}</span><span class="text-xs text-slate-500 ml-2">${e.source||'cash'}</span><div class="text-sm text-slate-500">${e.description}</div></div><div class="text-right"><span class="font-semibold text-rose-600">${formatCurrency(e.amount)}</span><div class="flex justify-end gap-2 mt-1"><span class="cursor-pointer text-indigo-600 text-sm" onclick="toggleEditRow('${d.id}')">✏️</span><span class="cursor-pointer text-rose-600 text-sm" onclick="deleteItem('expenses','${d.id}')">🗑️</span></div></div></div>
+            <div id="edit-${d.id}" class="edit-row" style="display:none"><h4 class="font-medium mb-2">Edit</h4>
+            <select id="edit-expense-cat-${d.id}" class="input-premium mb-2 text-sm">${['Transport','Airtime/Data','Food','Rent','Utilities','Supplies','Other'].map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('')}</select>
+            <input type="number" id="edit-expense-amount-${d.id}" value="${e.amount||''}" class="input-premium mb-2 text-sm">
+            <textarea id="edit-expense-desc-${d.id}" class="input-premium mb-2 text-sm" rows="2">${e.description||''}</textarea>
+            <div class="flex gap-2"><button onclick="saveEdit('${d.id}','expense')" class="btn-premium text-sm py-2">Save</button><button onclick="toggleEditRow('${d.id}')" class="px-4 py-2 bg-slate-200 rounded-lg text-sm">Cancel</button></div></div>`;
+            list.appendChild(div);
+        });
+        if (snap.empty) list.innerHTML = '<div class="text-slate-400 py-8 text-center">No expenses</div>';
+    }
+
+    async function loadReconciliationData() {
+        await performDailyRollover();
+        const daily = await getDoc(getDailyDoc());
+        if (daily.exists()) {
+            const d = daily.data();
+            document.getElementById('airtelOpen').value = d.airtelOpen || '';
+            document.getElementById('mpambaOpen').value = d.mpambaOpen || '';
+            document.getElementById('cashOpen').value = d.cashOpen || '';
+            document.getElementById('airtelClose').value = d.airtelClose || '';
+            document.getElementById('mpambaClose').value = d.mpambaClose || '';
+            document.getElementById('cashClose').value = d.cashClose || '';
+            document.getElementById('commissionEarned').value = d.commissionEarned || '';
+        }
+    }
+
+    async function loadAnalytics() {
+        const snap = await getDocs(colRef('transactions'));
+        let daily=0, weekly=0, monthly=0, yearly=0;
+        const now = new Date();
+        const weekAgo = new Date(now.getTime()-7*86400000);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+        let totalT=0, aVol=0, mVol=0, dC=0, wC=0, bC=0, crC=0, sdC=0;
+        snap.forEach(d => {
+            const t = d.data(); const date = t.timestamp?.toDate(); if (!date) return;
+            const comm = t.commission||0; const amt = t.amount||0;
+            if (date.toDateString()===now.toDateString()) daily+=comm;
+            if (date>=weekAgo) weekly+=comm;
+            if (date>=monthStart) monthly+=comm;
+            if (date>=yearStart) yearly+=comm;
+            if (date.toDateString()===now.toDateString()) {
+                totalT++;
+                if (t.platform==='Airtel Money') aVol+=amt; else mVol+=amt;
+                if (t.type==='deposit') dC++; else if (t.type==='withdrawal') wC++; else if (t.type==='bill_payment') bC++; else if (t.type==='credit_purchase') crC++; else sdC++;
+            }
+        });
+        document.getElementById('dailyCommission').textContent = formatCurrency(daily);
+        document.getElementById('weeklyCommission').textContent = formatCurrency(weekly);
+        document.getElementById('monthlyCommission').textContent = formatCurrency(monthly);
+        document.getElementById('yearlyCommission').textContent = formatCurrency(yearly);
+        document.getElementById('transactionSummary').innerHTML = `
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg"><span>Total Today</span><span class="font-bold text-indigo-600">${totalT}</span></div>
+            <div class="flex justify-between p-3 bg-blue-50 rounded-lg"><span>💰 Deposits</span><span class="font-bold text-emerald-600">${dC}</span></div>
+            <div class="flex justify-between p-3 bg-rose-50 rounded-lg"><span>💳 Withdrawals</span><span class="font-bold text-rose-600">${wC}</span></div>
+            <div class="flex justify-between p-3 bg-purple-50 rounded-lg"><span>🧾 Bill Payments</span><span class="font-bold text-purple-600">${bC}</span></div>
+            <div class="flex justify-between p-3 bg-amber-50 rounded-lg"><span>🛒 Credit Purchases</span><span class="font-bold text-amber-600">${crC}</span></div>
+            <div class="flex justify-between p-3 bg-indigo-50 rounded-lg"><span>🤝 Send to Dealer</span><span class="font-bold text-indigo-600">${sdC}</span></div>`;
+        document.getElementById('performanceMetrics').innerHTML = `
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg"><span>Airtel Volume Today</span><span class="font-bold">${formatCurrency(aVol)}</span></div>
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg"><span>Mpamba Volume Today</span><span class="font-bold">${formatCurrency(mVol)}</span></div>
+            <div class="flex justify-between p-3 bg-slate-50 rounded-lg"><span>Total Volume Today</span><span class="font-bold">${formatCurrency(aVol+mVol)}</span></div>
+            <div class="flex justify-between p-3 bg-indigo-50 rounded-lg"><span>Avg Commission</span><span class="font-bold">${totalT>0?formatCurrency(daily/totalT):'--'}</span></div>`;
+    }
+
+    window.deleteItem = async (coll, id) => {
+        if (!confirm('Delete permanently?')) return;
+        try { await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, coll, id)); toast('Deleted','success'); if(coll==='transactions') loadTransactions(); else if(coll==='loans') loadLoans(); else loadExpenses(); loadDashboard(); }
+        catch(e) { toast('Delete failed','error'); }
+    };
+
+    window.resetData = async () => {
+        if (!confirm('DELETE ALL DATA? This cannot be undone!')) return;
+        try {
+            for (let c of ['transactions','loans','expenses']) { const s = await getDocs(colRef(c)); await Promise.all(s.docs.map(d => deleteDoc(d.ref))); }
+            await deleteDoc(getCapitalDoc()); await deleteDoc(getDailyDoc()); await deleteDoc(getTargetDoc()); await deleteDoc(getRolloverFlag());
+            toast('All data reset. Refreshing...','success');
+            setTimeout(() => location.reload(), 1500);
+        } catch(e) { toast('Reset failed','error'); }
+    };
+
+    async function updateBalance(platform, amount, isIncrease) {
+        const ref = getDailyDoc(); const snap = await getDoc(ref);
+        let data = snap.exists() ? snap.data() : {};
+        if (platform==='Airtel Money') data.airtelClose = (data.airtelClose||data.airtelOpen||0) + (isIncrease?amount:-amount);
+        else data.mpambaClose = (data.mpambaClose||data.mpambaOpen||0) + (isIncrease?amount:-amount);
+        await setDoc(ref, data, { merge: true });
+    }
+
+    window.addTransaction = async () => {
+        const type = document.getElementById('transactionType').value;
+        const platform = document.getElementById('transactionPlatform').value;
+        const amount = parseFloat(document.getElementById('transactionAmount').value)||0;
+        const commission = parseFloat(document.getElementById('transactionCommission').value)||0;
+        if (amount<=0) return toast('Enter valid amount','error');
+        if (type==='withdrawal') await updateBalance(platform, amount, true);
+        else await updateBalance(platform, amount, false);
+        await addDoc(colRef('transactions'), { type, platform, amount, commission, customerRef: document.getElementById('transactionCustomerRef').value, notes: document.getElementById('transactionNotes').value, timestamp: new Date(), date: todayId });
+        document.getElementById('transactionForm').reset();
+        toast('Transaction recorded!','success');
+        loadTransactions(); loadDashboard();
+    };
+
+    window.addExpense = async () => {
+        const category = document.getElementById('expenseCategory').value;
+        const source = document.getElementById('expenseSource').value;
+        const amount = parseFloat(document.getElementById('expenseAmount').value)||0;
+        if (amount<=0) return toast('Enter valid amount','error');
+        if (source==='airtel') await updateBalance('Airtel Money', amount, false);
+        else if (source==='mpamba') await updateBalance('TNM Mpamba', amount, false);
+        await addDoc(colRef('expenses'), { category, source, amount, description: document.getElementById('expenseDescription').value, timestamp: new Date(), date: todayId });
+        document.getElementById('expenseForm').reset();
+        toast('Expense recorded','success');
+        loadExpenses(); loadDashboard();
+    };
+
+    window.addLoan = async () => {
+        const type = document.getElementById('loanType').value;
+        const source = document.getElementById('loanSource').value;
+        const amount = parseFloat(document.getElementById('loanAmount').value)||0;
+        if (amount<=0) return toast('Enter valid amount','error');
+        if (type==='given') { if (source==='airtel') await updateBalance('Airtel Money', amount, false); else if (source==='mpamba') await updateBalance('TNM Mpamba', amount, false); }
+        await addDoc(colRef('loans'), { type, source, amount, clientName: document.getElementById('clientName').value, phone: document.getElementById('clientPhone').value, dueDate: document.getElementById('dueDate').value, status: 'active', notes: document.getElementById('loanNotes').value, timestamp: new Date(), date: todayId });
+        document.getElementById('loanForm').reset();
+        toast('Credit recorded!','success');
+        loadLoans(); loadDashboard();
+    };
+
+    window.updateCapital = async () => {
+        const val = parseFloat(document.getElementById('totalCapital')?.value)||0;
+        await setDoc(getCapitalDoc(), { totalCapital: val, updated: new Date() }, { merge: true });
+        toast('Capital updated','success');
+        loadDashboard();
+    };
+
+    window.saveOpeningBalances = async () => {
+        await setDoc(getDailyDoc(), { airtelOpen: parseFloat(document.getElementById('airtelOpen').value)||0, mpambaOpen: parseFloat(document.getElementById('mpambaOpen').value)||0, cashOpen: parseFloat(document.getElementById('cashOpen').value)||0, date: todayId }, { merge: true });
+        toast('Opening balances saved','success');
+    };
+
+    window.saveClosingBalances = async () => {
+        await setDoc(getDailyDoc(), { airtelClose: parseFloat(document.getElementById('airtelClose').value)||0, mpambaClose: parseFloat(document.getElementById('mpambaClose').value)||0, cashClose: parseFloat(document.getElementById('cashClose').value)||0, commissionEarned: parseFloat(document.getElementById('commissionEarned').value)||0 }, { merge: true });
+        toast('Closing balances saved. Will be tomorrow\'s opening! 🔄','success');
+        loadDashboard();
+    };
+
+    window.calculateReconciliation = async () => {
+        const daily = await getDoc(getDailyDoc());
+        if (!daily.exists()) return toast('Save balances first','error');
+        const d = daily.data();
+        const an = (d.airtelClose||0)-(d.airtelOpen||0);
+        const mn = (d.mpambaClose||0)-(d.mpambaOpen||0);
+        const cn = (d.cashClose||0)-(d.cashOpen||0);
+        const comm = d.commissionEarned||0;
+        const tf = an+mn;
+        const ec = -tf+comm;
+        const disc = cn-ec;
+        document.getElementById('airtel-net-change').textContent = formatCurrency(an);
+        document.getElementById('mpamba-net-change').textContent = formatCurrency(mn);
+        document.getElementById('cash-net-change').textContent = formatCurrency(cn);
+        document.getElementById('expectedCashFromFloat').textContent = formatCurrency(ec);
+        document.getElementById('reconciliationDiscrepancy').textContent = formatCurrency(disc);
+        const se = document.getElementById('reconciliation-status');
+        if (Math.abs(disc)<0.01) { se.textContent='✅ Balanced'; se.className='text-2xl font-bold text-emerald-600'; }
+        else { se.textContent=disc>0?'⚠️ Surplus':'⚠️ Shortage'; se.className=`text-2xl font-bold ${disc>0?'text-amber-600':'text-rose-600'}`; }
+        document.getElementById('reconciliation-results').classList.remove('hidden');
+    };
+
+    async function initApp() {
+        document.getElementById('addTransactionBtn').onclick = addTransaction;
+        document.getElementById('addExpenseBtn').onclick = addExpense;
+        document.getElementById('addLoanBtn').onclick = addLoan;
+        document.getElementById('updateCapitalBtn')?.addEventListener('click', updateCapital);
+        document.getElementById('saveOpenBtn').onclick = saveOpeningBalances;
+        document.getElementById('saveCloseBtn').onclick = saveClosingBalances;
+        document.getElementById('calculateBtn').onclick = calculateReconciliation;
+        document.getElementById('resetDataBtn')?.addEventListener('click', resetData);
+        document.getElementById('refreshDashboard').onclick = () => loadDashboard();
+        await loadDashboard();
+        toast('Welcome! All systems ready.','success');
+    }
+</script>
+</body>
+</html>
