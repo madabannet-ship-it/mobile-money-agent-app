@@ -344,7 +344,9 @@ const app = initializeApp(CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
-
+googleProvider.setCustomParameters({
+    client_id: '822891731705-hnm7jeqn28si5cvoqceougj13j5vmfmt.apps.googleusercontent.com'
+});
 let AGENT_ID = null;
 const todayId = new Date().toISOString().split('T')[0];
 document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
