@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoneyAgent Pro v3</title>
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+        body{background:#667eea;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+        body.logged-in{background:#f0f2f5;display:block}
+        .login-box{background:#fff;border-radius:16px;padding:32px;width:100%;max-width:400px;box-shadow:0 10px 40px rgba(0,0,0,0.2)}
+        .login-box h2{text-align:center;color:#667eea;margin-bottom:4px}
+        .login-box p{text-align:center;color:#888;margin-bottom:20px;font-size:14px}
+        input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:10px;outline:none}
+        input:focus,select:focus,textarea:focus{border-color:#667eea}
+        button{width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:8px}
+        button:hover{opacity:0.9}
+        .btn-p{background:#667eea;color:#fff}
+        .btn-g{background:#fff;color:#333;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;gap:8px}
+        .btn-r{background:#dc2626;color:#fff}
+        .btn-o{background:#f97316;color:#fff}
+        .btn-gray{background:#64748b;color:#fff}
+        .tabs-row{display:flex;gap:6px;background:#f0f0f0;padding:4px;border-radius:10px;margin-bottom:16px}
+        .tabs-row button{flex:1;padding:8px;border:none;background:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin:0}
+        .tabs-row button.active{background:#667eea;color:#fff}
+        .divider{text-align:center;color:#999;margin:16px 0;font-size:13px}
+        .divider::before,.divider::after{content:' — '}
+        .msg{padding:10px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
+        .msg-e{background:#fee;color:#c00;display:block}
+        .msg-s{background:#efe;color:#060;display:block}
+        
+        .dash{display:none;max-width:1100px;margin:0 auto}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;background:#fff;padding:16px 20px;border-radius:12px}
+        .header h1{font-size:24px;color:#333}
+        .nav{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+        .nav button{padding:10px 16px;border:1px solid #ddd;background:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;width:auto;margin:0;color:#555}
+        .nav button.active{background:#667eea;color:#fff;border-color:#667eea}
+        .card{background:#fff;border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}
+        .card h3{margin-bottom:12px;color:#333;font-size:16px}
+        .stat-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+        .stat-row>*{flex:1;min-width:180px}
+        .stat-box{padding:20px;border-radius:12px;color:#fff}
+        .stat-box .lbl{font-size:12px;opacity:0.9}
+        .stat-box .val{font-size:26px;font-weight:700;margin-top:4px}
+        .bg-p{background:linear-gradient(135deg,#667eea,#764ba2)}
+        .bg-pk{background:linear-gradient(135deg,#f093fb,#f5576c)}
+        .bg-b{background:linear-gradient(135deg,#4facfe,#00f2fe)}
+        .bg-g{background:linear-gradient(135deg,#43e97b,#38f9d7)}
+        .bg-o{background:linear-gradient(135deg,#f97316,#f59e0b)}
+        .row-flex{display:flex;justify-content:space-between;padding:8px 12px;border-radius:6px;margin-bottom:4px;font-size:14px}
+        .rf1{background:#fff8e1}.rf2{background:#e8f0fe}.rf3{background:#e8f5e9}.rf4{background:#fce4ec}.rf5{background:#f3e5f5}.rf6{background:#fff3e0}
+        .trow{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;align-items:center}
+        .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600}
+        .ba{background:#fef9c3;color:#a16207}.bp{background:#dcfce7;color:#16a34a}.bo{background:#fee2e2;color:#dc2626}
+        .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+        .gridf{display:grid;grid-template-columns:300px 1fr;gap:12px}
+        .tab-c{display:none}.tab-c.active{display:block}
+        .toast{padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none}
+        .toast-s{background:#e8f5e9;color:#2e7d32;display:block}
+        .toast-e{background:#ffebee;color:#c62828;display:block}
+        .link{color:#667eea;cursor:pointer;text-decoration:none;font-size:12px;font-weight:600}
+        .lr{color:#dc2626}.lg{color:#16a34a}
+        .inv-card{background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px;margin-bottom:8px}
+        .modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:999;align-items:center;justify-content:center}
+        .modal-overlay.active{display:flex}
+        .modal{background:#fff;border-radius:14px;padding:24px;max-width:380px;width:90%}
+        @media(max-width:768px){.grid2,.grid3,.gridf{grid-template-columns:1fr}.stat-row>*{min-width:100%}}
+    </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+    <div class="login-box">
+        <h2>💼 MoneyAgent Pro</h2>
+        <p>v3 - Investors Edition</p>
+        <div id="authMsg" class="msg" style="display:none"></div>
+        <div class="tabs-row">
+            <button class="active" onclick="showTab('login')">Sign In</button>
+            <button onclick="showTab('register')">Register</button>
+        </div>
+        <button class="btn-g" onclick="loginGoogle()">🔵 Continue with Google</button>
+        <div class="divider">or use email</div>
+        <div id="formLogin">
+            <input type="email" id="loginEmail" placeholder="Email">
+            <input type="password" id="loginPassword" placeholder="Password">
+            <button class="btn-p" onclick="loginEmail()">Sign In</button>
+        </div>
+        <div id="formRegister" style="display:none">
+            <input type="text" id="regName" placeholder="Full name">
+            <input type="email" id="regEmail" placeholder="Email">
+            <input type="password" id="regPassword" placeholder="Password (6+ chars)">
+            <input type="password" id="regConfirm" placeholder="Confirm password">
+            <button class="btn-p" onclick="registerEmail()">Create Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboardScreen" class="dash">
+    <div class="header">
+        <div><h1>💼 MoneyAgent Pro v3</h1><span style="font-size:13px;color:#888"><span id="currentDate"></span> | <span id="agentName">Agent</span></span></div>
+        <button style="width:auto;padding:8px 16px" class="btn-gray" onclick="doLogout()">Logout</button>
+    </div>
+    <div id="dashToast" class="toast" style="display:none"></div>
+    <div class="nav">
+        <button class="active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+        <button onclick="switchTab('reconciliation')">💰 Recon</button>
+        <button onclick="switchTab('transactions')">💳 Trans</button>
+        <button onclick="switchTab('loans')">🏦 Credit</button>
+        <button onclick="switchTab('investors')">👥 Investors</button>
+        <button onclick="switchTab('expenses')">📋 Expenses</button>
+    </div>
+
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard" class="tab-c active">
+        <div class="grid3" style="margin-bottom:16px">
+            <div class="card" style="text-align:center"><h3>💼 My Capital</h3><div style="font-size:32px;font-weight:700;color:#667eea" id="dMyCapital">MWK 0</div></div>
+            <div class="card" style="text-align:center"><h3>👥 Investors</h3><div style="font-size:32px;font-weight:700;color:#f97316" id="dInvestorsTotal">MWK 0</div><div style="font-size:12px;color:#888" id="dInvestorsCount">0 investors</div></div>
+            <div class="card" style="text-align:center"><h3>💰 Total Capital</h3><div style="font-size:32px;font-weight:700;color:#16a34a" id="dTotalCapital">MWK 0</div></div>
+        </div>
+        <div class="stat-row">
+            <div class="stat-box bg-p"><div class="lbl">Portfolio</div><div class="val" id="dPortfolio">MWK 0</div></div>
+            <div class="stat-box bg-pk"><div class="lbl">Net Position</div><div class="val" id="dNet">MWK 0</div></div>
+            <div class="stat-box bg-b"><div class="lbl">Commission</div><div class="val" id="dComm">MWK 0</div></div>
+        </div>
+        <div class="grid2">
+            <div class="card"><h3>💎 Assets</h3>
+                <div class="row-flex rf1"><span>💰 Cash</span><span id="dCash">MWK 0</span></div>
+                <div class="row-flex rf2"><span>📱 Airtel</span><span id="dAirtel">MWK 0</span></div>
+                <div class="row-flex rf3"><span>📲 Mpamba</span><span id="dMpamba">MWK 0</span></div>
+                <div style="border-top:2px solid #ddd;padding-top:8px;font-weight:700" class="row-flex"><span>Total</span><span id="dTotal">MWK 0</span></div>
+            </div>
+            <div class="card"><h3>🏦 Credit & Capital</h3>
+                <div class="row-flex rf4"><span>📤 Extended</span><span id="dGiven">MWK 0</span></div>
+                <div class="row-flex rf5"><span>📥 Expected</span><span id="dExpected">MWK 0</span></div>
+                <div class="row-flex" style="background:#e8eaf6"><span>💼 My Capital</span><span id="dCapital">MWK 0</span></div>
+                <div class="row-flex rf6"><span>👥 Investors</span><span id="dInvestors">MWK 0</span></div>
+                <div style="border-top:2px solid #ddd;padding-top:8px;font-weight:700" class="row-flex"><span>P/L</span><span id="dPL">MWK 0</span></div>
+            </div>
+        </div>
+        <div class="card"><h3>📋 Recent</h3><div id="recentTrans" style="max-height:200px;overflow-y:auto;font-size:13px"></div></div>
+    </div>
+
+    <!-- INVESTORS TAB -->
+    <div id="tab-investors" class="tab-c">
+        <div class="stat-row">
+            <div class="stat-box bg-p"><div class="lbl">My Capital</div><div class="val" id="invMyCapital">MWK 0</div></div>
+            <div class="stat-box bg-o"><div class="lbl">Investors Total</div><div class="val" id="invInvestorsTotal">MWK 0</div></div>
+            <div class="stat-box bg-g"><div class="lbl">Total Capital</div><div class="val" id="invTotalCapital">MWK 0</div></div>
+            <div class="stat-box bg-b"><div class="lbl">Count</div><div class="val" id="invCount">0</div></div>
+        </div>
+        <div class="gridf">
+            <div class="card">
+                <h3>➕ Add Investor</h3>
+                <input type="text" id="invName" placeholder="Investor Name">
+                <input type="number" id="invAmount" placeholder="Amount (MWK)">
+                <input type="text" id="invPhone" placeholder="Phone (optional)">
+                <textarea id="invNotes" placeholder="Notes" rows="2"></textarea>
+                <button class="btn-p" onclick="addInvestor()">Add Investor</button>
+                <hr style="margin:16px 0">
+                <h4>💼 My Capital</h4>
+                <input type="number" id="myCapitalInput" placeholder="Your amount">
+                <button class="btn-p" onclick="updateMyCapital()">Update My Capital</button>
+            </div>
+            <div class="card"><h3>👥 Investors List</h3><div id="investorsList" style="max-height:500px;overflow-y:auto;font-size:13px"></div></div>
+        </div>
+    </div>
+
+    <!-- RECON TAB -->
+    <div id="tab-reconciliation" class="tab-c">
+        <div class="grid2">
+            <div class="card"><h3>🌅 Opening</h3>
+                <input type="number" id="airtelOpen" placeholder="Airtel Open">
+                <input type="number" id="mpambaOpen" placeholder="Mpamba Open">
+                <input type="number" id="cashOpen" placeholder="Cash Open">
+                <button class="btn-p" onclick="saveOpening()">Save Opening</button>
+            </div>
+            <div class="card"><h3>🌙 Closing</h3>
+                <input type="number" id="airtelClose" placeholder="Airtel Close">
+                <input type="number" id="mpambaClose" placeholder="Mpamba Close">
+                <input type="number" id="cashClose" placeholder="Cash Close">
+                <input type="number" id="commissionEarned" placeholder="Commission">
+                <div style="display:flex;gap:8px">
+                    <button class="btn-p" onclick="saveClosing()" style="flex:1">Save</button>
+                    <button style="flex:1;background:#475569;color:#fff" onclick="calcRecon()">Calculate</button>
+                </div>
+            </div>
+        </div>
+        <div id="reconResults" style="display:none" class="card"><h3>Results</h3>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;font-size:13px">
+                <div style="padding:8px;background:#f5f5f5;border-radius:6px">Airtel Δ<div id="rAirtel" style="font-weight:700">--</div></div>
+                <div style="padding:8px;background:#f5f5f5;border-radius:6px">Mpamba Δ<div id="rMpamba" style="font-weight:700">--</div></div>
+                <div style="padding:8px;background:#f5f5f5;border-radius:6px">Cash Δ<div id="rCash" style="font-weight:700">--</div></div>
+                <div style="padding:8px;background:#e8eaf6;border-radius:6px">Status<div id="rStatus" style="font-weight:700">--</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRANSACTIONS TAB -->
+    <div id="tab-transactions" class="tab-c">
+        <div class="gridf">
+            <div class="card"><h3>➕ New</h3>
+                <select id="tType"><option value="deposit">💰 Deposit</option><option value="withdrawal">💳 Withdrawal</option><option value="bill_payment">🧾 Bill</option><option value="credit_purchase">🛒 Credit Purchase</option><option value="send_to_dealer">🤝 Dealer</option></select>
+                <select id="tPlatform"><option>Airtel Money</option><option>TNM Mpamba</option></select>
+                <input type="number" id="tAmount" placeholder="Amount">
+                <input type="number" id="tCommission" placeholder="Commission">
+                <input type="text" id="tRef" placeholder="Customer Ref">
+                <textarea id="tNotes" placeholder="Notes" rows="2"></textarea>
+                <button class="btn-p" onclick="addTrans()">Add Transaction</button>
+            </div>
+            <div class="card"><h3>📜 History</h3><div id="transList" style="max-height:400px;overflow-y:auto;font-size:13px"></div></div>
+        </div>
+    </div>
+
+    <!-- LOANS TAB -->
+    <div id="tab-loans" class="tab-c">
+        <div class="stat-row">
+            <div class="stat-box bg-p"><div class="lbl">Extended</div><div class="val" id="lGiven">MWK 0</div></div>
+            <div class="stat-box bg-g"><div class="lbl">Expected</div><div class="val" id="lExpected">MWK 0</div></div>
+            <div class="stat-box bg-pk"><div class="lbl">Net</div><div class="val" id="lNet">MWK 0</div></div>
+            <div class="stat-box bg-b"><div class="lbl">Active</div><div class="val" id="lActive">0</div></div>
+        </div>
+        <div class="gridf">
+            <div class="card"><h3>🏦 New</h3>
+                <select id="lType"><option value="given">📤 Extended</option><option value="expected">📥 Expected</option></select>
+                <input type="number" id="lAmount" placeholder="Amount">
+                <input type="text" id="lClient" placeholder="Client Name">
+                <input type="text" id="lPhone" placeholder="Phone">
+                <input type="date" id="lDue">
+                <textarea id="lNotes" placeholder="Notes" rows="2"></textarea>
+                <button class="btn-p" onclick="addLoan()">Add Credit</button>
+            </div>
+            <div class="card"><h3>📋 All</h3><div id="loanList" style="max-height:400px;overflow-y:auto;font-size:13px"></div></div>
+        </div>
+    </div>
+
+    <!-- EXPENSES TAB -->
+    <div id="tab-expenses" class="tab-c">
+        <div class="gridf">
+            <div class="card"><h3>📝 New</h3>
+                <select id="eCat"><option>Transport</option><option>Airtime/Data</option><option>Food</option><option>Rent</option><option>Utilities</option><option>Other</option></select>
+                <input type="number" id="eAmount" placeholder="Amount">
+                <textarea id="eDesc" placeholder="Description" rows="2"></textarea>
+                <button class="btn-p" onclick="addExpense()">Add Expense</button>
+            </div>
+            <div class="card"><h3>📊 History</h3><div id="expenseList" style="max-height:400px;overflow-y:auto;font-size:13px"></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- INVESTOR MODAL -->
+<div id="investorModal" class="modal-overlay" onclick="closeInvestorModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="modalTitle" style="margin-bottom:12px">Manage Investor</h3>
+        <input type="hidden" id="modalInvestorId">
+        <input type="number" id="modalAmount" placeholder="Amount (MWK)">
+        <div style="display:flex;gap:8px">
+            <button class="btn-p" onclick="addInvestorFunds()" style="flex:1">➕ Add</button>
+            <button class="btn-o" onclick="withdrawInvestorFunds()" style="flex:1">➖ Withdraw</button>
+        </div>
+        <button style="background:#ddd;color:#333;margin-top:8px" onclick="closeInvestorModal()">Cancel</button>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+const APP_ID = "mobile-money-agent";
+const CONFIG = { apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o", authDomain: "mobile-money-app-4cf66.firebaseapp.com", projectId: "mobile-money-app-4cf66", storageBucket: "mobile-money-app-4cf66.firebasestorage.app", messagingSenderId: "822891731705", appId: "1:822891731705:web:e666599c76ce413f0a6028" };
+
+const app = initializeApp(CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ client_id: '822891731705-hnm7jeqn28si5cvoqceougj13j5vmfmt.apps.googleusercontent.com' });
+
+let AGENT_ID = null;
+const todayId = new Date().toISOString().split('T')[0];
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+function getDailyDoc(did) { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', did || todayId); }
+function getMyCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'my_capital'); }
+function colRef(n) { return collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, n); }
+function fm(v) { return 'MWK ' + (v || 0).toLocaleString('en-MW', { minimumFractionDigits: 2 }); }
+
+function showToast(msg, type) {
+    const t = document.getElementById('dashToast');
+    t.textContent = msg;
+    t.className = 'toast toast-' + (type || 's');
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 4000);
+}
+
+function showAuthMsg(msg, type) {
+    const t = document.getElementById('authMsg');
+    t.textContent = msg;
+    t.className = 'msg msg-' + (type || 'e');
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        AGENT_ID = user.uid;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboardScreen').style.display = 'block';
+        document.body.classList.add('logged-in');
+        try {
+            const snap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
+            if (snap.exists()) document.getElementById('agentName').textContent = snap.data().name || 'Agent';
+        } catch(e) {}
+        loadDashboard();
+    } else {
+        AGENT_ID = null;
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('dashboardScreen').style.display = 'none';
+        document.body.classList.remove('logged-in');
+    }
+});
+
+window.showTab = function(t) {
+    document.getElementById('formLogin').style.display = t === 'login' ? 'block' : 'none';
+    document.getElementById('formRegister').style.display = t === 'register' ? 'block' : 'none';
+    document.querySelectorAll('.tabs-row button').forEach((b, i) => b.classList.toggle('active', (i === 0 && t === 'login') || (i === 1 && t === 'register')));
+    document.getElementById('authMsg').style.display = 'none';
+};
+
+window.switchTab = function(t) {
+    document.querySelectorAll('.tab-c').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + t).classList.add('active');
+    const names = ['dashboard', 'reconciliation', 'transactions', 'loans', 'investors', 'expenses'];
+    const idx = names.indexOf(t);
+    if (idx >= 0) document.querySelectorAll('.nav button')[idx].classList.add('active');
+    if (t === 'transactions') loadTrans();
+    else if (t === 'loans') loadLoans();
+    else if (t === 'expenses') loadExpenses();
+    else if (t === 'reconciliation') loadRecon();
+    else if (t === 'investors') loadInvestors();
+    else if (t === 'dashboard') loadDashboard();
+};
+
+window.loginGoogle = async function() {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        const snap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
+        if (!snap.exists()) {
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), {
+                name: user.displayName || 'Agent', email: user.email, agentId: user.uid, createdAt: new Date(), lastLogin: new Date(), status: 'active', authProvider: 'google'
+            });
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), { amount: 10000 });
+        }
+    } catch(e) {
+        if (e.code !== 'auth/popup-closed-by-user') showAuthMsg('Google sign-in failed: ' + e.message, 'e');
+    }
+};
+
+window.loginEmail = async function() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const pw = document.getElementById('loginPassword').value;
+    if (!email || !pw) return showAuthMsg('Enter email and password', 'e');
+    try { await signInWithEmailAndPassword(auth, email, pw); }
+    catch(e) { showAuthMsg('Invalid email or password', 'e'); }
+};
+
+window.registerEmail = async function() {
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const pw = document.getElementById('regPassword').value;
+    const confirm = document.getElementById('regConfirm').value;
+    if (!name || !email) return showAuthMsg('Name and email required', 'e');
+    if (pw.length < 6) return showAuthMsg('Password must be 6+ characters', 'e');
+    if (pw !== confirm) return showAuthMsg('Passwords do not match', 'e');
+    try {
+        const uc = await createUserWithEmailAndPassword(auth, email, pw);
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'profile', 'info'), {
+            name, email, agentId: uc.user.uid, createdAt: new Date(), lastLogin: new Date(), status: 'active', authProvider: 'email'
+        });
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'targets', 'daily_commission'), { amount: 10000 });
+    } catch(e) {
+        showAuthMsg(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed', 'e');
+    }
+};
+
+window.forgotPassword = async function() {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) return showAuthMsg('Enter your email first', 'e');
+    try { await sendPasswordResetEmail(auth, email); showAuthMsg('Reset email sent!', 's'); }
+    catch(e) { showAuthMsg('Failed: ' + e.message, 'e'); }
+};
+
+window.doLogout = async function() { await signOut(auth); };
+
+// INVESTORS
+async function loadInvestors() {
+    const myCapSnap = await getDoc(getMyCapitalDoc());
+    const myCapital = myCapSnap.exists() ? myCapSnap.data().amount || 0 : 0;
+    document.getElementById('myCapitalInput').value = myCapital || '';
+    
+    const snap = await getDocs(query(colRef('investors'), orderBy('createdAt', 'desc')));
+    const list = document.getElementById('investorsList');
+    list.innerHTML = '';
+    let totalInv = 0, count = 0;
+    
+    snap.forEach(d => {
+        const inv = d.data();
+        totalInv += inv.amount || 0;
+        count++;
+        list.innerHTML += `<div class="inv-card">
+            <div style="display:flex;justify-content:space-between;align-items:start">
+                <div><strong>${inv.name}</strong><br><small style="color:#888">${inv.phone||''}</small><br><small style="color:#aaa">${inv.notes||''}</small></div>
+                <div style="text-align:right">
+                    <div style="font-size:18px;font-weight:700;color:#f97316">${fm(inv.amount)}</div>
+                    <div style="margin-top:4px">
+                        <button class="btn-p" style="padding:4px 10px;font-size:11px;width:auto;margin:2px" onclick="openInvestorModal('${d.id}','${inv.name}',${inv.amount})">💰</button>
+                        <button class="btn-r" style="padding:4px 10px;font-size:11px;width:auto;margin:2px" onclick="delInvestor('${d.id}','${inv.name}')">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    });
+    
+    if (snap.empty) list.innerHTML = '<div style="color:#aaa;text-align:center;padding:40px">No investors yet</div>';
+    
+    document.getElementById('invMyCapital').textContent = fm(myCapital);
+    document.getElementById('invInvestorsTotal').textContent = fm(totalInv);
+    document.getElementById('invTotalCapital').textContent = fm(myCapital + totalInv);
+    document.getElementById('invCount').textContent = count;
+}
+
+window.addInvestor = async function() {
+    const name = document.getElementById('invName').value.trim();
+    const amount = parseFloat(document.getElementById('invAmount').value) || 0;
+    if (!name) return showToast('Enter investor name', 'e');
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    
+    await addDoc(colRef('investors'), {
+        name, amount, phone: document.getElementById('invPhone').value,
+        notes: document.getElementById('invNotes').value, createdAt: new Date(), status: 'active'
+    });
+    
+    document.getElementById('invName').value = '';
+    document.getElementById('invAmount').value = '';
+    document.getElementById('invPhone').value = '';
+    document.getElementById('invNotes').value = '';
+    showToast('Investor added!', 's');
+    loadInvestors(); loadDashboard();
+};
+
+window.updateMyCapital = async function() {
+    const amount = parseFloat(document.getElementById('myCapitalInput').value) || 0;
+    await setDoc(getMyCapitalDoc(), { amount, updatedAt: new Date() }, { merge: true });
+    showToast('Capital updated!', 's');
+    loadInvestors(); loadDashboard();
+};
+
+window.openInvestorModal = function(id, name, amount) {
+    document.getElementById('modalInvestorId').value = id;
+    document.getElementById('modalTitle').textContent = name + ' - ' + fm(amount);
+    document.getElementById('modalAmount').value = '';
+    document.getElementById('investorModal').classList.add('active');
+};
+
+window.closeInvestorModal = function() {
+    document.getElementById('investorModal').classList.remove('active');
+};
+
+window.addInvestorFunds = async function() {
+    const id = document.getElementById('modalInvestorId').value;
+    const amount = parseFloat(document.getElementById('modalAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id);
+    const snap = await getDoc(ref);
+    await updateDoc(ref, { amount: (snap.data().amount || 0) + amount, updatedAt: new Date() });
+    
+    closeInvestorModal();
+    showToast('Funds added!', 's');
+    loadInvestors(); loadDashboard();
+};
+
+window.withdrawInvestorFunds = async function() {
+    const id = document.getElementById('modalInvestorId').value;
+    const amount = parseFloat(document.getElementById('modalAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id);
+    const snap = await getDoc(ref);
+    const current = snap.data().amount || 0;
+    
+    if (amount > current) return showToast('Max: ' + fm(current), 'e');
+    
+    const newAmt = current - amount;
+    if (newAmt <= 0 && confirm('Balance zero. Remove investor?')) {
+        await deleteDoc(ref);
+    } else {
+        await updateDoc(ref, { amount: newAmt, updatedAt: new Date() });
+    }
+    
+    closeInvestorModal();
+    showToast('Withdrawn!', 's');
+    loadInvestors(); loadDashboard();
+};
+
+window.delInvestor = async function(id, name) {
+    if (!confirm('Remove ' + name + '?')) return;
+    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id));
+    showToast('Removed!', 's');
+    loadInvestors(); loadDashboard();
+};
+
+// DASHBOARD
+async function loadDashboard() {
+    if (!AGENT_ID) return;
+    try {
+        const dailySnap = await getDoc(getDailyDoc());
+        const dd = dailySnap.exists() ? dailySnap.data() : {};
+        const myCapSnap = await getDoc(getMyCapitalDoc());
+        const myCapital = myCapSnap.exists() ? myCapSnap.data().amount || 0 : 0;
+        const invSnap = await getDocs(colRef('investors'));
+        let invTotal = 0, invCount = 0;
+        invSnap.forEach(d => { invTotal += d.data().amount || 0; invCount++; });
+        const totalCapital = myCapital + invTotal;
+        
+        const tSnap = await getDocs(query(colRef('transactions'), where('date', '==', todayId)));
+        const lSnap = await getDocs(colRef('loans'));
+        
+        let tc = 0; tSnap.forEach(d => tc += d.data().commission || 0);
+        let ag = 0, ae = 0;
+        lSnap.forEach(d => {
+            const l = d.data();
+            if (l.status === 'active') {
+                if (l.type === 'given') ag += l.amount || 0;
+                else ae += l.amount || 0;
+            }
+        });
+        
+        const cash = dd.cashClose || dd.cashOpen || 0;
+        const airtel = dd.airtelClose || dd.airtelOpen || 0;
+        const mpamba = dd.mpambaClose || dd.mpambaOpen || 0;
+        const liq = cash + airtel + mpamba;
+        const net = liq + ae - ag;
+        const pl = net - totalCapital;
+        
+        document.getElementById('dMyCapital').textContent = fm(myCapital);
+        document.getElementById('dInvestorsTotal').textContent = fm(invTotal);
+        document.getElementById('dInvestorsCount').textContent = invCount + ' investor' + (invCount !== 1 ? 's' : '');
+        document.getElementById('dTotalCapital').textContent = fm(totalCapital);
+        document.getElementById('dPortfolio').textContent = fm(liq + ae);
+        document.getElementById('dNet').textContent = fm(net);
+        document.getElementById('dComm').textContent = fm(tc);
+        document.getElementById('dCash').textContent = fm(cash);
+        document.getElementById('dAirtel').textContent = fm(airtel);
+        document.getElementById('dMpamba').textContent = fm(mpamba);
+        document.getElementById('dTotal').textContent = fm(liq);
+        document.getElementById('dGiven').textContent = fm(ag);
+        document.getElementById('dExpected').textContent = fm(ae);
+        document.getElementById('dCapital').textContent = fm(myCapital);
+        document.getElementById('dInvestors').textContent = fm(invTotal);
+        document.getElementById('dPL').textContent = fm(pl);
+        document.getElementById('dPL').style.color = pl >= 0 ? '#16a34a' : '#dc2626';
+        
+        const rSnap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(5)));
+        const html = [];
+        rSnap.forEach(d => {
+            const t = d.data();
+            html.push(`<div class="trow"><span>${t.type.replace('_',' ')} (${t.platform})</span><span style="font-weight:600">${fm(t.amount)}</span></div>`);
+        });
+        document.getElementById('recentTrans').innerHTML = html.length ? html.join('') : '<div style="color:#aaa;text-align:center;padding:20px">No transactions</div>';
+    } catch(e) { console.error(e); }
+}
+
+// TRANSACTIONS
+async function loadTrans() {
+    const snap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('transList'); list.innerHTML = '';
+    snap.forEach(d => {
+        const t = d.data();
+        list.innerHTML += `<div class="trow"><div><strong>${t.type.replace('_',' ')}</strong> <small>${t.platform}</small><br><small style="color:#aaa">${t.customerRef||''}</small></div><div style="text-align:right"><span style="font-weight:600">${fm(t.amount)}</span><br><small style="color:#16a34a">Comm: ${fm(t.commission||0)}</small><br><a class="link lr" onclick="delItem('transactions','${d.id}')">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">No transactions</div>';
+}
+
+window.addTrans = async function() {
+    const type = document.getElementById('tType').value;
+    const platform = document.getElementById('tPlatform').value;
+    const amount = parseFloat(document.getElementById('tAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    
+    const ref = getDailyDoc(); const snap = await getDoc(ref);
+    let data = snap.exists() ? snap.data() : {};
+    const adj = type === 'withdrawal' ? amount : -amount;
+    if (platform === 'Airtel Money') data.airtelClose = (data.airtelClose || data.airtelOpen || 0) + adj;
+    else data.mpambaClose = (data.mpambaClose || data.mpambaOpen || 0) + adj;
+    await setDoc(ref, data, { merge: true });
+    
+    await addDoc(colRef('transactions'), {
+        type, platform, amount, commission: parseFloat(document.getElementById('tCommission').value) || 0,
+        customerRef: document.getElementById('tRef').value, notes: document.getElementById('tNotes').value,
+        timestamp: new Date(), date: todayId
+    });
+    ['tAmount','tCommission','tRef','tNotes'].forEach(id => document.getElementById(id).value = '');
+    showToast('Transaction added!', 's');
+    loadTrans(); loadDashboard();
+};
+
+// LOANS
+async function loadLoans() {
+    const snap = await getDocs(query(colRef('loans'), orderBy('timestamp', 'desc')));
+    const list = document.getElementById('loanList'); list.innerHTML = '';
+    let tg = 0, te = 0, ac = 0;
+    snap.forEach(d => {
+        const l = d.data(); const a = l.amount || 0;
+        if (l.type === 'given') tg += a; else te += a;
+        if (l.status === 'active') ac++;
+        const badge = l.status === 'active' ? 'ba' : l.status === 'paid' ? 'bp' : 'bo';
+        list.innerHTML += `<div class="trow"><div><strong>${l.clientName}</strong> <span class="badge ${badge}">${l.status}</span><br><small>Due: ${l.dueDate||'N/A'} | ${l.phone||''}</small></div><div style="text-align:right"><span style="font-weight:600">${fm(a)}</span><br>${l.status==='active'&&l.type==='given'?`<a class="link lg" onclick="repayLoan('${d.id}',${a})">💵 Repay</a> `:''}<a class="link lr" onclick="delItem('loans','${d.id}')">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">No credits</div>';
+    document.getElementById('lGiven').textContent = fm(tg);
+    document.getElementById('lExpected').textContent = fm(te);
+    document.getElementById('lNet').textContent = fm(te - tg);
+    document.getElementById('lActive').textContent = ac;
+}
+
+window.addLoan = async function() {
+    const amount = parseFloat(document.getElementById('lAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    await addDoc(colRef('loans'), {
+        type: document.getElementById('lType').value, amount,
+        clientName: document.getElementById('lClient').value,
+        phone: document.getElementById('lPhone').value,
+        dueDate: document.getElementById('lDue').value,
+        status: 'active', notes: document.getElementById('lNotes').value,
+        timestamp: new Date(), date: todayId
+    });
+    ['lAmount','lClient','lPhone','lNotes'].forEach(id => document.getElementById(id).value = '');
+    showToast('Credit added!', 's');
+    loadLoans(); loadDashboard();
+};
+
+window.repayLoan = async function(id, amount) {
+    const amt = parseFloat(prompt('Repayment amount (Max: ' + fm(amount) + '):', amount));
+    if (!amt || amt <= 0 || amt > amount) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'loans', id);
+    const snap = await getDoc(ref); const loan = snap.data();
+    await updateDoc(ref, loan.amount - amt <= 0 ? { amount: 0, status: 'paid' } : { amount: loan.amount - amt });
+    await addDoc(colRef('transactions'), {
+        type: 'deposit', platform: 'Airtel Money', amount: amt, commission: 0,
+        customerRef: 'Repayment - ' + loan.clientName, notes: 'Loan repayment', timestamp: new Date(), date: todayId
+    });
+    showToast('Repaid!', 's');
+    loadLoans(); loadDashboard();
+};
+
+// EXPENSES
+async function loadExpenses() {
+    const snap = await getDocs(query(colRef('expenses'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('expenseList'); list.innerHTML = '';
+    snap.forEach(d => {
+        const e = d.data();
+        list.innerHTML += `<div class="trow"><div><strong>${e.category}</strong><br><small>${e.description||''}</small></div><div style="text-align:right"><span style="font-weight:600;color:#dc2626">${fm(e.amount)}</span><br><a class="link lr" onclick="delItem('expenses','${d.id}')">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#aaa;text-align:center;padding:20px">No expenses</div>';
+}
+
+window.addExpense = async function() {
+    const amount = parseFloat(document.getElementById('eAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'e');
+    await addDoc(colRef('expenses'), {
+        category: document.getElementById('eCat').value, amount,
+        description: document.getElementById('eDesc').value, timestamp: new Date(), date: todayId
+    });
+    document.getElementById('eAmount').value = ''; document.getElementById('eDesc').value = '';
+    showToast('Expense added!', 's');
+    loadExpenses(); loadDashboard();
+};
+
+window.delItem = async function(coll, id) {
+    if (!confirm('Delete?')) return;
+    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, coll, id));
+    showToast('Deleted!', 's');
+    if (coll === 'transactions') loadTrans();
+    else if (coll === 'loans') loadLoans();
+    else loadExpenses();
+    loadDashboard();
+};
+
+// RECON
+async function loadRecon() {
+    const daily = await getDoc(getDailyDoc());
+    if (daily.exists()) {
+        const d = daily.data();
+        document.getElementById('airtelOpen').value = d.airtelOpen || '';
+        document.getElementById('mpambaOpen').value = d.mpambaOpen || '';
+        document.getElementById('cashOpen').value = d.cashOpen || '';
+        document.getElementById('airtelClose').value = d.airtelClose || '';
+        document.getElementById('mpambaClose').value = d.mpambaClose || '';
+        document.getElementById('cashClose').value = d.cashClose || '';
+        document.getElementById('commissionEarned').value = d.commissionEarned || '';
+    }
+}
+
+window.saveOpening = async function() {
+    await setDoc(getDailyDoc(), {
+        airtelOpen: +document.getElementById('airtelOpen').value||0,
+        mpambaOpen: +document.getElementById('mpambaOpen').value||0,
+        cashOpen: +document.getElementById('cashOpen').value||0, date: todayId
+    }, { merge: true });
+    showToast('Opening saved!', 's');
+};
+
+window.saveClosing = async function() {
+    await setDoc(getDailyDoc(), {
+        airtelClose: +document.getElementById('airtelClose').value||0,
+        mpambaClose: +document.getElementById('mpambaClose').value||0,
+        cashClose: +document.getElementById('cashClose').value||0,
+        commissionEarned: +document.getElementById('commissionEarned').value||0
+    }, { merge: true });
+    showToast('Closing saved!', 's');
+    loadDashboard();
+};
+
+window.calcRecon = async function() {
+    const d = (await getDoc(getDailyDoc())).data();
+    const an = (d.airtelClose||0)-(d.airtelOpen||0);
+    const mn = (d.mpambaClose||0)-(d.mpambaOpen||0);
+    const cn = (d.cashClose||0)-(d.cashOpen||0);
+    const disc = cn - (-(an+mn) + (d.commissionEarned||0));
+    document.getElementById('rAirtel').textContent = fm(an);
+    document.getElementById('rMpamba').textContent = fm(mn);
+    document.getElementById('rCash').textContent = fm(cn);
+    const balanced = Math.abs(disc) < 0.01;
+    document.getElementById('rStatus').textContent = balanced ? '✅ Balanced' : (disc > 0 ? '⚠️ +' : '⚠️ ') + fm(Math.abs(disc));
+    document.getElementById('rStatus').style.color = balanced ? '#16a34a' : disc > 0 ? '#d97706' : '#dc2626';
+    document.getElementById('reconResults').style.display = 'block';
+};
+
+console.log('✅ MoneyAgent Pro v3 - Investors Edition Ready!');
+</script>
+</body>
+</html>
