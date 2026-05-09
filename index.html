@@ -3,403 +3,672 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoneyAgent Pro • Dashboard</title>
+    <title>MoneyAgent Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { @apply bg-gradient-to-br from-slate-50 via-white to-slate-100; overflow-x-hidden; }
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        body.logged-in {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
         .glass-card {
-            @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transition-all duration-300 hover:shadow-2xl;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            padding: 24px;
         }
-        .stat-gradient-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .stat-gradient-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .stat-gradient-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .stat-gradient-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-        .stat-gradient-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-        .stat-gradient-6 { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
-        .input-premium {
-            @apply w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 outline-none transition-all bg-white;
+        .input-field {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.2s;
+            font-size: 15px;
         }
-        .btn-premium {
-            @apply px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer;
+        .input-field:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
         }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .nav-tab {
-            @apply px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer select-none;
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .nav-tab.active {
-            @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg;
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3); }
+        .btn-google {
+            width: 100%;
+            padding: 14px;
+            background: white;
+            color: #334155;
+            font-weight: 600;
+            font-size: 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.2s;
         }
-        .nav-tab:not(.active) {
-            @apply bg-white text-slate-600 border border-slate-200 hover:bg-slate-50;
+        .btn-google:hover { border-color: #cbd5e1; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .divider { display: flex; align-items: center; gap: 16px; margin: 20px 0; color: #94a3b8; font-size: 14px; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+        .tab-btn { flex: 1; padding: 10px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; text-align: center; }
+        .tab-btn.active { background: #6366f1; color: white; }
+        .tab-btn:not(.active) { background: #f1f5f9; color: #64748b; }
+        .dashboard-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            padding: 20px;
+            border: 1px solid #e2e8f0;
         }
+        .stat-gradient-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .stat-gradient-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .stat-gradient-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
         .metric-card {
-            @apply relative overflow-hidden rounded-2xl p-6 text-white;
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            padding: 24px;
+            color: white;
         }
         .metric-card::before {
             content: '';
-            @apply absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            transform: translate(30px, -30px);
         }
-        .progress-bar {
-            @apply h-3 bg-white/30 rounded-full overflow-hidden;
+        .nav-tab {
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
         }
-        .progress-fill {
-            @apply h-full bg-white rounded-full transition-all duration-500;
-        }
-        .edit-row {
-            @apply bg-indigo-50 p-4 rounded-xl mt-2 border border-indigo-200;
-        }
-        .stat-box {
-            @apply bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200;
-        }
-        .percentage-bar {
-            @apply h-2 bg-slate-200 rounded-full overflow-hidden;
-        }
-        .percentage-fill {
-            @apply h-full rounded-full transition-all duration-500;
-        }
-        .alert-badge {
-            @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
-        }
+        .nav-tab.active { background: #6366f1; color: white; }
+        .nav-tab:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .nav-tab:not(.active):hover { background: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .progress-bar { height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: white; border-radius: 4px; transition: width 0.5s; }
+        .toast { padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; margin-bottom: 16px; }
+        .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .toast-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .toast-info { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .edit-row { background: #eef2ff; padding: 16px; border-radius: 12px; margin-top: 8px; border: 1px solid #c7d2fe; }
     </style>
 </head>
-<body class="antialiased">
+<body class="flex items-center justify-center p-4">
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="w-full max-w-md">
+    <div class="glass-card">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 48px; margin-bottom: 8px;">💼</div>
+            <h1 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MoneyAgent Pro</h1>
+            <p style="color: #64748b; font-size: 15px;">Mobile Money Business Manager</p>
+        </div>
+
+        <div id="authMessage" class="toast" style="display:none;"></div>
+
+        <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 20px;">
+            <button onclick="showLoginTab()" id="loginTab" class="tab-btn active">🔐 Sign In</button>
+            <button onclick="showRegisterTab()" id="registerTab" class="tab-btn">✨ Register</button>
+        </div>
+
+        <div id="googleBtnContainer" style="margin-bottom: 20px;">
+            <button onclick="loginWithGoogle()" class="btn-google">
+                <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Continue with Google
+            </button>
+        </div>
+
+        <div class="divider">or</div>
+
+        <div id="loginForm">
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:6px;">Email</label>
+                <input type="email" id="loginEmail" class="input-field" placeholder="agent@example.com">
+            </div>
+            <div style="margin-bottom: 8px;">
+                <label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:6px;">Password</label>
+                <input type="password" id="loginPassword" class="input-field" placeholder="••••••••">
+            </div>
+            <div style="text-align:right;margin-bottom:16px;">
+                <a href="#" onclick="forgotPassword()" style="font-size:14px;color:#6366f1;text-decoration:none;">Forgot password?</a>
+            </div>
+            <button onclick="loginWithEmail()" class="btn-primary">Sign In</button>
+        </div>
+
+        <div id="registerForm" style="display:none;">
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Name</label><input type="text" id="registerName" class="input-field" placeholder="John Doe"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Email</label><input type="email" id="registerEmail" class="input-field" placeholder="agent@example.com"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Phone</label><input type="tel" id="registerPhone" class="input-field" placeholder="+265 888 123 456"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Password</label><input type="password" id="registerPassword" class="input-field" placeholder="Min 6 characters"></div>
+            <div style="margin-bottom:16px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Confirm</label><input type="password" id="registerConfirmPassword" class="input-field" placeholder="Confirm password"></div>
+            <button onclick="registerWithEmail()" class="btn-primary">Create Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dashboardScreen" style="display:none; width:100%; max-width:1200px; margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
         <div>
-            <h1 class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                💼 MoneyAgent Pro
-            </h1>
-            <p class="text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
-                <span id="current-date" class="font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full"></span>
-                <span id="agentNameDisplay" class="font-mono bg-slate-100 px-3 py-1 rounded-full text-sm">Agent: --</span>
-                <span id="rolloverStatus" class="alert-badge bg-green-100 text-green-800">✅ Auto Rollover</span>
+            <h1 style="font-size:28px;font-weight:800;color:#1e293b;">💼 MoneyAgent Pro</h1>
+            <p style="color:#64748b;font-size:14px;">
+                <span id="currentDate"></span> • 
+                <span id="agentName" style="background:#e2e8f0;padding:2px 10px;border-radius:20px;">Agent</span>
             </p>
         </div>
-        <div class="flex gap-3 mt-4 md:mt-0">
-            <button id="refreshDashboard" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer">
-                🔄 Refresh
-            </button>
-            <button id="logoutBtn" class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:shadow-lg transition cursor-pointer">
-                🚪 Logout
-            </button>
-        </div>
+        <button onclick="logout()" style="padding:10px 20px;background:#64748b;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚪 Logout</button>
     </div>
 
-    <!-- Status Toast -->
-    <div id="toast-message" class="hidden mb-4 p-4 rounded-xl text-sm font-medium"></div>
+    <div id="dashToast" class="toast" style="display:none;"></div>
 
     <!-- Navigation -->
-    <div class="flex flex-wrap gap-3 mb-8">
-        <div onclick="switchTab('dashboard')" class="nav-tab active" data-tab="dashboard">📊 Dashboard</div>
-        <div onclick="switchTab('reconciliation')" class="nav-tab" data-tab="reconciliation">💰 Reconciliation</div>
-        <div onclick="switchTab('transactions')" class="nav-tab" data-tab="transactions">💳 Transactions</div>
-        <div onclick="switchTab('loans')" class="nav-tab" data-tab="loans">🏦 Credit Management</div>
-        <div onclick="switchTab('expenses')" class="nav-tab" data-tab="expenses">📋 Expenses</div>
-        <div onclick="switchTab('analytics')" class="nav-tab" data-tab="analytics">📈 Analytics</div>
+    <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
+        <button onclick="switchTab('dashboard')" class="nav-tab active" id="navDashboard">📊 Dashboard</button>
+        <button onclick="switchTab('reconciliation')" class="nav-tab" id="navReconciliation">💰 Reconciliation</button>
+        <button onclick="switchTab('transactions')" class="nav-tab" id="navTransactions">💳 Transactions</button>
+        <button onclick="switchTab('loans')" class="nav-tab" id="navLoans">🏦 Credit</button>
+        <button onclick="switchTab('expenses')" class="nav-tab" id="navExpenses">📋 Expenses</button>
     </div>
 
-    <!-- DASHBOARD TAB -->
-    <div id="dashboard-tab" class="tab-content active">
-        <!-- Balance Rollover Alert -->
-        <div id="rolloverAlert" class="hidden mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h4 class="font-semibold text-blue-800">🔄 Previous Day Rollover Detected</h4>
-                    <p class="text-sm text-blue-600 mt-1">Yesterday's closing balances have been automatically set as today's opening balances.</p>
-                </div>
-                <button onclick="acknowledgeRollover()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition cursor-pointer">OK</button>
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:24px;">
+            <div class="metric-card stat-gradient-1"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Total Portfolio</p><p id="totalPortfolio" style="font-size:32px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-2"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Net Position</p><p id="netPosition" style="font-size:32px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-3"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Today's Commission</p><p id="todayCommission" style="font-size:32px;font-weight:700;">--</p><div class="progress-bar" style="margin-top:8px;"><div id="commissionBar" class="progress-fill" style="width:0%"></div></div></div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:16px;">💎 Assets</h3>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#fffbeb;border-radius:8px;margin-bottom:8px;"><span>💰 Cash</span><span id="cashVal" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#eff6ff;border-radius:8px;margin-bottom:8px;"><span>📱 Airtel</span><span id="airtelVal" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><span>📲 Mpamba</span><span id="mpambaVal" style="font-weight:700;">--</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;"><span style="font-weight:700;">Total</span><span id="totalLiquid" style="font-weight:700;">--</span></div>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:16px;">🏦 Credit & Capital</h3>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#fff1f2;border-radius:8px;margin-bottom:8px;"><span>📤 Extended</span><span id="creditGiven" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><span>📥 Expected</span><span id="creditExpected" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#faf5ff;border-radius:8px;margin-bottom:8px;"><span>💼 Capital</span><span id="capitalVal" style="font-weight:700;">--</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;"><span style="font-weight:700;">P/L vs Capital</span><span id="profitLoss" style="font-weight:700;">--</span></div>
             </div>
         </div>
 
-        <!-- Key Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div class="metric-card stat-gradient-1">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Total Portfolio Value</p>
-                    <p id="totalPortfolioValue" class="text-4xl font-bold">--</p>
-                    <p class="text-white/70 text-xs mt-2">Cash + E-Value + Receivables</p>
-                </div>
-            </div>
-            
-            <div class="metric-card stat-gradient-2">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Net Business Position</p>
-                    <p id="netBusinessPosition" class="text-4xl font-bold">--</p>
-                    <p id="positionChange" class="text-white/70 text-xs mt-2">Today's change: --</p>
-                </div>
-            </div>
+        <div class="dashboard-card">
+            <h3 style="font-weight:700;margin-bottom:12px;">📋 Recent Transactions</h3>
+            <div id="recentTrans" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+    </div>
 
-            <div class="metric-card stat-gradient-3">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Today's Commission</p>
-                    <p id="dashboardCommission" class="text-4xl font-bold">--</p>
-                    <div class="mt-2">
-                        <div class="flex justify-between text-xs text-white/70 mb-1">
-                            <span>Target Progress</span>
-                            <span id="commissionTargetPercent">0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="commissionTargetBar" class="progress-fill" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
+    <!-- Reconciliation Tab -->
+    <div id="tab-reconciliation" class="tab-content">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;color:#4338ca;margin-bottom:16px;">🌅 Opening</h3>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Airtel Open</label><input type="number" id="airtelOpen" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Mpamba Open</label><input type="number" id="mpambaOpen" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Cash Open</label><input type="number" id="cashOpen" class="input-field" placeholder="0"></div>
+                <button onclick="saveOpening()" class="btn-primary">Save Opening</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;color:#059669;margin-bottom:16px;">🌙 Closing</h3>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Airtel Close</label><input type="number" id="airtelClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Mpamba Close</label><input type="number" id="mpambaClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Cash Close</label><input type="number" id="cashClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Commission</label><input type="number" id="commissionEarned" class="input-field" placeholder="0"></div>
+                <div style="display:flex;gap:8px;"><button onclick="saveClosing()" class="btn-primary" style="flex:1;">Save Closing</button><button onclick="calculateReconciliation()" style="flex:1;padding:14px;background:#475569;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:600;">Calculate</button></div>
             </div>
         </div>
-
-        <!-- Asset & Credit Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">💎</span> Asset Breakdown
-                    <span id="openingBalanceSource" class="text-xs font-normal text-slate-400 ml-2"></span>
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 bg-amber-50 rounded-xl border border-amber-200">
-                        <span class="font-medium text-amber-700">💰 Physical Cash</span>
-                        <span id="physicalCash" class="text-2xl font-bold text-amber-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-200">
-                        <span class="font-medium text-blue-700">📱 Airtel Money E-Value</span>
-                        <span id="airtelEValue" class="text-2xl font-bold text-blue-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200">
-                        <span class="font-medium text-green-700">📲 TNM Mpamba E-Value</span>
-                        <span id="mpambaEValue" class="text-2xl font-bold text-green-700">--</span>
-                    </div>
-                    
-                    <div class="mt-4 pt-4 border-t border-slate-200">
-                        <p class="text-sm font-medium text-slate-600 mb-3">Distribution</p>
-                        <div class="space-y-2">
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-amber-600">Cash</span>
-                                    <span id="cashPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="cashBar" class="percentage-fill bg-amber-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-blue-600">Airtel</span>
-                                    <span id="airtelPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="airtelBar" class="percentage-fill bg-blue-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-green-600">Mpamba</span>
-                                    <span id="mpambaPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="mpambaBar" class="percentage-fill bg-green-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="border-t-2 border-slate-200 pt-3 mt-2">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Total Liquid Assets</span>
-                            <span id="totalLiquidAssets" class="text-2xl font-bold text-slate-800">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🏦</span> Credit & Capital Position
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 bg-rose-50 rounded-xl border border-rose-200">
-                        <span class="font-medium text-rose-700">📤 Credit Extended to Clients</span>
-                        <span id="loansGiven" class="text-2xl font-bold text-rose-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                        <span class="font-medium text-emerald-700">📥 Expected from Customers</span>
-                        <span id="loansExpected" class="text-2xl font-bold text-emerald-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-xl border border-purple-200">
-                        <span class="font-medium text-purple-700">💼 Invested Capital</span>
-                        <span id="investedCapital" class="text-2xl font-bold text-purple-700">--</span>
-                    </div>
-                    <div class="border-t-2 border-slate-200 pt-3 mt-2 space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Net Credit Position</span>
-                            <span id="netLoanPosition" class="text-2xl font-bold">--</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Available Working Capital</span>
-                            <span id="workingCapital" class="text-2xl font-bold">--</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Profit/Loss vs Capital</span>
-                            <span id="profitLossVsCapital" class="text-2xl font-bold">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Airtel Commission Today</p>
-                <p id="airtelCommissionDisplay" class="text-3xl font-bold text-blue-600">--</p>
-            </div>
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Mpamba Commission Today</p>
-                <p id="mpambaCommissionDisplay" class="text-3xl font-bold text-green-600">--</p>
-            </div>
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Total Commission Today</p>
-                <p id="totalCommissionDisplay" class="text-3xl font-bold text-indigo-600">--</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card lg:col-span-2">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">📋 Recent Transactions</h3>
-                <div id="recentTransactions" class="space-y-2 max-h-64 overflow-y-auto"></div>
-            </div>
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">⚡ Quick Actions</h3>
-                <div class="space-y-3">
-                    <button onclick="switchTab('transactions')" class="w-full btn-premium">➕ New Transaction</button>
-                    <button onclick="switchTab('loans')" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">🏦 Manage Credit</button>
-                    <button onclick="switchTab('reconciliation')" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">💰 Daily Reconciliation</button>
-                </div>
-                <div class="mt-6 p-4 bg-indigo-50 rounded-xl">
-                    <h4 class="font-semibold text-indigo-800 mb-2">💡 Business Insight</h4>
-                    <p id="businessInsight" class="text-sm text-indigo-700">Loading insights...</p>
-                </div>
+        <div id="reconResults" style="display:none;margin-top:16px;" class="dashboard-card">
+            <h3 style="font-weight:700;margin-bottom:12px;">Results</h3>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Airtel Δ</span><div id="airtelNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Mpamba Δ</span><div id="mpambaNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Cash Δ</span><div id="cashNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#eef2ff;border-radius:8px;"><span style="font-size:12px;">Status</span><div id="reconStatus" style="font-weight:700;">--</div></div>
             </div>
         </div>
     </div>
 
-    <!-- RECONCILIATION TAB -->
-    <div id="reconciliation-tab" class="tab-content">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="glass-card">
-                <h2 class="text-xl font-bold text-indigo-700 mb-4">🌅 Opening Balances</h2>
-                <p class="text-xs text-slate-500 mb-4">Auto-filled from yesterday's closing balances</p>
-                <div class="space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Opening</label><input type="number" id="airtelOpen" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Opening</label><input type="number" id="mpambaOpen" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Opening</label><input type="number" id="cashOpen" class="input-premium" placeholder="0.00"></div>
-                    <button id="saveOpenBtn" class="btn-premium w-full mt-4 cursor-pointer">Save Opening Balances</button>
-                </div>
+    <!-- Transactions Tab -->
+    <div id="tab-transactions" class="tab-content">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">➕ New</h3>
+                <select id="transType" class="input-field" style="margin-bottom:8px;"><option value="deposit">💰 Deposit</option><option value="withdrawal">💳 Withdrawal</option><option value="bill_payment">🧾 Bill Payment</option><option value="credit_purchase">🛒 Credit Purchase</option><option value="send_to_dealer">🤝 Send to Dealer</option></select>
+                <select id="transPlatform" class="input-field" style="margin-bottom:8px;"><option>Airtel Money</option><option>TNM Mpamba</option></select>
+                <input type="number" id="transAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <input type="number" id="transCommission" class="input-field" placeholder="Commission" style="margin-bottom:8px;">
+                <input type="text" id="transRef" class="input-field" placeholder="Customer Ref" style="margin-bottom:8px;">
+                <textarea id="transNotes" class="input-field" placeholder="Notes" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addTransaction()" class="btn-primary">Add Transaction</button>
             </div>
-            <div class="glass-card">
-                <h2 class="text-xl font-bold text-emerald-700 mb-4">🌙 Closing Balances</h2>
-                <p class="text-xs text-slate-500 mb-4">These become tomorrow's opening balances</p>
-                <div class="space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Closing</label><input type="number" id="airtelClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Closing</label><input type="number" id="mpambaClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Closing</label><input type="number" id="cashClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Commission Earned Today</label><input type="number" id="commissionEarned" class="input-premium" placeholder="0.00"></div>
-                    <div class="flex gap-3 mt-4">
-                        <button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing Balances</button>
-                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="reconciliation-results" class="hidden mt-8 glass-card">
-            <h3 class="font-bold text-lg mb-6">📊 Reconciliation Results</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Airtel Δ</span><div id="airtel-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Mpamba Δ</span><div id="mpamba-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Cash Δ</span><div id="cash-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-indigo-50 rounded-xl"><span class="text-xs text-indigo-600">Final Status</span><div id="reconciliation-status" class="text-2xl font-bold">--</div></div>
-            </div>
-            <div class="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
-                <div class="flex justify-between items-center">
-                    <span class="font-semibold text-indigo-800">Expected Cash from Float:</span>
-                    <span id="expectedCashFromFloat" class="text-xl font-bold text-indigo-800">--</span>
-                </div>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="font-semibold text-indigo-800">Discrepancy:</span>
-                    <span id="reconciliationDiscrepancy" class="text-xl font-bold">--</span>
-                </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📜 History</h3>
+                <div id="transList" style="max-height:400px;overflow-y:auto;"></div>
             </div>
         </div>
     </div>
 
-    <!-- Rest of the tabs (transactions, loans, expenses, analytics) remain the same -->
-    <!-- ... (same as previous version) ... -->
+    <!-- Loans Tab -->
+    <div id="tab-loans" class="tab-content">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+            <div class="metric-card stat-gradient-1"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Extended</p><p id="loansGivenTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-4"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Expected</p><p id="loansExpectedTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-2"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Net Position</p><p id="loansNetTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-6"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Active</p><p id="activeLoanCount" style="font-size:24px;font-weight:700;">--</p></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">🏦 New Credit</h3>
+                <select id="loanType" class="input-field" style="margin-bottom:8px;"><option value="given">📤 Extended</option><option value="expected">📥 Expected</option></select>
+                <select id="loanSource" class="input-field" style="margin-bottom:8px;"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
+                <input type="number" id="loanAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <input type="text" id="loanClient" class="input-field" placeholder="Client Name" style="margin-bottom:8px;">
+                <input type="text" id="loanPhone" class="input-field" placeholder="Phone" style="margin-bottom:8px;">
+                <input type="date" id="loanDue" class="input-field" style="margin-bottom:8px;">
+                <textarea id="loanNotes" class="input-field" placeholder="Notes" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addLoan()" class="btn-primary">Record Credit</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📋 All Credits</h3>
+                <div id="loanList" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Expenses Tab -->
+    <div id="tab-expenses" class="tab-content">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📝 Add</h3>
+                <select id="expenseCat" class="input-field" style="margin-bottom:8px;"><option>Transport</option><option>Airtime/Data</option><option>Food</option><option>Rent</option><option>Utilities</option><option>Other</option></select>
+                <select id="expenseSource" class="input-field" style="margin-bottom:8px;"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
+                <input type="number" id="expenseAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <textarea id="expenseDesc" class="input-field" placeholder="Description" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addExpense()" class="btn-primary">Add Expense</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📊 History</h3>
+                <div id="expenseList" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    const APP_ID = "mobile-money-agent";
-    const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
-        authDomain: "mobile-money-app-4cf66.firebaseapp.com",
-        projectId: "mobile-money-app-4cf66",
-        storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
-        messagingSenderId: "822891731705",
-        appId: "1:822891731705:web:e666599c76ce413f0a6028"
-    };
+const APP_ID = "mobile-money-agent";
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+    authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+    projectId: "mobile-money-app-4cf66",
+    storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+    messagingSenderId: "822891731705",
+    appId: "1:822891731705:web:e666599c76ce413f0a6028"
+};
 
-    // Initialize Firebase
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
-    let currentUser = null;
-    let AGENT_ID = null;
+let AGENT_ID = null;
+const todayId = new Date().toISOString().split('T')[0];
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // Auth state observer
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            AGENT_ID = user.uid;
-            
-            // Load agent profile
-            const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
-            if (profileSnap.exists()) {
-                document.getElementById('agentNameDisplay').textContent = `Agent: ${profileSnap.data().name}`;
-            }
-            
-            // Initialize the app
-            await initApp();
-        } else {
-            // Redirect to login
-            window.location.href = 'index.html';
-        }
-    });
+// Helper functions
+function getDailyDoc(did = todayId) { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', did); }
+function getCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'investment'); }
+function getTargetDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'targets', 'daily_commission'); }
+function colRef(n) { return collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, n); }
+function fm(v) { return new Intl.NumberFormat('en-MW', { style: 'currency', currency: 'MWK', minimumFractionDigits: 2 }).format(v || 0); }
+function showToast(msg, type = 'info') {
+    const t = document.getElementById('dashToast');
+    t.textContent = msg;
+    t.className = `toast toast-${type}`;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 4000);
+}
+function showAuthMsg(msg, type = 'info') {
+    const t = document.getElementById('authMessage');
+    t.textContent = msg;
+    t.className = `toast toast-${type}`;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 5000);
+}
 
-    // Logout function
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-            await signOut(auth);
-            window.location.href = 'index.html';
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    });
-
-    // The rest of the dashboard code (same as before but uses AGENT_ID = user.uid)
-    // ... (all previous dashboard functionality) ...
-
-    async function initApp() {
-        // Your existing initialization code here
-        // All previous functions work the same, just using AGENT_ID = currentUser.uid
-        toast('Welcome back!', 'success');
+// Auth state
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        AGENT_ID = user.uid;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboardScreen').style.display = 'block';
+        document.body.classList.add('logged-in');
+        
+        const profile = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
+        if (profile.exists()) document.getElementById('agentName').textContent = profile.data().name;
+        
         loadDashboard();
+    } else {
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('dashboardScreen').style.display = 'none';
+        document.body.classList.remove('logged-in');
     }
+});
+
+// Tab switching
+window.showLoginTab = () => {
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('loginTab').classList.add('active');
+    document.getElementById('registerTab').classList.remove('active');
+};
+window.showRegisterTab = () => {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('loginTab').classList.remove('active');
+    document.getElementById('registerTab').classList.add('active');
+};
+
+// Login functions
+window.loginWithGoogle = async () => {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
+        if (!profileSnap.exists()) {
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), {
+                name: user.displayName || 'Agent', email: user.email, agentId: user.uid, createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'google'
+            }, { merge: true });
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), { amount: 10000, type: 'daily_commission' });
+        }
+    } catch (e) { if (e.code !== 'auth/popup-closed-by-user') showAuthMsg('Google sign-in failed', 'error'); }
+};
+
+window.loginWithEmail = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) return showAuthMsg('Enter email and password', 'error');
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', auth.currentUser.uid, 'profile', 'info'), { lastLogin: new Date() }, { merge: true });
+    } catch (e) {
+        showAuthMsg(e.code.includes('invalid') ? 'Invalid email or password' : 'Login failed', 'error');
+    }
+};
+
+window.registerWithEmail = async () => {
+    const name = document.getElementById('registerName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
+    const phone = document.getElementById('registerPhone').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const confirm = document.getElementById('registerConfirmPassword').value;
+    if (!name || !email) return showAuthMsg('Name and email required', 'error');
+    if (password.length < 6) return showAuthMsg('Password must be 6+ characters', 'error');
+    if (password !== confirm) return showAuthMsg('Passwords do not match', 'error');
+    try {
+        const uc = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'profile', 'info'), {
+            name, email, phone, agentId: uc.user.uid, createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'email'
+        });
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'targets', 'daily_commission'), { amount: 10000, type: 'daily_commission' });
+    } catch (e) {
+        showAuthMsg(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed', 'error');
+    }
+};
+
+window.forgotPassword = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) return showAuthMsg('Enter your email first', 'error');
+    try { await sendPasswordResetEmail(auth, email); showAuthMsg('Reset email sent!', 'success'); }
+    catch (e) { showAuthMsg('Failed to send reset email', 'error'); }
+};
+
+window.logout = async () => { await signOut(auth); };
+
+// Dashboard tab switching
+window.switchTab = (tab) => {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    document.getElementById(`nav${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+    if (tab === 'transactions') loadTransactions();
+    else if (tab === 'loans') loadLoans();
+    else if (tab === 'expenses') loadExpenses();
+    else if (tab === 'reconciliation') loadReconData();
+};
+
+// Load dashboard
+async function loadDashboard() {
+    const dailySnap = await getDoc(getDailyDoc());
+    const dd = dailySnap.exists() ? dailySnap.data() : {};
+    const capSnap = await getDoc(getCapitalDoc());
+    const capital = capSnap.exists() ? capSnap.data().totalCapital || 0 : 0;
+    const transSnap = await getDocs(query(colRef('transactions'), where('date', '==', todayId)));
+    const loansSnap = await getDocs(colRef('loans'));
+    
+    let totalComm = 0, airtelComm = 0, mpambaComm = 0;
+    transSnap.forEach(d => {
+        const t = d.data(); const c = t.commission || 0; totalComm += c;
+        if (t.platform === 'Airtel Money') airtelComm += c; else mpambaComm += c;
+    });
+    
+    let activeGiven = 0, activeExpected = 0;
+    loansSnap.forEach(d => {
+        const l = d.data();
+        if (l.status === 'active') {
+            if (l.type === 'given') activeGiven += l.amount || 0;
+            else activeExpected += l.amount || 0;
+        }
+    });
+    
+    const cash = dd.cashClose || dd.cashOpen || 0;
+    const airtel = dd.airtelClose || dd.airtelOpen || 0;
+    const mpamba = dd.mpambaClose || dd.mpambaOpen || 0;
+    const liquid = cash + airtel + mpamba;
+    const portfolio = liquid + activeExpected;
+    const net = liquid + activeExpected - activeGiven;
+    const pl = net - capital;
+    
+    document.getElementById('totalPortfolio').textContent = fm(portfolio);
+    document.getElementById('netPosition').textContent = fm(net);
+    document.getElementById('todayCommission').textContent = fm(totalComm);
+    document.getElementById('cashVal').textContent = fm(cash);
+    document.getElementById('airtelVal').textContent = fm(airtel);
+    document.getElementById('mpambaVal').textContent = fm(mpamba);
+    document.getElementById('totalLiquid').textContent = fm(liquid);
+    document.getElementById('creditGiven').textContent = fm(activeGiven);
+    document.getElementById('creditExpected').textContent = fm(activeExpected);
+    document.getElementById('capitalVal').textContent = fm(capital);
+    document.getElementById('profitLoss').textContent = fm(pl);
+    document.getElementById('profitLoss').style.color = pl >= 0 ? '#16a34a' : '#dc2626';
+    
+    const targetSnap = await getDoc(getTargetDoc());
+    const target = targetSnap.exists() ? targetSnap.data().amount || 10000 : 10000;
+    document.getElementById('commissionBar').style.width = Math.min((totalComm / target) * 100, 100) + '%';
+    
+    const recentSnap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(5)));
+    const html = [];
+    recentSnap.forEach(d => {
+        const t = d.data();
+        html.push(`<div style="display:flex;justify-content:space-between;padding:8px;background:#f8fafc;border-radius:8px;margin-bottom:4px;"><span>${t.type.replace('_',' ')} (${t.platform})</span><span style="font-weight:600;">${fm(t.amount)}</span></div>`);
+    });
+    document.getElementById('recentTrans').innerHTML = html.length ? html.join('') : '<div style="color:#94a3b8;text-align:center;">No transactions yet</div>';
+}
+
+// Transactions
+async function loadTransactions() {
+    const snap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('transList');
+    list.innerHTML = '';
+    snap.forEach(d => {
+        const t = d.data();
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${t.type.replace('_',' ')}</strong> <span style="color:#64748b;">${t.platform}</span><br><small>${t.customerRef||''} ${t.notes||''}</small></div><div style="text-align:right;"><span style="font-weight:600;">${fm(t.amount)}</span><br><small style="color:#16a34a;">Comm: ${fm(t.commission||0)}</small><br><a href="#" onclick="deleteItem('transactions','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No transactions</div>';
+}
+
+// Loans
+async function loadLoans() {
+    const snap = await getDocs(query(colRef('loans'), orderBy('timestamp', 'desc')));
+    const list = document.getElementById('loanList');
+    list.innerHTML = '';
+    let tg = 0, te = 0, ac = 0;
+    snap.forEach(d => {
+        const l = d.data(); const a = l.amount || 0;
+        if (l.type === 'given') tg += a; else te += a;
+        if (l.status === 'active') ac++;
+        const sc = l.status === 'active' ? 'background:#fef9c3;color:#a16207;' : l.status === 'paid' ? 'background:#dcfce7;color:#16a34a;' : 'background:#fee2e2;color:#dc2626;';
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${l.clientName}</strong> <span style="font-size:12px;padding:2px 8px;border-radius:10px;${sc}">${l.status}</span><br><small>Due: ${l.dueDate||'N/A'} | ${l.phone||''}</small></div><div style="text-align:right;"><span style="font-weight:600;">${fm(a)}</span><br>${l.status==='active'&&l.type==='given'?`<a href="#" onclick="repayLoan('${d.id}',${a})" style="color:#16a34a;font-size:12px;">💵 Repay</a> `:''}<a href="#" onclick="deleteItem('loans','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No credits</div>';
+    document.getElementById('loansGivenTop').textContent = fm(tg);
+    document.getElementById('loansExpectedTop').textContent = fm(te);
+    document.getElementById('loansNetTop').textContent = fm(te - tg);
+    document.getElementById('activeLoanCount').textContent = ac;
+}
+
+// Expenses
+async function loadExpenses() {
+    const snap = await getDocs(query(colRef('expenses'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('expenseList');
+    list.innerHTML = '';
+    snap.forEach(d => {
+        const e = d.data();
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${e.category}</strong><br><small>${e.description||''}</small></div><div style="text-align:right;"><span style="font-weight:600;color:#dc2626;">${fm(e.amount)}</span><br><a href="#" onclick="deleteItem('expenses','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No expenses</div>';
+}
+
+async function loadReconData() {
+    const daily = await getDoc(getDailyDoc());
+    if (daily.exists()) {
+        const d = daily.data();
+        document.getElementById('airtelOpen').value = d.airtelOpen || '';
+        document.getElementById('mpambaOpen').value = d.mpambaOpen || '';
+        document.getElementById('cashOpen').value = d.cashOpen || '';
+        document.getElementById('airtelClose').value = d.airtelClose || '';
+        document.getElementById('mpambaClose').value = d.mpambaClose || '';
+        document.getElementById('cashClose').value = d.cashClose || '';
+        document.getElementById('commissionEarned').value = d.commissionEarned || '';
+    }
+}
+
+// Add functions
+window.addTransaction = async () => {
+    const type = document.getElementById('transType').value;
+    const platform = document.getElementById('transPlatform').value;
+    const amount = parseFloat(document.getElementById('transAmount').value) || 0;
+    const commission = parseFloat(document.getElementById('transCommission').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    
+    const ref = getDailyDoc(); const snap = await getDoc(ref);
+    let data = snap.exists() ? snap.data() : {};
+    if (platform === 'Airtel Money') data.airtelClose = (data.airtelClose || data.airtelOpen || 0) + (type === 'withdrawal' ? amount : -amount);
+    else data.mpambaClose = (data.mpambaClose || data.mpambaOpen || 0) + (type === 'withdrawal' ? amount : -amount);
+    await setDoc(ref, data, { merge: true });
+    
+    await addDoc(colRef('transactions'), { type, platform, amount, commission, customerRef: document.getElementById('transRef').value, notes: document.getElementById('transNotes').value, timestamp: new Date(), date: todayId });
+    document.getElementById('transAmount').value = ''; document.getElementById('transCommission').value = ''; document.getElementById('transRef').value = ''; document.getElementById('transNotes').value = '';
+    showToast('Transaction added!', 'success');
+    loadTransactions(); loadDashboard();
+};
+
+window.addExpense = async () => {
+    const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    await addDoc(colRef('expenses'), { category: document.getElementById('expenseCat').value, source: document.getElementById('expenseSource').value, amount, description: document.getElementById('expenseDesc').value, timestamp: new Date(), date: todayId });
+    document.getElementById('expenseAmount').value = ''; document.getElementById('expenseDesc').value = '';
+    showToast('Expense added!', 'success');
+    loadExpenses(); loadDashboard();
+};
+
+window.addLoan = async () => {
+    const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    await addDoc(colRef('loans'), { type: document.getElementById('loanType').value, source: document.getElementById('loanSource').value, amount, clientName: document.getElementById('loanClient').value, phone: document.getElementById('loanPhone').value, dueDate: document.getElementById('loanDue').value, status: 'active', notes: document.getElementById('loanNotes').value, timestamp: new Date(), date: todayId });
+    document.getElementById('loanAmount').value = ''; document.getElementById('loanClient').value = ''; document.getElementById('loanPhone').value = ''; document.getElementById('loanNotes').value = '';
+    showToast('Credit recorded!', 'success');
+    loadLoans(); loadDashboard();
+};
+
+window.repayLoan = async (loanId, amount) => {
+    const amt = parseFloat(prompt(`Repayment amount (Max: ${fm(amount)}):`, amount));
+    if (!amt || amt <= 0 || amt > amount) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'loans', loanId);
+    const snap = await getDoc(ref); const loan = snap.data();
+    await updateDoc(ref, loan.amount - amt <= 0 ? { amount: 0, status: 'paid' } : { amount: loan.amount - amt });
+    await addDoc(colRef('transactions'), { type: 'deposit', platform: 'Airtel Money', amount: amt, commission: 0, customerRef: `Repayment - ${loan.clientName}`, notes: `Loan repayment`, timestamp: new Date(), date: todayId });
+    showToast('Repayment recorded!', 'success');
+    loadLoans(); loadDashboard();
+};
+
+window.deleteItem = async (coll, id) => {
+    if (!confirm('Delete permanently?')) return;
+    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, coll, id));
+    showToast('Deleted', 'success');
+    if (coll === 'transactions') loadTransactions();
+    else if (coll === 'loans') loadLoans();
+    else if (coll === 'expenses') loadExpenses();
+    loadDashboard();
+};
+
+window.saveOpening = async () => {
+    await setDoc(getDailyDoc(), { airtelOpen: +document.getElementById('airtelOpen').value||0, mpambaOpen: +document.getElementById('mpambaOpen').value||0, cashOpen: +document.getElementById('cashOpen').value||0, date: todayId }, { merge: true });
+    showToast('Opening saved!', 'success');
+};
+
+window.saveClosing = async () => {
+    await setDoc(getDailyDoc(), { airtelClose: +document.getElementById('airtelClose').value||0, mpambaClose: +document.getElementById('mpambaClose').value||0, cashClose: +document.getElementById('cashClose').value||0, commissionEarned: +document.getElementById('commissionEarned').value||0 }, { merge: true });
+    showToast('Closing saved!', 'success');
+    loadDashboard();
+};
+
+window.calculateReconciliation = async () => {
+    const d = (await getDoc(getDailyDoc())).data();
+    const an = (d.airtelClose||0) - (d.airtelOpen||0);
+    const mn = (d.mpambaClose||0) - (d.mpambaOpen||0);
+    const cn = (d.cashClose||0) - (d.cashOpen||0);
+    const disc = cn - (-(an + mn) + (d.commissionEarned||0));
+    document.getElementById('airtelNet').textContent = fm(an);
+    document.getElementById('mpambaNet').textContent = fm(mn);
+    document.getElementById('cashNet').textContent = fm(cn);
+    document.getElementById('reconStatus').textContent = Math.abs(disc) < 0.01 ? '✅ Balanced' : `${disc > 0 ? '⚠️ +' : '⚠️ '}${fm(disc)}`;
+    document.getElementById('reconResults').style.display = 'block';
+};
 </script>
 </body>
 </html>
