@@ -61,15 +61,13 @@
         .msg { padding: 12px 16px; border-radius: 12px; font-size: 14px; margin-bottom: 16px; display: none; }
         .msg-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; display: block; }
         .msg-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; display: block; }
-
         .dashboard { display: none; max-width: 1200px; margin: 0 auto; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
         .header h1 { font-size: 28px; color: #1e293b; }
         .logout-btn { padding: 10px 20px; background: #64748b; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; }
         .nav { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
-        .nav-btn { padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
-        .nav-btn.active { background: #6366f1; color: white; }
-        .nav-btn:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .nav-btn { padding: 10px 20px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; background: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .nav-btn.active { background: #6366f1; color: white; border-color: #6366f1; }
         .card { background: white; border-radius: 16px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px; }
         .card h3 { margin-bottom: 16px; color: #1e293b; }
         .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -79,8 +77,9 @@
         .stat-card.pink { background: linear-gradient(135deg, #f093fb, #f5576c); }
         .stat-card.blue { background: linear-gradient(135deg, #4facfe, #00f2fe); }
         .stat-card.green { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+        .stat-card.orange { background: linear-gradient(135deg, #f97316, #f59e0b); }
         .stat-label { font-size: 13px; opacity: 0.9; position: relative; z-index: 1; }
-        .stat-value { font-size: 28px; font-weight: 700; margin-top: 4px; position: relative; z-index: 1; }
+        .stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; position: relative; z-index: 1; }
         .row { display: flex; justify-content: space-between; padding: 10px; border-radius: 8px; margin-bottom: 6px; }
         .row-cash { background: #fffbeb; }
         .row-airtel { background: #eff6ff; }
@@ -88,22 +87,24 @@
         .row-red { background: #fff1f2; }
         .row-green { background: #f0fdf4; }
         .row-purple { background: #faf5ff; }
-        .table-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
+        .row-orange { background: #fff7ed; }
+        .table-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #f1f5f9; align-items: center; }
         .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
         .badge-active { background: #fef9c3; color: #a16207; }
         .badge-paid { background: #dcfce7; color: #16a34a; }
         .badge-overdue { background: #fee2e2; color: #dc2626; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .grid-form { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .grid-form { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
         .link { color: #6366f1; text-decoration: none; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .link-red { color: #dc2626; }
-        .link-green { color: #16a34a; }
+        .link-red { color: #dc2626; cursor: pointer; }
+        .link-green { color: #16a34a; cursor: pointer; }
+        .link-orange { color: #f97316; cursor: pointer; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .toast { padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; margin-bottom: 16px; display: none; }
         .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; display: block; }
         .toast-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; display: block; }
-        .toast-info { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; display: block; }
         .progress-bar { height: 6px; background: rgba(255,255,255,0.3); border-radius: 3px; margin-top: 8px; overflow: hidden; }
         .progress-fill { height: 100%; background: white; border-radius: 3px; transition: width 0.5s; }
         .small-input {
@@ -116,18 +117,38 @@
             outline: none;
         }
         .small-input:focus { border-color: #6366f1; }
-        .btn-sm {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
+        textarea.small-input { resize: vertical; }
+        .capital-input { width: 200px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+        .investor-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.2s;
         }
-        .btn-sm-primary { background: #6366f1; color: white; }
-        .btn-sm-gray { background: #475569; color: white; }
+        .investor-card:hover {
+            border-color: #6366f1;
+            box-shadow: 0 4px 12px rgba(99,102,241,0.15);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+        }
         @media (max-width: 768px) {
-            .grid-2, .grid-form { grid-template-columns: 1fr; }
+            .grid-2, .grid-3, .grid-form { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -138,33 +159,22 @@
     <div class="login-container">
         <div class="login-title">💼 MoneyAgent Pro</div>
         <div class="login-subtitle">Mobile Money Business Manager</div>
-        
         <div id="authMsg" class="msg" style="display:none;"></div>
-
         <div class="tabs">
             <button class="tab active" id="tabLogin" onclick="showTab('login')">🔐 Sign In</button>
             <button class="tab" id="tabRegister" onclick="showTab('register')">✨ Register</button>
         </div>
-
-        <button class="btn btn-google" onclick="loginGoogle()" id="googleBtn">
-            <span style="font-size:20px;">G</span> Continue with Google
-        </button>
-
+        <button class="btn btn-google" onclick="loginGoogle()">G Continue with Google</button>
         <div class="divider">or</div>
-
         <div id="formLogin">
             <input type="email" id="loginEmail" class="input" placeholder="Email address">
             <input type="password" id="loginPassword" class="input" placeholder="Password">
-            <div style="text-align:right;margin-bottom:12px;">
-                <a class="link" onclick="forgotPassword()">Forgot password?</a>
-            </div>
+            <div style="text-align:right;margin-bottom:12px;"><a class="link" onclick="forgotPassword()">Forgot password?</a></div>
             <button class="btn btn-primary" onclick="loginEmail()">Sign In</button>
         </div>
-
         <div id="formRegister" style="display:none;">
             <input type="text" id="regName" class="input" placeholder="Full name">
             <input type="email" id="regEmail" class="input" placeholder="Email address">
-            <input type="tel" id="regPhone" class="input" placeholder="Phone number">
             <input type="password" id="regPassword" class="input" placeholder="Password (min 6 chars)">
             <input type="password" id="regConfirm" class="input" placeholder="Confirm password">
             <button class="btn btn-primary" onclick="registerEmail()">Create Account</button>
@@ -177,10 +187,7 @@
     <div class="header">
         <div>
             <h1>💼 MoneyAgent Pro</h1>
-            <span style="color:#64748b;font-size:14px;">
-                <span id="currentDate"></span> • 
-                <span id="agentName" style="background:#e2e8f0;padding:2px 10px;border-radius:20px;">Agent</span>
-            </span>
+            <span style="color:#64748b;font-size:14px;"><span id="currentDate"></span> • <span id="agentName" style="background:#e2e8f0;padding:2px 10px;border-radius:20px;">Agent</span></span>
         </div>
         <button class="logout-btn" onclick="doLogout()">🚪 Logout</button>
     </div>
@@ -192,64 +199,102 @@
         <button class="nav-btn" onclick="switchTab('reconciliation')">💰 Recon</button>
         <button class="nav-btn" onclick="switchTab('transactions')">💳 Trans</button>
         <button class="nav-btn" onclick="switchTab('loans')">🏦 Credit</button>
+        <button class="nav-btn" onclick="switchTab('investors')">👥 Investors</button>
         <button class="nav-btn" onclick="switchTab('expenses')">📋 Expenses</button>
     </div>
 
     <!-- Dashboard Tab -->
     <div id="tab-dashboard" class="tab-content active">
+        <div class="grid-3" style="margin-bottom:16px;">
+            <div class="card" style="text-align:center;">
+                <h3>💼 My Capital</h3>
+                <div style="font-size:36px;font-weight:800;color:#6366f1;" id="dMyCapital">MWK 0.00</div>
+                <button class="btn btn-primary" onclick="switchTab('investors')" style="margin-top:8px;">Manage Capital</button>
+            </div>
+            <div class="card" style="text-align:center;">
+                <h3>👥 Investors' Funds</h3>
+                <div style="font-size:36px;font-weight:800;color:#f97316;" id="dInvestorsTotal">MWK 0.00</div>
+                <div style="font-size:13px;color:#64748b;" id="dInvestorsCount">0 investors</div>
+            </div>
+            <div class="card" style="text-align:center;">
+                <h3>💰 Total Capital</h3>
+                <div style="font-size:36px;font-weight:800;color:#16a34a;" id="dTotalCapital">MWK 0.00</div>
+                <div style="font-size:13px;color:#64748b;">My Money + Investors</div>
+            </div>
+        </div>
         <div class="stat-grid">
-            <div class="stat-card purple"><div class="stat-label">Total Portfolio</div><div class="stat-value" id="dPortfolio">--</div></div>
-            <div class="stat-card pink"><div class="stat-label">Net Position</div><div class="stat-value" id="dNet">--</div></div>
-            <div class="stat-card blue"><div class="stat-label">Today's Commission</div><div class="stat-value" id="dComm">--</div><div class="progress-bar"><div class="progress-fill" id="dCommBar" style="width:0%"></div></div></div>
+            <div class="stat-card purple"><div class="stat-label">Total Portfolio</div><div class="stat-value" id="dPortfolio">MWK 0.00</div></div>
+            <div class="stat-card pink"><div class="stat-label">Net Position</div><div class="stat-value" id="dNet">MWK 0.00</div></div>
+            <div class="stat-card blue"><div class="stat-label">Today's Commission</div><div class="stat-value" id="dComm">MWK 0.00</div><div class="progress-bar"><div class="progress-fill" id="dCommBar" style="width:0%"></div></div></div>
         </div>
-
         <div class="grid-2">
-            <div class="card">
-                <h3>💎 Assets</h3>
-                <div class="row row-cash"><span>💰 Cash</span><span id="dCash" style="font-weight:700;">--</span></div>
-                <div class="row row-airtel"><span>📱 Airtel</span><span id="dAirtel" style="font-weight:700;">--</span></div>
-                <div class="row row-mpamba"><span>📲 Mpamba</span><span id="dMpamba" style="font-weight:700;">--</span></div>
-                <div style="border-top:2px solid #e2e8f0;padding-top:8px;" class="row"><span style="font-weight:700;">Total</span><span id="dTotal" style="font-weight:700;">--</span></div>
+            <div class="card"><h3>💎 Assets</h3>
+                <div class="row row-cash"><span>💰 Cash</span><span id="dCash" style="font-weight:700;">MWK 0.00</span></div>
+                <div class="row row-airtel"><span>📱 Airtel</span><span id="dAirtel" style="font-weight:700;">MWK 0.00</span></div>
+                <div class="row row-mpamba"><span>📲 Mpamba</span><span id="dMpamba" style="font-weight:700;">MWK 0.00</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;" class="row"><span style="font-weight:700;">Total</span><span id="dTotal" style="font-weight:700;">MWK 0.00</span></div>
             </div>
-            <div class="card">
-                <h3>🏦 Credit & Capital</h3>
-                <div class="row row-red"><span>📤 Extended</span><span id="dGiven" style="font-weight:700;">--</span></div>
-                <div class="row row-green"><span>📥 Expected</span><span id="dExpected" style="font-weight:700;">--</span></div>
-                <div class="row row-purple"><span>💼 Capital</span><span id="dCapital" style="font-weight:700;">--</span></div>
-                <div style="border-top:2px solid #e2e8f0;padding-top:8px;" class="row"><span style="font-weight:700;">P/L</span><span id="dPL" style="font-weight:700;">--</span></div>
+            <div class="card"><h3>🏦 Credit & Capital</h3>
+                <div class="row row-red"><span>📤 Extended</span><span id="dGiven" style="font-weight:700;">MWK 0.00</span></div>
+                <div class="row row-green"><span>📥 Expected</span><span id="dExpected" style="font-weight:700;">MWK 0.00</span></div>
+                <div class="row row-purple"><span>💼 My Capital</span><span id="dCapital" style="font-weight:700;">MWK 0.00</span></div>
+                <div class="row row-orange"><span>👥 Investors</span><span id="dInvestors" style="font-weight:700;">MWK 0.00</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;" class="row"><span style="font-weight:700;">P/L</span><span id="dPL" style="font-weight:700;">MWK 0.00</span></div>
             </div>
         </div>
+        <div class="card"><h3>📋 Recent</h3><div id="recentTrans" style="max-height:200px;overflow-y:auto;"></div></div>
+    </div>
 
-        <div class="card">
-            <h3>📋 Recent</h3>
-            <div id="recentTrans" style="max-height:200px;overflow-y:auto;"></div>
+    <!-- Investors Tab -->
+    <div id="tab-investors" class="tab-content">
+        <div class="stat-grid">
+            <div class="stat-card purple"><div class="stat-label">My Capital</div><div class="stat-value" id="invMyCapital">MWK 0.00</div></div>
+            <div class="stat-card orange"><div class="stat-label">Investors Total</div><div class="stat-value" id="invInvestorsTotal">MWK 0.00</div></div>
+            <div class="stat-card green"><div class="stat-label">Total Capital</div><div class="stat-value" id="invTotalCapital">MWK 0.00</div></div>
+            <div class="stat-card blue"><div class="stat-label">Investors Count</div><div class="stat-value" id="invCount">0</div></div>
+        </div>
+        <div class="grid-form">
+            <div class="card">
+                <h3>➕ Add Investor</h3>
+                <input type="text" id="invName" class="small-input" placeholder="Investor Name">
+                <input type="number" id="invAmount" class="small-input" placeholder="Amount (MWK)">
+                <input type="text" id="invPhone" class="small-input" placeholder="Phone (optional)">
+                <textarea id="invNotes" class="small-input" placeholder="Notes (optional)" rows="2"></textarea>
+                <button class="btn btn-primary" onclick="addInvestor()">Add Investor</button>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid #e2e8f0;">
+                    <h4 style="margin-bottom:8px;">💼 My Capital</h4>
+                    <input type="number" id="myCapitalInput" class="small-input" placeholder="Your capital amount">
+                    <button class="btn btn-primary" onclick="updateMyCapital()">Update My Capital</button>
+                </div>
+            </div>
+            <div class="card">
+                <h3>👥 Investors List</h3>
+                <div id="investorsList" style="max-height:500px;overflow-y:auto;"></div>
+            </div>
         </div>
     </div>
 
     <!-- Recon Tab -->
     <div id="tab-reconciliation" class="tab-content">
         <div class="grid-2">
-            <div class="card">
-                <h3>🌅 Opening</h3>
+            <div class="card"><h3>🌅 Opening</h3>
                 <input type="number" id="airtelOpen" class="small-input" placeholder="Airtel Open">
                 <input type="number" id="mpambaOpen" class="small-input" placeholder="Mpamba Open">
                 <input type="number" id="cashOpen" class="small-input" placeholder="Cash Open">
                 <button class="btn btn-primary" onclick="saveOpening()">Save Opening</button>
             </div>
-            <div class="card">
-                <h3>🌙 Closing</h3>
+            <div class="card"><h3>🌙 Closing</h3>
                 <input type="number" id="airtelClose" class="small-input" placeholder="Airtel Close">
                 <input type="number" id="mpambaClose" class="small-input" placeholder="Mpamba Close">
                 <input type="number" id="cashClose" class="small-input" placeholder="Cash Close">
                 <input type="number" id="commissionEarned" class="small-input" placeholder="Commission">
                 <div style="display:flex;gap:8px;">
-                    <button class="btn-sm btn-sm-primary" onclick="saveClosing()" style="flex:1;">Save Closing</button>
-                    <button class="btn-sm btn-sm-gray" onclick="calcRecon()" style="flex:1;">Calculate</button>
+                    <button class="btn btn-primary" onclick="saveClosing()" style="flex:1;">Save Closing</button>
+                    <button class="btn" onclick="calcRecon()" style="flex:1;background:#475569;color:white;">Calculate</button>
                 </div>
             </div>
         </div>
-        <div id="reconResults" style="display:none;" class="card">
-            <h3>Results</h3>
+        <div id="reconResults" style="display:none;" class="card"><h3>Results</h3>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
                 <div style="padding:8px;background:#f8fafc;border-radius:8px;"><small>Airtel Δ</small><div id="rAirtel" style="font-weight:700;">--</div></div>
                 <div style="padding:8px;background:#f8fafc;border-radius:8px;"><small>Mpamba Δ</small><div id="rMpamba" style="font-weight:700;">--</div></div>
@@ -262,8 +307,7 @@
     <!-- Transactions Tab -->
     <div id="tab-transactions" class="tab-content">
         <div class="grid-form">
-            <div class="card">
-                <h3>➕ New</h3>
+            <div class="card"><h3>➕ New</h3>
                 <select id="tType" class="small-input"><option value="deposit">💰 Deposit</option><option value="withdrawal">💳 Withdrawal</option><option value="bill_payment">🧾 Bill</option><option value="credit_purchase">🛒 Credit Purchase</option><option value="send_to_dealer">🤝 Dealer</option></select>
                 <select id="tPlatform" class="small-input"><option>Airtel Money</option><option>TNM Mpamba</option></select>
                 <input type="number" id="tAmount" class="small-input" placeholder="Amount">
@@ -272,26 +316,21 @@
                 <textarea id="tNotes" class="small-input" placeholder="Notes" rows="2"></textarea>
                 <button class="btn btn-primary" onclick="addTrans()">Add Transaction</button>
             </div>
-            <div class="card">
-                <h3>📜 History</h3>
-                <div id="transList" style="max-height:400px;overflow-y:auto;"></div>
-            </div>
+            <div class="card"><h3>📜 History</h3><div id="transList" style="max-height:400px;overflow-y:auto;"></div></div>
         </div>
     </div>
 
     <!-- Loans Tab -->
     <div id="tab-loans" class="tab-content">
         <div class="stat-grid">
-            <div class="stat-card purple"><div class="stat-label">Extended</div><div class="stat-value" id="lGiven">--</div></div>
-            <div class="stat-card green"><div class="stat-label">Expected</div><div class="stat-value" id="lExpected">--</div></div>
-            <div class="stat-card pink"><div class="stat-label">Net</div><div class="stat-value" id="lNet">--</div></div>
-            <div class="stat-card blue"><div class="stat-label">Active</div><div class="stat-value" id="lActive">--</div></div>
+            <div class="stat-card purple"><div class="stat-label">Extended</div><div class="stat-value" id="lGiven">MWK 0.00</div></div>
+            <div class="stat-card green"><div class="stat-label">Expected</div><div class="stat-value" id="lExpected">MWK 0.00</div></div>
+            <div class="stat-card pink"><div class="stat-label">Net</div><div class="stat-value" id="lNet">MWK 0.00</div></div>
+            <div class="stat-card blue"><div class="stat-label">Active</div><div class="stat-value" id="lActive">0</div></div>
         </div>
         <div class="grid-form">
-            <div class="card">
-                <h3>🏦 New</h3>
+            <div class="card"><h3>🏦 New</h3>
                 <select id="lType" class="small-input"><option value="given">📤 Extended</option><option value="expected">📥 Expected</option></select>
-                <select id="lSource" class="small-input"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
                 <input type="number" id="lAmount" class="small-input" placeholder="Amount">
                 <input type="text" id="lClient" class="small-input" placeholder="Client Name">
                 <input type="text" id="lPhone" class="small-input" placeholder="Phone">
@@ -299,29 +338,35 @@
                 <textarea id="lNotes" class="small-input" placeholder="Notes" rows="2"></textarea>
                 <button class="btn btn-primary" onclick="addLoan()">Add Credit</button>
             </div>
-            <div class="card">
-                <h3>📋 All</h3>
-                <div id="loanList" style="max-height:400px;overflow-y:auto;"></div>
-            </div>
+            <div class="card"><h3>📋 All</h3><div id="loanList" style="max-height:400px;overflow-y:auto;"></div></div>
         </div>
     </div>
 
     <!-- Expenses Tab -->
     <div id="tab-expenses" class="tab-content">
         <div class="grid-form">
-            <div class="card">
-                <h3>📝 New</h3>
+            <div class="card"><h3>📝 New</h3>
                 <select id="eCat" class="small-input"><option>Transport</option><option>Airtime/Data</option><option>Food</option><option>Rent</option><option>Utilities</option><option>Other</option></select>
-                <select id="eSource" class="small-input"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
                 <input type="number" id="eAmount" class="small-input" placeholder="Amount">
                 <textarea id="eDesc" class="small-input" placeholder="Description" rows="2"></textarea>
                 <button class="btn btn-primary" onclick="addExpense()">Add Expense</button>
             </div>
-            <div class="card">
-                <h3>📊 History</h3>
-                <div id="expenseList" style="max-height:400px;overflow-y:auto;"></div>
-            </div>
+            <div class="card"><h3>📊 History</h3><div id="expenseList" style="max-height:400px;overflow-y:auto;"></div></div>
         </div>
+    </div>
+</div>
+
+<!-- Withdraw/Add Modal -->
+<div id="investorModal" class="modal-overlay" onclick="closeInvestorModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+        <h3 id="modalTitle" style="margin-bottom:16px;">Manage Investor</h3>
+        <input type="hidden" id="modalInvestorId">
+        <input type="number" id="modalAmount" class="small-input" placeholder="Amount (MWK)">
+        <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" onclick="addInvestorFunds()" style="flex:1;">➕ Add Funds</button>
+            <button class="btn" onclick="withdrawInvestorFunds()" style="flex:1;background:#f97316;color:white;">➖ Withdraw</button>
+        </div>
+        <button class="btn" onclick="closeInvestorModal()" style="background:#e2e8f0;color:#475569;margin-top:8px;">Cancel</button>
     </div>
 </div>
 
@@ -344,23 +389,21 @@ const app = initializeApp(CONFIG);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-    client_id: '822891731705-hnm7jeqn28si5cvoqceougj13j5vmfmt.apps.googleusercontent.com'
-});
+googleProvider.setCustomParameters({ client_id: '822891731705-hnm7jeqn28si5cvoqceougj13j5vmfmt.apps.googleusercontent.com' });
+
 let AGENT_ID = null;
 const todayId = new Date().toISOString().split('T')[0];
 document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-// --- HELPERS ---
 function getDailyDoc(did) { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', did || todayId); }
-function getCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'investment'); }
+function getMyCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'my_capital'); }
 function colRef(n) { return collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, n); }
 function fm(v) { return 'MWK ' + (v || 0).toLocaleString('en-MW', { minimumFractionDigits: 2 }); }
 
 function showToast(msg, type) {
     const t = document.getElementById('dashToast');
     t.textContent = msg;
-    t.className = 'toast toast-' + (type || 'info');
+    t.className = 'toast toast-' + (type || 'success');
     t.style.display = 'block';
     setTimeout(() => { t.style.display = 'none'; }, 4000);
 }
@@ -368,12 +411,11 @@ function showToast(msg, type) {
 function showAuthMsg(msg, type) {
     const t = document.getElementById('authMsg');
     t.textContent = msg;
-    t.className = 'msg msg-' + (type || 'info');
+    t.className = 'msg msg-' + (type || 'error');
     t.style.display = 'block';
     setTimeout(() => { t.style.display = 'none'; }, 5000);
 }
 
-// --- AUTH ---
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         AGENT_ID = user.uid;
@@ -393,7 +435,6 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// --- GLOBAL FUNCTIONS (attached to window) ---
 window.showTab = function(t) {
     document.getElementById('formLogin').style.display = t === 'login' ? 'block' : 'none';
     document.getElementById('formRegister').style.display = t === 'register' ? 'block' : 'none';
@@ -407,13 +448,14 @@ window.switchTab = function(t) {
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + t).classList.add('active');
     const navBtns = document.querySelectorAll('.nav-btn');
-    const tabNames = { dashboard: 0, reconciliation: 1, transactions: 2, loans: 3, expenses: 4 };
+    const tabNames = { dashboard: 0, reconciliation: 1, transactions: 2, loans: 3, investors: 4, expenses: 5 };
     if (tabNames[t] !== undefined) navBtns[tabNames[t]].classList.add('active');
-    
     if (t === 'transactions') loadTrans();
     else if (t === 'loans') loadLoans();
     else if (t === 'expenses') loadExpenses();
     else if (t === 'reconciliation') loadRecon();
+    else if (t === 'investors') loadInvestors();
+    else if (t === 'dashboard') loadDashboard();
 };
 
 window.loginGoogle = async function() {
@@ -423,14 +465,12 @@ window.loginGoogle = async function() {
         const snap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
         if (!snap.exists()) {
             await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), {
-                name: user.displayName || 'Agent', email: user.email, agentId: user.uid,
-                createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'google'
-            }, { merge: true });
+                name: user.displayName || 'Agent', email: user.email, agentId: user.uid, createdAt: new Date(), lastLogin: new Date(), status: 'active', authProvider: 'google'
+            });
             await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), { amount: 10000 });
         }
     } catch(e) {
-        if (e.code !== 'auth/popup-closed-by-user') showAuthMsg('Google sign-in failed. Enable it in Firebase Console.', 'error');
-        console.error(e);
+        if (e.code !== 'auth/popup-closed-by-user') showAuthMsg('Google sign-in failed: ' + e.message, 'error');
     }
 };
 
@@ -438,17 +478,13 @@ window.loginEmail = async function() {
     const email = document.getElementById('loginEmail').value.trim();
     const pw = document.getElementById('loginPassword').value;
     if (!email || !pw) return showAuthMsg('Enter email and password', 'error');
-    try {
-        await signInWithEmailAndPassword(auth, email, pw);
-    } catch(e) {
-        showAuthMsg('Invalid email or password', 'error');
-    }
+    try { await signInWithEmailAndPassword(auth, email, pw); }
+    catch(e) { showAuthMsg('Invalid email or password', 'error'); }
 };
 
 window.registerEmail = async function() {
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
-    const phone = document.getElementById('regPhone').value.trim();
     const pw = document.getElementById('regPassword').value;
     const confirm = document.getElementById('regConfirm').value;
     if (!name || !email) return showAuthMsg('Name and email required', 'error');
@@ -457,25 +493,160 @@ window.registerEmail = async function() {
     try {
         const uc = await createUserWithEmailAndPassword(auth, email, pw);
         await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'profile', 'info'), {
-            name, email, phone, agentId: uc.user.uid,
-            createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'email'
+            name, email, agentId: uc.user.uid, createdAt: new Date(), lastLogin: new Date(), status: 'active', authProvider: 'email'
         });
         await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'targets', 'daily_commission'), { amount: 10000 });
     } catch(e) {
-        showAuthMsg(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed', 'error');
+        showAuthMsg(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed: ' + e.message, 'error');
     }
 };
 
 window.forgotPassword = async function() {
     const email = document.getElementById('loginEmail').value.trim();
     if (!email) return showAuthMsg('Enter your email first', 'error');
-    try {
-        await sendPasswordResetEmail(auth, email);
-        showAuthMsg('Reset email sent! Check inbox.', 'success');
-    } catch(e) { showAuthMsg('Failed to send reset email', 'error'); }
+    try { await sendPasswordResetEmail(auth, email); showAuthMsg('Reset email sent!', 'success'); }
+    catch(e) { showAuthMsg('Failed: ' + e.message, 'error'); }
 };
 
 window.doLogout = async function() { await signOut(auth); };
+
+// --- INVESTORS FUNCTIONS ---
+async function loadInvestors() {
+    const myCapSnap = await getDoc(getMyCapitalDoc());
+    const myCapital = myCapSnap.exists() ? myCapSnap.data().amount || 0 : 0;
+    document.getElementById('myCapitalInput').value = myCapital || '';
+    
+    const snap = await getDocs(query(colRef('investors'), orderBy('createdAt', 'desc')));
+    const list = document.getElementById('investorsList');
+    list.innerHTML = '';
+    let totalInvestors = 0, count = 0;
+    
+    snap.forEach(d => {
+        const inv = d.data();
+        totalInvestors += inv.amount || 0;
+        count++;
+        
+        list.innerHTML += `
+            <div class="investor-card" style="margin-bottom:8px;">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <strong style="font-size:16px;">${inv.name}</strong>
+                        <div style="font-size:13px;color:#64748b;">${inv.phone || ''}</div>
+                        <div style="font-size:13px;color:#94a3b8;">${inv.notes || ''}</div>
+                        <div style="font-size:12px;color:#94a3b8;">Added: ${inv.createdAt?.toDate?.()?.toLocaleDateString?.() || 'N/A'}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:20px;font-weight:700;color:#f97316;">${fm(inv.amount)}</div>
+                        <div style="display:flex;gap:4px;margin-top:4px;justify-content:flex-end;">
+                            <button onclick="openInvestorModal('${d.id}','${inv.name}',${inv.amount})" style="padding:4px 10px;background:#6366f1;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">💰 Manage</button>
+                            <button onclick="delInvestor('${d.id}','${inv.name}')" style="padding:4px 10px;background:#dc2626;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    });
+    
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:40px;">No investors yet. Add your first investor!</div>';
+    
+    document.getElementById('invMyCapital').textContent = fm(myCapital);
+    document.getElementById('invInvestorsTotal').textContent = fm(totalInvestors);
+    document.getElementById('invTotalCapital').textContent = fm(myCapital + totalInvestors);
+    document.getElementById('invCount').textContent = count;
+}
+
+window.addInvestor = async function() {
+    const name = document.getElementById('invName').value.trim();
+    const amount = parseFloat(document.getElementById('invAmount').value) || 0;
+    if (!name) return showToast('Enter investor name', 'error');
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    
+    await addDoc(colRef('investors'), {
+        name, amount,
+        phone: document.getElementById('invPhone').value,
+        notes: document.getElementById('invNotes').value,
+        createdAt: new Date(),
+        status: 'active'
+    });
+    
+    document.getElementById('invName').value = '';
+    document.getElementById('invAmount').value = '';
+    document.getElementById('invPhone').value = '';
+    document.getElementById('invNotes').value = '';
+    showToast('Investor added!', 'success');
+    loadInvestors();
+    loadDashboard();
+};
+
+window.updateMyCapital = async function() {
+    const amount = parseFloat(document.getElementById('myCapitalInput').value) || 0;
+    await setDoc(getMyCapitalDoc(), { amount, updatedAt: new Date() }, { merge: true });
+    showToast('Your capital updated!', 'success');
+    loadInvestors();
+    loadDashboard();
+};
+
+window.openInvestorModal = function(id, name, amount) {
+    document.getElementById('modalInvestorId').value = id;
+    document.getElementById('modalTitle').textContent = '💰 ' + name + ' - Current: ' + fm(amount);
+    document.getElementById('modalAmount').value = '';
+    document.getElementById('investorModal').classList.add('active');
+};
+
+window.closeInvestorModal = function() {
+    document.getElementById('investorModal').classList.remove('active');
+};
+
+window.addInvestorFunds = async function() {
+    const id = document.getElementById('modalInvestorId').value;
+    const amount = parseFloat(document.getElementById('modalAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id);
+    const snap = await getDoc(ref);
+    const current = snap.data().amount || 0;
+    await updateDoc(ref, { amount: current + amount, updatedAt: new Date() });
+    
+    closeInvestorModal();
+    showToast('Funds added!', 'success');
+    loadInvestors();
+    loadDashboard();
+};
+
+window.withdrawInvestorFunds = async function() {
+    const id = document.getElementById('modalInvestorId').value;
+    const amount = parseFloat(document.getElementById('modalAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id);
+    const snap = await getDoc(ref);
+    const current = snap.data().amount || 0;
+    
+    if (amount > current) return showToast('Cannot withdraw more than ' + fm(current), 'error');
+    
+    const newAmount = current - amount;
+    if (newAmount <= 0) {
+        if (confirm('This will reduce the investor balance to zero. Delete this investor?')) {
+            await deleteDoc(ref);
+        } else {
+            await updateDoc(ref, { amount: 0, updatedAt: new Date() });
+        }
+    } else {
+        await updateDoc(ref, { amount: newAmount, updatedAt: new Date() });
+    }
+    
+    closeInvestorModal();
+    showToast('Funds withdrawn!', 'success');
+    loadInvestors();
+    loadDashboard();
+};
+
+window.delInvestor = async function(id, name) {
+    if (!confirm('Remove ' + name + ' as an investor? This cannot be undone.')) return;
+    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'investors', id));
+    showToast('Investor removed!', 'success');
+    loadInvestors();
+    loadDashboard();
+};
 
 // --- DASHBOARD ---
 async function loadDashboard() {
@@ -483,8 +654,13 @@ async function loadDashboard() {
     try {
         const dailySnap = await getDoc(getDailyDoc());
         const dd = dailySnap.exists() ? dailySnap.data() : {};
-        const capSnap = await getDoc(getCapitalDoc());
-        const capital = capSnap.exists() ? capSnap.data().totalCapital || 0 : 0;
+        const myCapSnap = await getDoc(getMyCapitalDoc());
+        const myCapital = myCapSnap.exists() ? myCapSnap.data().amount || 0 : 0;
+        const invSnap = await getDocs(colRef('investors'));
+        let invTotal = 0, invCount = 0;
+        invSnap.forEach(d => { invTotal += d.data().amount || 0; invCount++; });
+        const totalCapital = myCapital + invTotal;
+        
         const tSnap = await getDocs(query(colRef('transactions'), where('date', '==', todayId)));
         const lSnap = await getDocs(colRef('loans'));
         
@@ -505,8 +681,12 @@ async function loadDashboard() {
         const mpamba = dd.mpambaClose || dd.mpambaOpen || 0;
         const liq = cash + airtel + mpamba;
         const net = liq + ae - ag;
-        const pl = net - capital;
+        const pl = net - totalCapital;
         
+        document.getElementById('dMyCapital').textContent = fm(myCapital);
+        document.getElementById('dInvestorsTotal').textContent = fm(invTotal);
+        document.getElementById('dInvestorsCount').textContent = invCount + ' investor' + (invCount !== 1 ? 's' : '');
+        document.getElementById('dTotalCapital').textContent = fm(totalCapital);
         document.getElementById('dPortfolio').textContent = fm(liq + ae);
         document.getElementById('dNet').textContent = fm(net);
         document.getElementById('dComm').textContent = fm(tc);
@@ -516,7 +696,8 @@ async function loadDashboard() {
         document.getElementById('dTotal').textContent = fm(liq);
         document.getElementById('dGiven').textContent = fm(ag);
         document.getElementById('dExpected').textContent = fm(ae);
-        document.getElementById('dCapital').textContent = fm(capital);
+        document.getElementById('dCapital').textContent = fm(myCapital);
+        document.getElementById('dInvestors').textContent = fm(invTotal);
         document.getElementById('dPL').textContent = fm(pl);
         document.getElementById('dPL').style.color = pl >= 0 ? '#16a34a' : '#dc2626';
         
@@ -534,7 +715,7 @@ async function loadDashboard() {
     } catch(e) { console.error('Dashboard error:', e); }
 }
 
-// --- TRANSACTIONS ---
+// --- TRANSACTIONS, LOANS, EXPENSES (same as before) ---
 async function loadTrans() {
     const snap = await getDocs(query(colRef('transactions'), orderBy('timestamp','desc'), limit(50)));
     const list = document.getElementById('transList'); list.innerHTML = '';
@@ -559,21 +740,15 @@ window.addTrans = async function() {
     await setDoc(ref, data, { merge: true });
     
     await addDoc(colRef('transactions'), {
-        type, platform, amount,
-        commission: parseFloat(document.getElementById('tCommission').value) || 0,
-        customerRef: document.getElementById('tRef').value,
-        notes: document.getElementById('tNotes').value,
+        type, platform, amount, commission: parseFloat(document.getElementById('tCommission').value) || 0,
+        customerRef: document.getElementById('tRef').value, notes: document.getElementById('tNotes').value,
         timestamp: new Date(), date: todayId
     });
-    document.getElementById('tAmount').value = '';
-    document.getElementById('tCommission').value = '';
-    document.getElementById('tRef').value = '';
-    document.getElementById('tNotes').value = '';
+    ['tAmount','tCommission','tRef','tNotes'].forEach(id => document.getElementById(id).value = '');
     showToast('Transaction added!', 'success');
     loadTrans(); loadDashboard();
 };
 
-// --- LOANS ---
 async function loadLoans() {
     const snap = await getDocs(query(colRef('loans'), orderBy('timestamp','desc')));
     const list = document.getElementById('loanList'); list.innerHTML = '';
@@ -596,20 +771,14 @@ window.addLoan = async function() {
     const amount = parseFloat(document.getElementById('lAmount').value) || 0;
     if (amount <= 0) return showToast('Enter valid amount', 'error');
     await addDoc(colRef('loans'), {
-        type: document.getElementById('lType').value,
-        source: document.getElementById('lSource').value,
-        amount,
+        type: document.getElementById('lType').value, amount,
         clientName: document.getElementById('lClient').value,
         phone: document.getElementById('lPhone').value,
         dueDate: document.getElementById('lDue').value,
-        status: 'active',
-        notes: document.getElementById('lNotes').value,
+        status: 'active', notes: document.getElementById('lNotes').value,
         timestamp: new Date(), date: todayId
     });
-    document.getElementById('lAmount').value = '';
-    document.getElementById('lClient').value = '';
-    document.getElementById('lPhone').value = '';
-    document.getElementById('lNotes').value = '';
+    ['lAmount','lClient','lPhone','lNotes'].forEach(id => document.getElementById(id).value = '');
     showToast('Credit added!', 'success');
     loadLoans(); loadDashboard();
 };
@@ -630,7 +799,6 @@ window.repayLoan = async function(id, amount) {
     loadLoans(); loadDashboard();
 };
 
-// --- EXPENSES ---
 async function loadExpenses() {
     const snap = await getDocs(query(colRef('expenses'), orderBy('timestamp','desc'), limit(50)));
     const list = document.getElementById('expenseList'); list.innerHTML = '';
@@ -645,19 +813,15 @@ window.addExpense = async function() {
     const amount = parseFloat(document.getElementById('eAmount').value) || 0;
     if (amount <= 0) return showToast('Enter valid amount', 'error');
     await addDoc(colRef('expenses'), {
-        category: document.getElementById('eCat').value,
-        source: document.getElementById('eSource').value,
-        amount,
+        category: document.getElementById('eCat').value, amount,
         description: document.getElementById('eDesc').value,
         timestamp: new Date(), date: todayId
     });
-    document.getElementById('eAmount').value = '';
-    document.getElementById('eDesc').value = '';
+    document.getElementById('eAmount').value = ''; document.getElementById('eDesc').value = '';
     showToast('Expense added!', 'success');
     loadExpenses(); loadDashboard();
 };
 
-// --- DELETE ---
 window.delItem = async function(coll, id) {
     if (!confirm('Delete permanently?')) return;
     await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, coll, id));
@@ -668,7 +832,6 @@ window.delItem = async function(coll, id) {
     loadDashboard();
 };
 
-// --- RECONCILIATION ---
 async function loadRecon() {
     const daily = await getDoc(getDailyDoc());
     if (daily.exists()) {
@@ -684,24 +847,21 @@ async function loadRecon() {
 }
 
 window.saveOpening = async function() {
-    const airtelOpen = parseFloat(document.getElementById('airtelOpen').value) || 0;
-    const mpambaOpen = parseFloat(document.getElementById('mpambaOpen').value) || 0;
-    const cashOpen = parseFloat(document.getElementById('cashOpen').value) || 0;
-    
     await setDoc(getDailyDoc(), {
-        airtelOpen, mpambaOpen, cashOpen, date: todayId
+        airtelOpen: parseFloat(document.getElementById('airtelOpen').value) || 0,
+        mpambaOpen: parseFloat(document.getElementById('mpambaOpen').value) || 0,
+        cashOpen: parseFloat(document.getElementById('cashOpen').value) || 0,
+        date: todayId
     }, { merge: true });
     showToast('Opening balances saved!', 'success');
 };
 
 window.saveClosing = async function() {
-    const airtelClose = parseFloat(document.getElementById('airtelClose').value) || 0;
-    const mpambaClose = parseFloat(document.getElementById('mpambaClose').value) || 0;
-    const cashClose = parseFloat(document.getElementById('cashClose').value) || 0;
-    const commissionEarned = parseFloat(document.getElementById('commissionEarned').value) || 0;
-    
     await setDoc(getDailyDoc(), {
-        airtelClose, mpambaClose, cashClose, commissionEarned
+        airtelClose: parseFloat(document.getElementById('airtelClose').value) || 0,
+        mpambaClose: parseFloat(document.getElementById('mpambaClose').value) || 0,
+        cashClose: parseFloat(document.getElementById('cashClose').value) || 0,
+        commissionEarned: parseFloat(document.getElementById('commissionEarned').value) || 0
     }, { merge: true });
     showToast('Closing balances saved!', 'success');
     loadDashboard();
@@ -711,28 +871,19 @@ window.calcRecon = async function() {
     const daily = await getDoc(getDailyDoc());
     if (!daily.exists()) return showToast('Save balances first', 'error');
     const d = daily.data();
-    
     const an = (d.airtelClose || 0) - (d.airtelOpen || 0);
     const mn = (d.mpambaClose || 0) - (d.mpambaOpen || 0);
     const cn = (d.cashClose || 0) - (d.cashOpen || 0);
-    const comm = d.commissionEarned || 0;
-    const disc = cn - (-(an + mn) + comm);
-    
+    const disc = cn - (-(an + mn) + (d.commissionEarned || 0));
     document.getElementById('rAirtel').textContent = fm(an);
     document.getElementById('rMpamba').textContent = fm(mn);
     document.getElementById('rCash').textContent = fm(cn);
-    
-    if (Math.abs(disc) < 0.01) {
-        document.getElementById('rStatus').textContent = '✅ Balanced';
-        document.getElementById('rStatus').style.color = '#16a34a';
-    } else {
-        document.getElementById('rStatus').textContent = (disc > 0 ? '⚠️ +' : '⚠️ ') + fm(Math.abs(disc));
-        document.getElementById('rStatus').style.color = disc > 0 ? '#d97706' : '#dc2626';
-    }
+    document.getElementById('rStatus').textContent = Math.abs(disc) < 0.01 ? '✅ Balanced' : (disc > 0 ? '⚠️ +' : '⚠️ ') + fm(Math.abs(disc));
+    document.getElementById('rStatus').style.color = Math.abs(disc) < 0.01 ? '#16a34a' : disc > 0 ? '#d97706' : '#dc2626';
     document.getElementById('reconResults').style.display = 'block';
 };
 
-console.log('✅ MoneyAgent Pro ready!');
+console.log('✅ MoneyAgent Pro ready with Investors!');
 </script>
 </body>
 </html>
