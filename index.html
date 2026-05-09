@@ -3,28 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoneyAgent Pro • Login</title>
+    <title>MoneyAgent Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body {
+        body { 
             background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
             min-height: 100vh;
-            background-attachment: fixed;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            overflow-x: hidden;
         }
-        .glass-panel {
+        body.logged-in {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        .glass-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
             border-radius: 24px;
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-            padding: 32px;
-            width: 100%;
-            max-width: 440px;
+            padding: 24px;
         }
         .input-field {
             width: 100%;
@@ -51,13 +48,7 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
-        }
-        .btn-primary:active {
-            transform: scale(0.98);
-        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3); }
         .btn-google {
             width: 100%;
             padding: 14px;
@@ -74,351 +65,610 @@
             gap: 12px;
             transition: all 0.2s;
         }
-        .btn-google:hover {
-            border-color: #cbd5e1;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        .btn-google:hover { border-color: #cbd5e1; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        .divider { display: flex; align-items: center; gap: 16px; margin: 20px 0; color: #94a3b8; font-size: 14px; }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+        .tab-btn { flex: 1; padding: 10px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; border: none; text-align: center; }
+        .tab-btn.active { background: #6366f1; color: white; }
+        .tab-btn:not(.active) { background: #f1f5f9; color: #64748b; }
+        .dashboard-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            padding: 20px;
+            border: 1px solid #e2e8f0;
         }
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            margin: 24px 0;
-            color: #94a3b8;
-            font-size: 14px;
-        }
-        .divider::before, .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: #e2e8f0;
-        }
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: none;
-            text-align: center;
-        }
-        .tab-btn.active {
-            background: #6366f1;
+        .stat-gradient-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .stat-gradient-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+        .stat-gradient-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+        .metric-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            padding: 24px;
             color: white;
         }
-        .tab-btn:not(.active) {
-            background: #f1f5f9;
-            color: #64748b;
-        }
-        .tab-btn:not(.active):hover {
-            background: #e2e8f0;
-        }
-        .error-msg {
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-bottom: 16px;
-            display: none;
-        }
-        .success-msg {
-            background: #f0fdf4;
-            color: #16a34a;
-            border: 1px solid #bbf7d0;
-            padding: 12px 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            margin-bottom: 16px;
-            display: none;
-        }
-        .loading-spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 100px;
+            height: 100px;
+            background: rgba(255,255,255,0.1);
             border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
+            transform: translate(30px, -30px);
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .nav-tab {
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-tab.active { background: #6366f1; color: white; }
+        .nav-tab:not(.active) { background: white; color: #64748b; border: 1px solid #e2e8f0; }
+        .nav-tab:not(.active):hover { background: #f8fafc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .progress-bar { height: 8px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: white; border-radius: 4px; transition: width 0.5s; }
+        .toast { padding: 12px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; margin-bottom: 16px; }
+        .toast-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+        .toast-error { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .toast-info { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+        .edit-row { background: #eef2ff; padding: 16px; border-radius: 12px; margin-top: 8px; border: 1px solid #c7d2fe; }
     </style>
 </head>
-<body>
-    <div class="glass-panel">
-        <!-- Logo -->
-        <div style="text-align: center; margin-bottom: 32px;">
-            <div style="font-size: 56px; margin-bottom: 12px;">💼</div>
-            <h1 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 4px;">MoneyAgent Pro</h1>
-            <p style="color: #64748b; font-size: 16px;">Mobile Money Business Manager</p>
+<body class="flex items-center justify-center p-4">
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="w-full max-w-md">
+    <div class="glass-card">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 48px; margin-bottom: 8px;">💼</div>
+            <h1 style="font-size: 28px; font-weight: 800; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">MoneyAgent Pro</h1>
+            <p style="color: #64748b; font-size: 15px;">Mobile Money Business Manager</p>
         </div>
 
-        <!-- Messages -->
-        <div id="errorMessage" class="error-msg"></div>
-        <div id="successMessage" class="success-msg"></div>
+        <div id="authMessage" class="toast" style="display:none;"></div>
 
-        <!-- Tabs -->
-        <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 24px;">
-            <button onclick="switchTab('login')" id="loginTab" class="tab-btn active">🔐 Sign In</button>
-            <button onclick="switchTab('register')" id="registerTab" class="tab-btn">✨ Register</button>
+        <div style="display: flex; gap: 8px; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 20px;">
+            <button onclick="showLoginTab()" id="loginTab" class="tab-btn active">🔐 Sign In</button>
+            <button onclick="showRegisterTab()" id="registerTab" class="tab-btn">✨ Register</button>
         </div>
 
-        <!-- Google Sign-In -->
-        <div style="margin-bottom: 24px;">
-            <button onclick="loginWithGoogle()" id="googleBtn" class="btn-google">
-                <svg width="22" height="22" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
+        <div id="googleBtnContainer" style="margin-bottom: 20px;">
+            <button onclick="loginWithGoogle()" class="btn-google">
+                <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                 Continue with Google
             </button>
         </div>
 
-        <div class="divider">or continue with email</div>
+        <div class="divider">or</div>
 
-        <!-- Login Form -->
         <div id="loginForm">
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Email Address</label>
-                <input type="email" id="loginEmail" class="input-field" placeholder="agent@example.com" autocomplete="email">
+            <div style="margin-bottom: 14px;">
+                <label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:6px;">Email</label>
+                <input type="email" id="loginEmail" class="input-field" placeholder="agent@example.com">
             </div>
             <div style="margin-bottom: 8px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Password</label>
-                <input type="password" id="loginPassword" class="input-field" placeholder="••••••••" autocomplete="current-password">
+                <label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:6px;">Password</label>
+                <input type="password" id="loginPassword" class="input-field" placeholder="••••••••">
             </div>
-            <div style="text-align: right; margin-bottom: 20px;">
-                <a href="#" onclick="forgotPassword()" style="font-size: 14px; color: #6366f1; text-decoration: none; font-weight: 500;">Forgot password?</a>
+            <div style="text-align:right;margin-bottom:16px;">
+                <a href="#" onclick="forgotPassword()" style="font-size:14px;color:#6366f1;text-decoration:none;">Forgot password?</a>
             </div>
-            <button onclick="loginWithEmail()" id="loginBtn" class="btn-primary">🔐 Sign In with Email</button>
+            <button onclick="loginWithEmail()" class="btn-primary">Sign In</button>
         </div>
 
-        <!-- Register Form -->
-        <div id="registerForm" style="display: none;">
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Full Name</label>
-                <input type="text" id="registerName" class="input-field" placeholder="John Doe">
+        <div id="registerForm" style="display:none;">
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Name</label><input type="text" id="registerName" class="input-field" placeholder="John Doe"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Email</label><input type="email" id="registerEmail" class="input-field" placeholder="agent@example.com"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Phone</label><input type="tel" id="registerPhone" class="input-field" placeholder="+265 888 123 456"></div>
+            <div style="margin-bottom:12px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Password</label><input type="password" id="registerPassword" class="input-field" placeholder="Min 6 characters"></div>
+            <div style="margin-bottom:16px;"><label style="display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:4px;">Confirm</label><input type="password" id="registerConfirmPassword" class="input-field" placeholder="Confirm password"></div>
+            <button onclick="registerWithEmail()" class="btn-primary">Create Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- DASHBOARD SCREEN -->
+<div id="dashboardScreen" style="display:none; width:100%; max-width:1200px; margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+        <div>
+            <h1 style="font-size:28px;font-weight:800;color:#1e293b;">💼 MoneyAgent Pro</h1>
+            <p style="color:#64748b;font-size:14px;">
+                <span id="currentDate"></span> • 
+                <span id="agentName" style="background:#e2e8f0;padding:2px 10px;border-radius:20px;">Agent</span>
+            </p>
+        </div>
+        <button onclick="logout()" style="padding:10px 20px;background:#64748b;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:600;">🚪 Logout</button>
+    </div>
+
+    <div id="dashToast" class="toast" style="display:none;"></div>
+
+    <!-- Navigation -->
+    <div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap;">
+        <button onclick="switchTab('dashboard')" class="nav-tab active" id="navDashboard">📊 Dashboard</button>
+        <button onclick="switchTab('reconciliation')" class="nav-tab" id="navReconciliation">💰 Reconciliation</button>
+        <button onclick="switchTab('transactions')" class="nav-tab" id="navTransactions">💳 Transactions</button>
+        <button onclick="switchTab('loans')" class="nav-tab" id="navLoans">🏦 Credit</button>
+        <button onclick="switchTab('expenses')" class="nav-tab" id="navExpenses">📋 Expenses</button>
+    </div>
+
+    <!-- Dashboard Tab -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:24px;">
+            <div class="metric-card stat-gradient-1"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Total Portfolio</p><p id="totalPortfolio" style="font-size:32px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-2"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Net Position</p><p id="netPosition" style="font-size:32px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-3"><div style="position:relative;z-index:1;"><p style="font-size:13px;opacity:0.9;">Today's Commission</p><p id="todayCommission" style="font-size:32px;font-weight:700;">--</p><div class="progress-bar" style="margin-top:8px;"><div id="commissionBar" class="progress-fill" style="width:0%"></div></div></div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:16px;">💎 Assets</h3>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#fffbeb;border-radius:8px;margin-bottom:8px;"><span>💰 Cash</span><span id="cashVal" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#eff6ff;border-radius:8px;margin-bottom:8px;"><span>📱 Airtel</span><span id="airtelVal" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><span>📲 Mpamba</span><span id="mpambaVal" style="font-weight:700;">--</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;"><span style="font-weight:700;">Total</span><span id="totalLiquid" style="font-weight:700;">--</span></div>
             </div>
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Email Address</label>
-                <input type="email" id="registerEmail" class="input-field" placeholder="agent@example.com" autocomplete="email">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:16px;">🏦 Credit & Capital</h3>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#fff1f2;border-radius:8px;margin-bottom:8px;"><span>📤 Extended</span><span id="creditGiven" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#f0fdf4;border-radius:8px;margin-bottom:8px;"><span>📥 Expected</span><span id="creditExpected" style="font-weight:700;">--</span></div>
+                <div style="display:flex;justify-content:space-between;padding:10px;background:#faf5ff;border-radius:8px;margin-bottom:8px;"><span>💼 Capital</span><span id="capitalVal" style="font-weight:700;">--</span></div>
+                <div style="border-top:2px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;"><span style="font-weight:700;">P/L vs Capital</span><span id="profitLoss" style="font-weight:700;">--</span></div>
             </div>
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Phone Number</label>
-                <input type="tel" id="registerPhone" class="input-field" placeholder="+265 888 123 456">
-            </div>
-            <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Password</label>
-                <input type="password" id="registerPassword" class="input-field" placeholder="Min 6 characters" autocomplete="new-password">
-            </div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; font-size: 14px; font-weight: 500; color: #475569; margin-bottom: 6px;">Confirm Password</label>
-                <input type="password" id="registerConfirmPassword" class="input-field" placeholder="Confirm password" autocomplete="new-password">
-            </div>
-            <button onclick="registerWithEmail()" id="registerBtn" class="btn-primary">✨ Create Account</button>
+        </div>
+
+        <div class="dashboard-card">
+            <h3 style="font-weight:700;margin-bottom:12px;">📋 Recent Transactions</h3>
+            <div id="recentTrans" style="max-height:200px;overflow-y:auto;"></div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- Reconciliation Tab -->
+    <div id="tab-reconciliation" class="tab-content">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;color:#4338ca;margin-bottom:16px;">🌅 Opening</h3>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Airtel Open</label><input type="number" id="airtelOpen" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Mpamba Open</label><input type="number" id="mpambaOpen" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Cash Open</label><input type="number" id="cashOpen" class="input-field" placeholder="0"></div>
+                <button onclick="saveOpening()" class="btn-primary">Save Opening</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;color:#059669;margin-bottom:16px;">🌙 Closing</h3>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Airtel Close</label><input type="number" id="airtelClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Mpamba Close</label><input type="number" id="mpambaClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Cash Close</label><input type="number" id="cashClose" class="input-field" placeholder="0"></div>
+                <div style="margin-bottom:12px;"><label style="font-size:13px;color:#64748b;">Commission</label><input type="number" id="commissionEarned" class="input-field" placeholder="0"></div>
+                <div style="display:flex;gap:8px;"><button onclick="saveClosing()" class="btn-primary" style="flex:1;">Save Closing</button><button onclick="calculateReconciliation()" style="flex:1;padding:14px;background:#475569;color:white;border:none;border-radius:12px;cursor:pointer;font-weight:600;">Calculate</button></div>
+            </div>
+        </div>
+        <div id="reconResults" style="display:none;margin-top:16px;" class="dashboard-card">
+            <h3 style="font-weight:700;margin-bottom:12px;">Results</h3>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Airtel Δ</span><div id="airtelNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Mpamba Δ</span><div id="mpambaNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#f8fafc;border-radius:8px;"><span style="font-size:12px;">Cash Δ</span><div id="cashNet" style="font-weight:700;">--</div></div>
+                <div style="padding:12px;background:#eef2ff;border-radius:8px;"><span style="font-size:12px;">Status</span><div id="reconStatus" style="font-weight:700;">--</div></div>
+            </div>
+        </div>
+    </div>
 
-        const FIREBASE_CONFIG = {
-            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
-            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
-            projectId: "mobile-money-app-4cf66",
-            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
-            messagingSenderId: "822891731705",
-            appId: "1:822891731705:web:e666599c76ce413f0a6028"
-        };
+    <!-- Transactions Tab -->
+    <div id="tab-transactions" class="tab-content">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">➕ New</h3>
+                <select id="transType" class="input-field" style="margin-bottom:8px;"><option value="deposit">💰 Deposit</option><option value="withdrawal">💳 Withdrawal</option><option value="bill_payment">🧾 Bill Payment</option><option value="credit_purchase">🛒 Credit Purchase</option><option value="send_to_dealer">🤝 Send to Dealer</option></select>
+                <select id="transPlatform" class="input-field" style="margin-bottom:8px;"><option>Airtel Money</option><option>TNM Mpamba</option></select>
+                <input type="number" id="transAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <input type="number" id="transCommission" class="input-field" placeholder="Commission" style="margin-bottom:8px;">
+                <input type="text" id="transRef" class="input-field" placeholder="Customer Ref" style="margin-bottom:8px;">
+                <textarea id="transNotes" class="input-field" placeholder="Notes" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addTransaction()" class="btn-primary">Add Transaction</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📜 History</h3>
+                <div id="transList" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
 
-        const APP_ID = "mobile-money-agent";
+    <!-- Loans Tab -->
+    <div id="tab-loans" class="tab-content">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+            <div class="metric-card stat-gradient-1"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Extended</p><p id="loansGivenTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-4"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Expected</p><p id="loansExpectedTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-2"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Net Position</p><p id="loansNetTop" style="font-size:24px;font-weight:700;">--</p></div></div>
+            <div class="metric-card stat-gradient-6"><div style="position:relative;z-index:1;"><p style="font-size:12px;">Active</p><p id="activeLoanCount" style="font-size:24px;font-weight:700;">--</p></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">🏦 New Credit</h3>
+                <select id="loanType" class="input-field" style="margin-bottom:8px;"><option value="given">📤 Extended</option><option value="expected">📥 Expected</option></select>
+                <select id="loanSource" class="input-field" style="margin-bottom:8px;"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
+                <input type="number" id="loanAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <input type="text" id="loanClient" class="input-field" placeholder="Client Name" style="margin-bottom:8px;">
+                <input type="text" id="loanPhone" class="input-field" placeholder="Phone" style="margin-bottom:8px;">
+                <input type="date" id="loanDue" class="input-field" style="margin-bottom:8px;">
+                <textarea id="loanNotes" class="input-field" placeholder="Notes" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addLoan()" class="btn-primary">Record Credit</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📋 All Credits</h3>
+                <div id="loanList" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expenses Tab -->
+    <div id="tab-expenses" class="tab-content">
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:16px;">
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📝 Add</h3>
+                <select id="expenseCat" class="input-field" style="margin-bottom:8px;"><option>Transport</option><option>Airtime/Data</option><option>Food</option><option>Rent</option><option>Utilities</option><option>Other</option></select>
+                <select id="expenseSource" class="input-field" style="margin-bottom:8px;"><option value="cash">💵 Cash</option><option value="airtel">📱 Airtel</option><option value="mpamba">📲 Mpamba</option></select>
+                <input type="number" id="expenseAmount" class="input-field" placeholder="Amount" style="margin-bottom:8px;">
+                <textarea id="expenseDesc" class="input-field" placeholder="Description" rows="2" style="margin-bottom:8px;"></textarea>
+                <button onclick="addExpense()" class="btn-primary">Add Expense</button>
+            </div>
+            <div class="dashboard-card">
+                <h3 style="font-weight:700;margin-bottom:12px;">📊 History</h3>
+                <div id="expenseList" style="max-height:400px;overflow-y:auto;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+const APP_ID = "mobile-money-agent";
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+    authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+    projectId: "mobile-money-app-4cf66",
+    storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+    messagingSenderId: "822891731705",
+    appId: "1:822891731705:web:e666599c76ce413f0a6028"
+};
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+let AGENT_ID = null;
+const todayId = new Date().toISOString().split('T')[0];
+document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+// Helper functions
+function getDailyDoc(did = todayId) { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'daily_balances', did); }
+function getCapitalDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'capital', 'investment'); }
+function getTargetDoc() { return doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'targets', 'daily_commission'); }
+function colRef(n) { return collection(db, 'artifacts', APP_ID, 'users', AGENT_ID, n); }
+function fm(v) { return new Intl.NumberFormat('en-MW', { style: 'currency', currency: 'MWK', minimumFractionDigits: 2 }).format(v || 0); }
+function showToast(msg, type = 'info') {
+    const t = document.getElementById('dashToast');
+    t.textContent = msg;
+    t.className = `toast toast-${type}`;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 4000);
+}
+function showAuthMsg(msg, type = 'info') {
+    const t = document.getElementById('authMessage');
+    t.textContent = msg;
+    t.className = `toast toast-${type}`;
+    t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 5000);
+}
+
+// Auth state
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        AGENT_ID = user.uid;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('dashboardScreen').style.display = 'block';
+        document.body.classList.add('logged-in');
         
-        try {
-            const app = initializeApp(FIREBASE_CONFIG);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const googleProvider = new GoogleAuthProvider();
+        const profile = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
+        if (profile.exists()) document.getElementById('agentName').textContent = profile.data().name;
+        
+        loadDashboard();
+    } else {
+        document.getElementById('loginScreen').style.display = 'block';
+        document.getElementById('dashboardScreen').style.display = 'none';
+        document.body.classList.remove('logged-in');
+    }
+});
 
-            console.log('Firebase initialized successfully');
+// Tab switching
+window.showLoginTab = () => {
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('loginTab').classList.add('active');
+    document.getElementById('registerTab').classList.remove('active');
+};
+window.showRegisterTab = () => {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('loginTab').classList.remove('active');
+    document.getElementById('registerTab').classList.add('active');
+};
 
-            // Check if already logged in - ONLY redirect if user exists
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    console.log('User already logged in, redirecting to dashboard...');
-                    window.location.replace('dashboard.html');
-                } else {
-                    console.log('No user logged in, showing login page');
-                }
-            });
-
-            function showError(msg) {
-                const el = document.getElementById('errorMessage');
-                el.textContent = msg;
-                el.style.display = 'block';
-                document.getElementById('successMessage').style.display = 'none';
-                setTimeout(() => el.style.display = 'none', 5000);
-            }
-
-            function showSuccess(msg) {
-                const el = document.getElementById('successMessage');
-                el.textContent = msg;
-                el.style.display = 'block';
-                document.getElementById('errorMessage').style.display = 'none';
-                setTimeout(() => el.style.display = 'none', 5000);
-            }
-
-            function setLoading(btnId, isLoading) {
-                const btn = document.getElementById(btnId);
-                if (isLoading) {
-                    btn.disabled = true;
-                    btn.innerHTML = '<span class="loading-spinner"></span> Please wait...';
-                } else {
-                    btn.disabled = false;
-                }
-            }
-
-            window.switchTab = (tab) => {
-                document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-                document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
-                document.getElementById('loginTab').classList.toggle('active', tab === 'login');
-                document.getElementById('registerTab').classList.toggle('active', tab === 'register');
-                document.getElementById('errorMessage').style.display = 'none';
-                document.getElementById('successMessage').style.display = 'none';
-            };
-
-            async function createAgentProfile(user, additionalData = {}) {
-                const agentProfile = {
-                    name: additionalData.name || user.displayName || 'Agent',
-                    email: user.email,
-                    phone: additionalData.phone || '',
-                    agentId: user.uid,
-                    createdAt: new Date(),
-                    lastLogin: new Date(),
-                    capital: 0,
-                    status: 'active',
-                    authProvider: additionalData.authProvider || 'email'
-                };
-                await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), agentProfile, { merge: true });
-                await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), {
-                    amount: 10000, type: 'daily_commission', period: 'daily'
-                });
-            }
-
-            window.loginWithGoogle = async () => {
-                setLoading('googleBtn', true);
-                try {
-                    const result = await signInWithPopup(auth, googleProvider);
-                    const user = result.user;
-                    const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
-                    if (!profileSnap.exists()) {
-                        await createAgentProfile(user, { name: user.displayName, authProvider: 'google' });
-                    } else {
-                        await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), { lastLogin: new Date() }, { merge: true });
-                    }
-                    showSuccess('Login successful! Redirecting...');
-                    setTimeout(() => window.location.replace('dashboard.html'), 500);
-                } catch (error) {
-                    console.error('Google sign-in error:', error);
-                    if (error.code !== 'auth/popup-closed-by-user') {
-                        showError('Google sign-in failed. Please try again.');
-                    }
-                    setLoading('googleBtn', false);
-                }
-            };
-
-            window.loginWithEmail = async () => {
-                const email = document.getElementById('loginEmail').value.trim();
-                const password = document.getElementById('loginPassword').value;
-                
-                if (!email) return showError('Please enter your email');
-                if (!password) return showError('Please enter your password');
-                
-                setLoading('loginBtn', true);
-                try {
-                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                    await setDoc(doc(db, 'artifacts', APP_ID, 'users', userCredential.user.uid, 'profile', 'info'), { lastLogin: new Date() }, { merge: true });
-                    showSuccess('Login successful! Redirecting...');
-                    setTimeout(() => window.location.replace('dashboard.html'), 500);
-                } catch (error) {
-                    console.error('Login error:', error);
-                    if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-                        showError('Invalid email or password');
-                    } else if (error.code === 'auth/too-many-requests') {
-                        showError('Too many attempts. Please try again later');
-                    } else if (error.code === 'auth/invalid-email') {
-                        showError('Invalid email address');
-                    } else {
-                        showError('Login failed: ' + error.message);
-                    }
-                    setLoading('loginBtn', false);
-                }
-            };
-
-            window.registerWithEmail = async () => {
-                const name = document.getElementById('registerName').value.trim();
-                const email = document.getElementById('registerEmail').value.trim();
-                const phone = document.getElementById('registerPhone').value.trim();
-                const password = document.getElementById('registerPassword').value;
-                const confirmPassword = document.getElementById('registerConfirmPassword').value;
-                
-                if (!name) return showError('Please enter your name');
-                if (!email) return showError('Please enter your email');
-                if (password.length < 6) return showError('Password must be at least 6 characters');
-                if (password !== confirmPassword) return showError('Passwords do not match');
-                
-                setLoading('registerBtn', true);
-                try {
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                    await createAgentProfile(userCredential.user, { name, phone, authProvider: 'email' });
-                    showSuccess('Account created! Redirecting...');
-                    setTimeout(() => window.location.replace('dashboard.html'), 500);
-                } catch (error) {
-                    console.error('Registration error:', error);
-                    if (error.code === 'auth/email-already-in-use') {
-                        showError('This email is already registered. Please sign in instead.');
-                    } else if (error.code === 'auth/weak-password') {
-                        showError('Password is too weak. Use at least 6 characters');
-                    } else {
-                        showError('Registration failed: ' + error.message);
-                    }
-                    setLoading('registerBtn', false);
-                }
-            };
-
-            window.forgotPassword = async () => {
-                const email = document.getElementById('loginEmail').value.trim();
-                if (!email) return showError('Please enter your email address first');
-                try {
-                    await sendPasswordResetEmail(auth, email);
-                    showSuccess('Password reset email sent! Check your inbox.');
-                } catch (error) {
-                    if (error.code === 'auth/user-not-found') showError('No account found with this email');
-                    else showError('Failed to send reset email: ' + error.message);
-                }
-            };
-
-            // Handle Enter key
-            document.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    const registerForm = document.getElementById('registerForm');
-                    if (registerForm.style.display !== 'none') {
-                        registerWithEmail();
-                    } else {
-                        loginWithEmail();
-                    }
-                }
-            });
-
-        } catch (error) {
-            console.error('Initialization error:', error);
-            document.getElementById('errorMessage').textContent = 'Failed to initialize app: ' + error.message;
-            document.getElementById('errorMessage').style.display = 'block';
+// Login functions
+window.loginWithGoogle = async () => {
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
+        if (!profileSnap.exists()) {
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), {
+                name: user.displayName || 'Agent', email: user.email, agentId: user.uid, createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'google'
+            }, { merge: true });
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), { amount: 10000, type: 'daily_commission' });
         }
-    </script>
+    } catch (e) { if (e.code !== 'auth/popup-closed-by-user') showAuthMsg('Google sign-in failed', 'error'); }
+};
+
+window.loginWithEmail = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) return showAuthMsg('Enter email and password', 'error');
+    try {
+        await signInWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', auth.currentUser.uid, 'profile', 'info'), { lastLogin: new Date() }, { merge: true });
+    } catch (e) {
+        showAuthMsg(e.code.includes('invalid') ? 'Invalid email or password' : 'Login failed', 'error');
+    }
+};
+
+window.registerWithEmail = async () => {
+    const name = document.getElementById('registerName').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
+    const phone = document.getElementById('registerPhone').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    const confirm = document.getElementById('registerConfirmPassword').value;
+    if (!name || !email) return showAuthMsg('Name and email required', 'error');
+    if (password.length < 6) return showAuthMsg('Password must be 6+ characters', 'error');
+    if (password !== confirm) return showAuthMsg('Passwords do not match', 'error');
+    try {
+        const uc = await createUserWithEmailAndPassword(auth, email, password);
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'profile', 'info'), {
+            name, email, phone, agentId: uc.user.uid, createdAt: new Date(), lastLogin: new Date(), capital: 0, status: 'active', authProvider: 'email'
+        });
+        await setDoc(doc(db, 'artifacts', APP_ID, 'users', uc.user.uid, 'targets', 'daily_commission'), { amount: 10000, type: 'daily_commission' });
+    } catch (e) {
+        showAuthMsg(e.code === 'auth/email-already-in-use' ? 'Email already registered' : 'Registration failed', 'error');
+    }
+};
+
+window.forgotPassword = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    if (!email) return showAuthMsg('Enter your email first', 'error');
+    try { await sendPasswordResetEmail(auth, email); showAuthMsg('Reset email sent!', 'success'); }
+    catch (e) { showAuthMsg('Failed to send reset email', 'error'); }
+};
+
+window.logout = async () => { await signOut(auth); };
+
+// Dashboard tab switching
+window.switchTab = (tab) => {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(`tab-${tab}`).classList.add('active');
+    document.getElementById(`nav${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+    if (tab === 'transactions') loadTransactions();
+    else if (tab === 'loans') loadLoans();
+    else if (tab === 'expenses') loadExpenses();
+    else if (tab === 'reconciliation') loadReconData();
+};
+
+// Load dashboard
+async function loadDashboard() {
+    const dailySnap = await getDoc(getDailyDoc());
+    const dd = dailySnap.exists() ? dailySnap.data() : {};
+    const capSnap = await getDoc(getCapitalDoc());
+    const capital = capSnap.exists() ? capSnap.data().totalCapital || 0 : 0;
+    const transSnap = await getDocs(query(colRef('transactions'), where('date', '==', todayId)));
+    const loansSnap = await getDocs(colRef('loans'));
+    
+    let totalComm = 0, airtelComm = 0, mpambaComm = 0;
+    transSnap.forEach(d => {
+        const t = d.data(); const c = t.commission || 0; totalComm += c;
+        if (t.platform === 'Airtel Money') airtelComm += c; else mpambaComm += c;
+    });
+    
+    let activeGiven = 0, activeExpected = 0;
+    loansSnap.forEach(d => {
+        const l = d.data();
+        if (l.status === 'active') {
+            if (l.type === 'given') activeGiven += l.amount || 0;
+            else activeExpected += l.amount || 0;
+        }
+    });
+    
+    const cash = dd.cashClose || dd.cashOpen || 0;
+    const airtel = dd.airtelClose || dd.airtelOpen || 0;
+    const mpamba = dd.mpambaClose || dd.mpambaOpen || 0;
+    const liquid = cash + airtel + mpamba;
+    const portfolio = liquid + activeExpected;
+    const net = liquid + activeExpected - activeGiven;
+    const pl = net - capital;
+    
+    document.getElementById('totalPortfolio').textContent = fm(portfolio);
+    document.getElementById('netPosition').textContent = fm(net);
+    document.getElementById('todayCommission').textContent = fm(totalComm);
+    document.getElementById('cashVal').textContent = fm(cash);
+    document.getElementById('airtelVal').textContent = fm(airtel);
+    document.getElementById('mpambaVal').textContent = fm(mpamba);
+    document.getElementById('totalLiquid').textContent = fm(liquid);
+    document.getElementById('creditGiven').textContent = fm(activeGiven);
+    document.getElementById('creditExpected').textContent = fm(activeExpected);
+    document.getElementById('capitalVal').textContent = fm(capital);
+    document.getElementById('profitLoss').textContent = fm(pl);
+    document.getElementById('profitLoss').style.color = pl >= 0 ? '#16a34a' : '#dc2626';
+    
+    const targetSnap = await getDoc(getTargetDoc());
+    const target = targetSnap.exists() ? targetSnap.data().amount || 10000 : 10000;
+    document.getElementById('commissionBar').style.width = Math.min((totalComm / target) * 100, 100) + '%';
+    
+    const recentSnap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(5)));
+    const html = [];
+    recentSnap.forEach(d => {
+        const t = d.data();
+        html.push(`<div style="display:flex;justify-content:space-between;padding:8px;background:#f8fafc;border-radius:8px;margin-bottom:4px;"><span>${t.type.replace('_',' ')} (${t.platform})</span><span style="font-weight:600;">${fm(t.amount)}</span></div>`);
+    });
+    document.getElementById('recentTrans').innerHTML = html.length ? html.join('') : '<div style="color:#94a3b8;text-align:center;">No transactions yet</div>';
+}
+
+// Transactions
+async function loadTransactions() {
+    const snap = await getDocs(query(colRef('transactions'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('transList');
+    list.innerHTML = '';
+    snap.forEach(d => {
+        const t = d.data();
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${t.type.replace('_',' ')}</strong> <span style="color:#64748b;">${t.platform}</span><br><small>${t.customerRef||''} ${t.notes||''}</small></div><div style="text-align:right;"><span style="font-weight:600;">${fm(t.amount)}</span><br><small style="color:#16a34a;">Comm: ${fm(t.commission||0)}</small><br><a href="#" onclick="deleteItem('transactions','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No transactions</div>';
+}
+
+// Loans
+async function loadLoans() {
+    const snap = await getDocs(query(colRef('loans'), orderBy('timestamp', 'desc')));
+    const list = document.getElementById('loanList');
+    list.innerHTML = '';
+    let tg = 0, te = 0, ac = 0;
+    snap.forEach(d => {
+        const l = d.data(); const a = l.amount || 0;
+        if (l.type === 'given') tg += a; else te += a;
+        if (l.status === 'active') ac++;
+        const sc = l.status === 'active' ? 'background:#fef9c3;color:#a16207;' : l.status === 'paid' ? 'background:#dcfce7;color:#16a34a;' : 'background:#fee2e2;color:#dc2626;';
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${l.clientName}</strong> <span style="font-size:12px;padding:2px 8px;border-radius:10px;${sc}">${l.status}</span><br><small>Due: ${l.dueDate||'N/A'} | ${l.phone||''}</small></div><div style="text-align:right;"><span style="font-weight:600;">${fm(a)}</span><br>${l.status==='active'&&l.type==='given'?`<a href="#" onclick="repayLoan('${d.id}',${a})" style="color:#16a34a;font-size:12px;">💵 Repay</a> `:''}<a href="#" onclick="deleteItem('loans','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No credits</div>';
+    document.getElementById('loansGivenTop').textContent = fm(tg);
+    document.getElementById('loansExpectedTop').textContent = fm(te);
+    document.getElementById('loansNetTop').textContent = fm(te - tg);
+    document.getElementById('activeLoanCount').textContent = ac;
+}
+
+// Expenses
+async function loadExpenses() {
+    const snap = await getDocs(query(colRef('expenses'), orderBy('timestamp', 'desc'), limit(50)));
+    const list = document.getElementById('expenseList');
+    list.innerHTML = '';
+    snap.forEach(d => {
+        const e = d.data();
+        list.innerHTML += `<div style="display:flex;justify-content:space-between;padding:10px;border-bottom:1px solid #e2e8f0;"><div><strong>${e.category}</strong><br><small>${e.description||''}</small></div><div style="text-align:right;"><span style="font-weight:600;color:#dc2626;">${fm(e.amount)}</span><br><a href="#" onclick="deleteItem('expenses','${d.id}')" style="color:#dc2626;font-size:12px;">🗑️</a></div></div>`;
+    });
+    if (snap.empty) list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:20px;">No expenses</div>';
+}
+
+async function loadReconData() {
+    const daily = await getDoc(getDailyDoc());
+    if (daily.exists()) {
+        const d = daily.data();
+        document.getElementById('airtelOpen').value = d.airtelOpen || '';
+        document.getElementById('mpambaOpen').value = d.mpambaOpen || '';
+        document.getElementById('cashOpen').value = d.cashOpen || '';
+        document.getElementById('airtelClose').value = d.airtelClose || '';
+        document.getElementById('mpambaClose').value = d.mpambaClose || '';
+        document.getElementById('cashClose').value = d.cashClose || '';
+        document.getElementById('commissionEarned').value = d.commissionEarned || '';
+    }
+}
+
+// Add functions
+window.addTransaction = async () => {
+    const type = document.getElementById('transType').value;
+    const platform = document.getElementById('transPlatform').value;
+    const amount = parseFloat(document.getElementById('transAmount').value) || 0;
+    const commission = parseFloat(document.getElementById('transCommission').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    
+    const ref = getDailyDoc(); const snap = await getDoc(ref);
+    let data = snap.exists() ? snap.data() : {};
+    if (platform === 'Airtel Money') data.airtelClose = (data.airtelClose || data.airtelOpen || 0) + (type === 'withdrawal' ? amount : -amount);
+    else data.mpambaClose = (data.mpambaClose || data.mpambaOpen || 0) + (type === 'withdrawal' ? amount : -amount);
+    await setDoc(ref, data, { merge: true });
+    
+    await addDoc(colRef('transactions'), { type, platform, amount, commission, customerRef: document.getElementById('transRef').value, notes: document.getElementById('transNotes').value, timestamp: new Date(), date: todayId });
+    document.getElementById('transAmount').value = ''; document.getElementById('transCommission').value = ''; document.getElementById('transRef').value = ''; document.getElementById('transNotes').value = '';
+    showToast('Transaction added!', 'success');
+    loadTransactions(); loadDashboard();
+};
+
+window.addExpense = async () => {
+    const amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    await addDoc(colRef('expenses'), { category: document.getElementById('expenseCat').value, source: document.getElementById('expenseSource').value, amount, description: document.getElementById('expenseDesc').value, timestamp: new Date(), date: todayId });
+    document.getElementById('expenseAmount').value = ''; document.getElementById('expenseDesc').value = '';
+    showToast('Expense added!', 'success');
+    loadExpenses(); loadDashboard();
+};
+
+window.addLoan = async () => {
+    const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+    if (amount <= 0) return showToast('Enter valid amount', 'error');
+    await addDoc(colRef('loans'), { type: document.getElementById('loanType').value, source: document.getElementById('loanSource').value, amount, clientName: document.getElementById('loanClient').value, phone: document.getElementById('loanPhone').value, dueDate: document.getElementById('loanDue').value, status: 'active', notes: document.getElementById('loanNotes').value, timestamp: new Date(), date: todayId });
+    document.getElementById('loanAmount').value = ''; document.getElementById('loanClient').value = ''; document.getElementById('loanPhone').value = ''; document.getElementById('loanNotes').value = '';
+    showToast('Credit recorded!', 'success');
+    loadLoans(); loadDashboard();
+};
+
+window.repayLoan = async (loanId, amount) => {
+    const amt = parseFloat(prompt(`Repayment amount (Max: ${fm(amount)}):`, amount));
+    if (!amt || amt <= 0 || amt > amount) return;
+    const ref = doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'loans', loanId);
+    const snap = await getDoc(ref); const loan = snap.data();
+    await updateDoc(ref, loan.amount - amt <= 0 ? { amount: 0, status: 'paid' } : { amount: loan.amount - amt });
+    await addDoc(colRef('transactions'), { type: 'deposit', platform: 'Airtel Money', amount: amt, commission: 0, customerRef: `Repayment - ${loan.clientName}`, notes: `Loan repayment`, timestamp: new Date(), date: todayId });
+    showToast('Repayment recorded!', 'success');
+    loadLoans(); loadDashboard();
+};
+
+window.deleteItem = async (coll, id) => {
+    if (!confirm('Delete permanently?')) return;
+    await deleteDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, coll, id));
+    showToast('Deleted', 'success');
+    if (coll === 'transactions') loadTransactions();
+    else if (coll === 'loans') loadLoans();
+    else if (coll === 'expenses') loadExpenses();
+    loadDashboard();
+};
+
+window.saveOpening = async () => {
+    await setDoc(getDailyDoc(), { airtelOpen: +document.getElementById('airtelOpen').value||0, mpambaOpen: +document.getElementById('mpambaOpen').value||0, cashOpen: +document.getElementById('cashOpen').value||0, date: todayId }, { merge: true });
+    showToast('Opening saved!', 'success');
+};
+
+window.saveClosing = async () => {
+    await setDoc(getDailyDoc(), { airtelClose: +document.getElementById('airtelClose').value||0, mpambaClose: +document.getElementById('mpambaClose').value||0, cashClose: +document.getElementById('cashClose').value||0, commissionEarned: +document.getElementById('commissionEarned').value||0 }, { merge: true });
+    showToast('Closing saved!', 'success');
+    loadDashboard();
+};
+
+window.calculateReconciliation = async () => {
+    const d = (await getDoc(getDailyDoc())).data();
+    const an = (d.airtelClose||0) - (d.airtelOpen||0);
+    const mn = (d.mpambaClose||0) - (d.mpambaOpen||0);
+    const cn = (d.cashClose||0) - (d.cashOpen||0);
+    const disc = cn - (-(an + mn) + (d.commissionEarned||0));
+    document.getElementById('airtelNet').textContent = fm(an);
+    document.getElementById('mpambaNet').textContent = fm(mn);
+    document.getElementById('cashNet').textContent = fm(cn);
+    document.getElementById('reconStatus').textContent = Math.abs(disc) < 0.01 ? '✅ Balanced' : `${disc > 0 ? '⚠️ +' : '⚠️ '}${fm(disc)}`;
+    document.getElementById('reconResults').style.display = 'block';
+};
+</script>
 </body>
 </html>
