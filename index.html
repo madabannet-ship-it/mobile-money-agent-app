@@ -3,403 +3,302 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MoneyAgent Pro • Dashboard</title>
+    <title>MoneyAgent Pro • Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { @apply bg-gradient-to-br from-slate-50 via-white to-slate-100; overflow-x-hidden; }
-        .glass-card {
-            @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 p-6 transition-all duration-300 hover:shadow-2xl;
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            min-height: 100vh;
+            background-attachment: fixed;
         }
-        .stat-gradient-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .stat-gradient-2 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .stat-gradient-3 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-        .stat-gradient-4 { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-        .stat-gradient-5 { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
-        .stat-gradient-6 { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
-        .input-premium {
-            @apply w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 outline-none transition-all bg-white;
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
         }
-        .btn-premium {
-            @apply px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 cursor-pointer;
+        .input-field {
+            @apply w-full px-4 py-3.5 border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-200 outline-none transition-all bg-white text-slate-700;
         }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .nav-tab {
-            @apply px-6 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer select-none;
+        .btn-primary {
+            @apply w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all cursor-pointer active:scale-95;
         }
-        .nav-tab.active {
-            @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg;
+        .btn-google {
+            @apply w-full py-3.5 bg-white text-slate-700 font-semibold rounded-xl shadow-md border-2 border-slate-200 hover:border-slate-300 hover:shadow-lg transform hover:-translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-3;
         }
-        .nav-tab:not(.active) {
-            @apply bg-white text-slate-600 border border-slate-200 hover:bg-slate-50;
+        .divider {
+            @apply flex items-center gap-4 my-6;
         }
-        .metric-card {
-            @apply relative overflow-hidden rounded-2xl p-6 text-white;
-        }
-        .metric-card::before {
+        .divider::before, .divider::after {
             content: '';
-            @apply absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16;
+            @apply flex-1 h-px bg-slate-300;
         }
-        .progress-bar {
-            @apply h-3 bg-white/30 rounded-full overflow-hidden;
+        .tab-btn {
+            @apply px-6 py-2.5 rounded-xl font-medium transition-all cursor-pointer flex-1 text-center;
         }
-        .progress-fill {
-            @apply h-full bg-white rounded-full transition-all duration-500;
+        .tab-btn.active {
+            @apply bg-indigo-600 text-white shadow-md;
         }
-        .edit-row {
-            @apply bg-indigo-50 p-4 rounded-xl mt-2 border border-indigo-200;
-        }
-        .stat-box {
-            @apply bg-gradient-to-br from-slate-50 to-slate-100 p-4 rounded-xl border border-slate-200;
-        }
-        .percentage-bar {
-            @apply h-2 bg-slate-200 rounded-full overflow-hidden;
-        }
-        .percentage-fill {
-            @apply h-full rounded-full transition-all duration-500;
-        }
-        .alert-badge {
-            @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+        .tab-btn:not(.active) {
+            @apply bg-slate-100 text-slate-600 hover:bg-slate-200;
         }
     </style>
 </head>
-<body class="antialiased">
-
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-            <h1 class="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                💼 MoneyAgent Pro
-            </h1>
-            <p class="text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
-                <span id="current-date" class="font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full"></span>
-                <span id="agentNameDisplay" class="font-mono bg-slate-100 px-3 py-1 rounded-full text-sm">Agent: --</span>
-                <span id="rolloverStatus" class="alert-badge bg-green-100 text-green-800">✅ Auto Rollover</span>
-            </p>
+<body class="flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="text-6xl mb-4">💼</div>
+            <h1 class="text-4xl font-bold text-white mb-2">MoneyAgent Pro</h1>
+            <p class="text-white/80 text-lg">Mobile Money Business Manager</p>
         </div>
-        <div class="flex gap-3 mt-4 md:mt-0">
-            <button id="refreshDashboard" class="px-4 py-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition cursor-pointer">
-                🔄 Refresh
-            </button>
-            <button id="logoutBtn" class="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-xl hover:shadow-lg transition cursor-pointer">
-                🚪 Logout
-            </button>
-        </div>
-    </div>
 
-    <!-- Status Toast -->
-    <div id="toast-message" class="hidden mb-4 p-4 rounded-xl text-sm font-medium"></div>
+        <div class="glass-panel rounded-3xl shadow-2xl p-8">
+            <div class="flex gap-2 mb-6 bg-slate-100 p-1.5 rounded-xl">
+                <button onclick="switchAuthTab('login')" id="loginTab" class="tab-btn active">🔐 Sign In</button>
+                <button onclick="switchAuthTab('register')" id="registerTab" class="tab-btn">✨ Register</button>
+            </div>
 
-    <!-- Navigation -->
-    <div class="flex flex-wrap gap-3 mb-8">
-        <div onclick="switchTab('dashboard')" class="nav-tab active" data-tab="dashboard">📊 Dashboard</div>
-        <div onclick="switchTab('reconciliation')" class="nav-tab" data-tab="reconciliation">💰 Reconciliation</div>
-        <div onclick="switchTab('transactions')" class="nav-tab" data-tab="transactions">💳 Transactions</div>
-        <div onclick="switchTab('loans')" class="nav-tab" data-tab="loans">🏦 Credit Management</div>
-        <div onclick="switchTab('expenses')" class="nav-tab" data-tab="expenses">📋 Expenses</div>
-        <div onclick="switchTab('analytics')" class="nav-tab" data-tab="analytics">📈 Analytics</div>
-    </div>
+            <div id="authMessage" class="hidden mb-4 p-4 rounded-xl text-sm font-medium"></div>
 
-    <!-- DASHBOARD TAB -->
-    <div id="dashboard-tab" class="tab-content active">
-        <!-- Balance Rollover Alert -->
-        <div id="rolloverAlert" class="hidden mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl">
-            <div class="flex items-center justify-between">
+            <div class="mb-6">
+                <button id="googleSignInBtn" class="btn-google">
+                    <svg width="24" height="24" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Continue with Google
+                </button>
+            </div>
+
+            <div class="divider"><span class="text-sm text-slate-500 font-medium">or</span></div>
+
+            <div id="loginForm" class="space-y-4">
                 <div>
-                    <h4 class="font-semibold text-blue-800">🔄 Previous Day Rollover Detected</h4>
-                    <p class="text-sm text-blue-600 mt-1">Yesterday's closing balances have been automatically set as today's opening balances.</p>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                    <input type="email" id="loginEmail" class="input-field" placeholder="agent@example.com">
                 </div>
-                <button onclick="acknowledgeRollover()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition cursor-pointer">OK</button>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="loginPassword" class="input-field" placeholder="••••••••">
+                </div>
+                <div class="flex justify-end">
+                    <button onclick="forgotPassword()" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">Forgot password?</button>
+                </div>
+                <button onclick="loginWithEmail()" class="btn-primary">🔐 Sign In with Email</button>
+            </div>
+
+            <div id="registerForm" class="hidden space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                    <input type="text" id="registerName" class="input-field" placeholder="John Doe">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                    <input type="email" id="registerEmail" class="input-field" placeholder="agent@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                    <input type="tel" id="registerPhone" class="input-field" placeholder="+265 888 123 456">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="registerPassword" class="input-field" placeholder="Min 6 characters">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
+                    <input type="password" id="registerConfirmPassword" class="input-field" placeholder="Confirm password">
+                </div>
+                <button onclick="registerWithEmail()" class="btn-primary">✨ Create Account</button>
+            </div>
+
+            <div id="loadingState" class="hidden text-center py-8">
+                <div class="inline-block animate-bounce text-4xl mb-4">⚡</div>
+                <p class="text-slate-500 font-medium">Please wait...</p>
             </div>
         </div>
 
-        <!-- Key Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div class="metric-card stat-gradient-1">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Total Portfolio Value</p>
-                    <p id="totalPortfolioValue" class="text-4xl font-bold">--</p>
-                    <p class="text-white/70 text-xs mt-2">Cash + E-Value + Receivables</p>
-                </div>
-            </div>
-            
-            <div class="metric-card stat-gradient-2">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Net Business Position</p>
-                    <p id="netBusinessPosition" class="text-4xl font-bold">--</p>
-                    <p id="positionChange" class="text-white/70 text-xs mt-2">Today's change: --</p>
-                </div>
-            </div>
-
-            <div class="metric-card stat-gradient-3">
-                <div class="relative z-10">
-                    <p class="text-white/80 text-sm font-medium mb-1">Today's Commission</p>
-                    <p id="dashboardCommission" class="text-4xl font-bold">--</p>
-                    <div class="mt-2">
-                        <div class="flex justify-between text-xs text-white/70 mb-1">
-                            <span>Target Progress</span>
-                            <span id="commissionTargetPercent">0%</span>
-                        </div>
-                        <div class="progress-bar">
-                            <div id="commissionTargetBar" class="progress-fill" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Asset & Credit Breakdown -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">💎</span> Asset Breakdown
-                    <span id="openingBalanceSource" class="text-xs font-normal text-slate-400 ml-2"></span>
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 bg-amber-50 rounded-xl border border-amber-200">
-                        <span class="font-medium text-amber-700">💰 Physical Cash</span>
-                        <span id="physicalCash" class="text-2xl font-bold text-amber-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl border border-blue-200">
-                        <span class="font-medium text-blue-700">📱 Airtel Money E-Value</span>
-                        <span id="airtelEValue" class="text-2xl font-bold text-blue-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-green-50 rounded-xl border border-green-200">
-                        <span class="font-medium text-green-700">📲 TNM Mpamba E-Value</span>
-                        <span id="mpambaEValue" class="text-2xl font-bold text-green-700">--</span>
-                    </div>
-                    
-                    <div class="mt-4 pt-4 border-t border-slate-200">
-                        <p class="text-sm font-medium text-slate-600 mb-3">Distribution</p>
-                        <div class="space-y-2">
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-amber-600">Cash</span>
-                                    <span id="cashPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="cashBar" class="percentage-fill bg-amber-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-blue-600">Airtel</span>
-                                    <span id="airtelPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="airtelBar" class="percentage-fill bg-blue-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-xs mb-1">
-                                    <span class="text-green-600">Mpamba</span>
-                                    <span id="mpambaPercent">0%</span>
-                                </div>
-                                <div class="percentage-bar">
-                                    <div id="mpambaBar" class="percentage-fill bg-green-400" style="width: 0%"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="border-t-2 border-slate-200 pt-3 mt-2">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Total Liquid Assets</span>
-                            <span id="totalLiquidAssets" class="text-2xl font-bold text-slate-800">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span class="text-2xl">🏦</span> Credit & Capital Position
-                </h3>
-                <div class="space-y-3">
-                    <div class="flex justify-between items-center p-3 bg-rose-50 rounded-xl border border-rose-200">
-                        <span class="font-medium text-rose-700">📤 Credit Extended to Clients</span>
-                        <span id="loansGiven" class="text-2xl font-bold text-rose-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-emerald-50 rounded-xl border border-emerald-200">
-                        <span class="font-medium text-emerald-700">📥 Expected from Customers</span>
-                        <span id="loansExpected" class="text-2xl font-bold text-emerald-700">--</span>
-                    </div>
-                    <div class="flex justify-between items-center p-3 bg-purple-50 rounded-xl border border-purple-200">
-                        <span class="font-medium text-purple-700">💼 Invested Capital</span>
-                        <span id="investedCapital" class="text-2xl font-bold text-purple-700">--</span>
-                    </div>
-                    <div class="border-t-2 border-slate-200 pt-3 mt-2 space-y-2">
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Net Credit Position</span>
-                            <span id="netLoanPosition" class="text-2xl font-bold">--</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Available Working Capital</span>
-                            <span id="workingCapital" class="text-2xl font-bold">--</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="font-bold text-slate-700">Profit/Loss vs Capital</span>
-                            <span id="profitLossVsCapital" class="text-2xl font-bold">--</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Airtel Commission Today</p>
-                <p id="airtelCommissionDisplay" class="text-3xl font-bold text-blue-600">--</p>
-            </div>
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Mpamba Commission Today</p>
-                <p id="mpambaCommissionDisplay" class="text-3xl font-bold text-green-600">--</p>
-            </div>
-            <div class="stat-box text-center">
-                <p class="text-sm text-slate-500 mb-1">Total Commission Today</p>
-                <p id="totalCommissionDisplay" class="text-3xl font-bold text-indigo-600">--</p>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="glass-card lg:col-span-2">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">📋 Recent Transactions</h3>
-                <div id="recentTransactions" class="space-y-2 max-h-64 overflow-y-auto"></div>
-            </div>
-            <div class="glass-card">
-                <h3 class="text-lg font-bold text-slate-800 mb-4">⚡ Quick Actions</h3>
-                <div class="space-y-3">
-                    <button onclick="switchTab('transactions')" class="w-full btn-premium">➕ New Transaction</button>
-                    <button onclick="switchTab('loans')" class="w-full px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">🏦 Manage Credit</button>
-                    <button onclick="switchTab('reconciliation')" class="w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer">💰 Daily Reconciliation</button>
-                </div>
-                <div class="mt-6 p-4 bg-indigo-50 rounded-xl">
-                    <h4 class="font-semibold text-indigo-800 mb-2">💡 Business Insight</h4>
-                    <p id="businessInsight" class="text-sm text-indigo-700">Loading insights...</p>
-                </div>
-            </div>
-        </div>
+        <p class="text-center text-white/70 text-sm mt-6">🔒 Secure • Encrypted • Reliable</p>
     </div>
 
-    <!-- RECONCILIATION TAB -->
-    <div id="reconciliation-tab" class="tab-content">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="glass-card">
-                <h2 class="text-xl font-bold text-indigo-700 mb-4">🌅 Opening Balances</h2>
-                <p class="text-xs text-slate-500 mb-4">Auto-filled from yesterday's closing balances</p>
-                <div class="space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Opening</label><input type="number" id="airtelOpen" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Opening</label><input type="number" id="mpambaOpen" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Opening</label><input type="number" id="cashOpen" class="input-premium" placeholder="0.00"></div>
-                    <button id="saveOpenBtn" class="btn-premium w-full mt-4 cursor-pointer">Save Opening Balances</button>
-                </div>
-            </div>
-            <div class="glass-card">
-                <h2 class="text-xl font-bold text-emerald-700 mb-4">🌙 Closing Balances</h2>
-                <p class="text-xs text-slate-500 mb-4">These become tomorrow's opening balances</p>
-                <div class="space-y-4">
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Airtel Money Closing</label><input type="number" id="airtelClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">TNM Mpamba Closing</label><input type="number" id="mpambaClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Cash Closing</label><input type="number" id="cashClose" class="input-premium" placeholder="0.00"></div>
-                    <div><label class="block text-sm font-medium text-slate-600 mb-2">Commission Earned Today</label><input type="number" id="commissionEarned" class="input-premium" placeholder="0.00"></div>
-                    <div class="flex gap-3 mt-4">
-                        <button id="saveCloseBtn" class="btn-premium flex-1 cursor-pointer">Save Closing Balances</button>
-                        <button id="calculateBtn" class="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition flex-1 cursor-pointer">Calculate</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div id="reconciliation-results" class="hidden mt-8 glass-card">
-            <h3 class="font-bold text-lg mb-6">📊 Reconciliation Results</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Airtel Δ</span><div id="airtel-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Mpamba Δ</span><div id="mpamba-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-slate-50 rounded-xl"><span class="text-xs text-slate-500">Cash Δ</span><div id="cash-net-change" class="text-2xl font-bold">--</div></div>
-                <div class="p-4 bg-indigo-50 rounded-xl"><span class="text-xs text-indigo-600">Final Status</span><div id="reconciliation-status" class="text-2xl font-bold">--</div></div>
-            </div>
-            <div class="mt-6 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl">
-                <div class="flex justify-between items-center">
-                    <span class="font-semibold text-indigo-800">Expected Cash from Float:</span>
-                    <span id="expectedCashFromFloat" class="text-xl font-bold text-indigo-800">--</span>
-                </div>
-                <div class="flex justify-between items-center mt-2">
-                    <span class="font-semibold text-indigo-800">Discrepancy:</span>
-                    <span id="reconciliationDiscrepancy" class="text-xl font-bold">--</span>
-                </div>
-            </div>
-        </div>
-    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- Rest of the tabs (transactions, loans, expenses, analytics) remain the same -->
-    <!-- ... (same as previous version) ... -->
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
+            authDomain: "mobile-money-app-4cf66.firebaseapp.com",
+            projectId: "mobile-money-app-4cf66",
+            storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
+            messagingSenderId: "822891731705",
+            appId: "1:822891731705:web:e666599c76ce413f0a6028"
+        };
 
-</div>
+        const APP_ID = "mobile-money-agent";
+        const app = initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const googleProvider = new GoogleAuthProvider();
 
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, orderBy, deleteDoc, where, limit, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        function showMessage(msg, type = 'info') {
+            const el = document.getElementById('authMessage');
+            const colors = {
+                success: 'bg-emerald-100 text-emerald-800 border border-emerald-300',
+                error: 'bg-rose-100 text-rose-800 border border-rose-300',
+                info: 'bg-blue-100 text-blue-800 border border-blue-300'
+            };
+            el.className = `mb-4 p-4 rounded-xl text-sm font-medium ${colors[type]}`;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
 
-    const APP_ID = "mobile-money-agent";
-    const FIREBASE_CONFIG = {
-        apiKey: "AIzaSyAVOYLcvyM6_MhU2RQTNDFnByp1Ye3q5_o",
-        authDomain: "mobile-money-app-4cf66.firebaseapp.com",
-        projectId: "mobile-money-app-4cf66",
-        storageBucket: "mobile-money-app-4cf66.firebasestorage.app",
-        messagingSenderId: "822891731705",
-        appId: "1:822891731705:web:e666599c76ce413f0a6028"
-    };
+        function setLoading(isLoading) {
+            document.getElementById('loadingState').classList.toggle('hidden', !isLoading);
+            document.getElementById('loginForm').classList.toggle('hidden', isLoading);
+            document.getElementById('registerForm').classList.toggle('hidden', isLoading);
+            document.getElementById('googleSignInBtn').classList.toggle('hidden', isLoading);
+        }
 
-    // Initialize Firebase
-    const app = initializeApp(FIREBASE_CONFIG);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+        window.switchAuthTab = (tab) => {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            document.getElementById('authMessage').classList.add('hidden');
 
-    let currentUser = null;
-    let AGENT_ID = null;
-
-    // Auth state observer
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            currentUser = user;
-            AGENT_ID = user.uid;
-            
-            // Load agent profile
-            const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', AGENT_ID, 'profile', 'info'));
-            if (profileSnap.exists()) {
-                document.getElementById('agentNameDisplay').textContent = `Agent: ${profileSnap.data().name}`;
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+            } else {
+                loginForm.classList.add('hidden');
+                registerForm.classList.remove('hidden');
+                loginTab.classList.remove('active');
+                registerTab.classList.add('active');
             }
-            
-            // Initialize the app
-            await initApp();
-        } else {
-            // Redirect to login
-            window.location.href = 'index.html';
+        };
+
+        async function createAgentProfile(user, additionalData = {}) {
+            const agentProfile = {
+                name: additionalData.name || user.displayName || 'Agent',
+                email: user.email,
+                phone: additionalData.phone || '',
+                agentId: user.uid,
+                createdAt: new Date(),
+                lastLogin: new Date(),
+                capital: 0,
+                status: 'active',
+                authProvider: additionalData.authProvider || 'email'
+            };
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'), agentProfile, { merge: true });
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'targets', 'daily_commission'), {
+                amount: 10000, type: 'daily_commission', period: 'daily'
+            });
         }
-    });
 
-    // Logout function
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-        try {
-            await signOut(auth);
-            window.location.href = 'index.html';
-        } catch (error) {
-            console.error('Logout error:', error);
+        async function updateLastLogin(userId) {
+            await setDoc(doc(db, 'artifacts', APP_ID, 'users', userId, 'profile', 'info'), { lastLogin: new Date() }, { merge: true });
         }
-    });
 
-    // The rest of the dashboard code (same as before but uses AGENT_ID = user.uid)
-    // ... (all previous dashboard functionality) ...
+        window.loginWithGoogle = async () => {
+            setLoading(true);
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                const user = result.user;
+                const profileSnap = await getDoc(doc(db, 'artifacts', APP_ID, 'users', user.uid, 'profile', 'info'));
+                if (!profileSnap.exists()) {
+                    await createAgentProfile(user, { name: user.displayName, authProvider: 'google' });
+                } else {
+                    await updateLastLogin(user.uid);
+                }
+                showMessage('Login successful! Redirecting...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1000);
+            } catch (error) {
+                console.error('Google sign-in error:', error);
+                if (error.code !== 'auth/popup-closed-by-user') {
+                    showMessage('Google sign-in failed. Please try again.', 'error');
+                }
+                setLoading(false);
+            }
+        };
 
-    async function initApp() {
-        // Your existing initialization code here
-        // All previous functions work the same, just using AGENT_ID = currentUser.uid
-        toast('Welcome back!', 'success');
-        loadDashboard();
-    }
-</script>
+        window.loginWithEmail = async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            if (!email) return showMessage('Please enter your email', 'error');
+            if (!password) return showMessage('Please enter your password', 'error');
+            setLoading(true);
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                await updateLastLogin(userCredential.user.uid);
+                showMessage('Login successful! Redirecting...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1000);
+            } catch (error) {
+                console.error('Login error:', error);
+                let message = 'Login failed';
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+                    message = 'Invalid email or password';
+                } else if (error.code === 'auth/too-many-requests') {
+                    message = 'Too many attempts. Please try again later';
+                }
+                showMessage(message, 'error');
+                setLoading(false);
+            }
+        };
+
+        window.registerWithEmail = async () => {
+            const name = document.getElementById('registerName').value.trim();
+            const email = document.getElementById('registerEmail').value.trim();
+            const phone = document.getElementById('registerPhone').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            if (!name) return showMessage('Please enter your name', 'error');
+            if (!email) return showMessage('Please enter your email', 'error');
+            if (password.length < 6) return showMessage('Password must be at least 6 characters', 'error');
+            if (password !== confirmPassword) return showMessage('Passwords do not match', 'error');
+            setLoading(true);
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                await createAgentProfile(userCredential.user, { name, phone, authProvider: 'email' });
+                showMessage('Account created successfully! Redirecting...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1500);
+            } catch (error) {
+                console.error('Registration error:', error);
+                let message = 'Registration failed';
+                if (error.code === 'auth/email-already-in-use') message = 'This email is already registered';
+                else if (error.code === 'auth/weak-password') message = 'Password is too weak';
+                showMessage(message, 'error');
+                setLoading(false);
+            }
+        };
+
+        window.forgotPassword = async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            if (!email) return showMessage('Please enter your email address first', 'info');
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showMessage('Password reset email sent! Check your inbox.', 'success');
+            } catch (error) {
+                if (error.code === 'auth/user-not-found') showMessage('No account found with this email', 'error');
+                else showMessage('Failed to send reset email', 'error');
+            }
+        };
+
+        document.getElementById('googleSignInBtn').addEventListener('click', loginWithGoogle);
+
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (!document.getElementById('registerForm').classList.contains('hidden')) registerWithEmail();
+                else loginWithEmail();
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) window.location.href = 'dashboard.html';
+        });
+    </script>
 </body>
 </html>
